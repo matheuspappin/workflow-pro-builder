@@ -1,0 +1,152 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+import {
+  ShieldCheck,
+  LayoutDashboard,
+  Building2,
+  PlusCircle,
+  CreditCard,
+  LifeBuoy,
+  Settings,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  Users,
+  FlaskConical,
+  X,
+  Handshake,
+  User
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+
+interface AdminSidebarProps {
+  collapsed: boolean
+  onToggle: () => void
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+const menuItems = [
+  { icon: LayoutDashboard, label: "Visão Geral", href: "/admin" },
+  { icon: Building2, label: "Tenants (Empresas)", href: "/admin/studios" },
+  { icon: Handshake, label: "Afiliados", href: "/admin/affiliates" },
+  { icon: User, label: "Meu Perfil", href: "/portal/affiliate/profile" },
+  { icon: PlusCircle, label: "Novo Ecossistema", href: "/admin/ecosystems/new" },
+  { icon: Users, label: "Usuários Globais", href: "/admin/users" },
+  { icon: CreditCard, label: "Planos & Assinaturas", href: "/admin/plans" },
+  { icon: Database, label: "Logs do Sistema", href: "/admin/logs" },
+  { icon: FlaskConical, label: "Testes Laborais", href: "/admin/testes" },
+  { icon: LifeBuoy, label: "Suporte", href: "/admin/support" },
+  { icon: Settings, label: "Configurações Globais", href: "/admin/settings" },
+]
+
+export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: AdminSidebarProps) {
+  const pathname = usePathname()
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (e) {}
+    localStorage.removeItem("danceflow_user")
+    window.location.href = "/login"
+  }
+
+  return (
+    <>
+      {/* Overlay para Mobile */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 lg:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-full bg-slate-950 text-slate-50 border-r border-slate-800 flex flex-col transition-all duration-300 z-50 lg:z-40",
+          // Mobile Logic
+          mobileOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0",
+          // Desktop Logic
+          collapsed ? "lg:w-[72px]" : "lg:w-64"
+        )}
+      >
+        {/* Logo */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
+          <Link href="/admin" className="flex items-center gap-2" onClick={onMobileClose}>
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
+              <ShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            {(!collapsed || mobileOpen) && (
+              <span className="text-lg font-bold tracking-tight">
+                Workflow <span className="text-indigo-400">Admin</span>
+              </span>
+            )}
+          </Link>
+          {mobileOpen && (
+            <Button variant="ghost" size="icon" onClick={onMobileClose} className="lg:hidden text-slate-400">
+              <X className="w-5 h-5" />
+            </Button>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 py-6 px-2 overflow-y-auto">
+          <ul className="space-y-1">
+            {menuItems.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onMobileClose}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                      isActive
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/10"
+                        : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    {(!collapsed || mobileOpen) && <span className="text-sm font-medium">{item.label}</span>}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+
+        {/* Footer */}
+        <div className="p-2 border-t border-slate-800">
+          <button
+            onClick={handleLogout}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full",
+              "text-slate-400 hover:bg-red-950/30 hover:text-red-400"
+            )}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {(!collapsed || mobileOpen) && <span className="text-sm font-medium">Sair do Painel</span>}
+          </button>
+        </div>
+
+        {/* Desktop Toggle Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggle}
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-slate-950 border border-slate-800 hover:bg-slate-900 text-slate-400 hidden lg:flex"
+        >
+          {collapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <ChevronLeft className="w-4 h-4" />
+          )}
+        </Button>
+      </aside>
+    </>
+  )
+}

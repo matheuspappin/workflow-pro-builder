@@ -1,0 +1,338 @@
+"use server"
+
+import { supabase as supabaseClient } from "@/lib/supabase"
+import { getAuthenticatedClient, getAdminClient } from "@/lib/server-utils"
+import { randomBytes } from "crypto"
+import { nicheDictionary } from "@/config/niche-dictionary"
+import { cookies } from "next/headers"
+import { createClient } from "@supabase/supabase-js"
+
+/**
+ * Cria um novo ecossistema (Studio + Settings) e gera um link de convite.
+ * Pode ser chamado por Super Admin ou Parceiro.
+ */
+export async function createEcosystemInvite(data: {
+  name: string,
+  niche: string,
+  clientEmail?: string,
+  modules: any,
+  partnerId?: string,
+  accessToken?: string
+}) {
+  console.log('🚀 Iniciando createEcosystemInvite:', data.name)
+  console.log('🔑 AccessToken fornecido:', data.accessToken ? `Sim (${data.accessToken.substring(0, 10)}...)` : 'Não')
+
+  // 1. Tentar Autenticação Robust
+  let user = null;
+  let authClient = await getAuthenticatedClient() // Cliente autenticado via cookies (se houver)
+  const adminClient = await getAdminClient()    // Cliente Admin (se chave existir)
+
+  // Log de diagnóstico
+  console.log('🛠️ Diagnóstico de Clientes:')
+  console.log('   - authClient (Cookie):', authClient ? 'Inicializado' : 'Null')
+  console.log('   - adminClient (Service Role):', adminClient ? 'Inicializado' : 'Null (Verifique SUPABASE_SERVICE_ROLE_KEY)')
+
+  // --- ESTRATÉGIA 1: Cliente Autenticado Padrão (SSR/Cookies) ---
+  if (authClient) {
+    console.log('🔄 [1] Tentando autenticação via SSR Client (Cookies)...')
+    const { data: { user: authUser }, error: authError } = await authClient.auth.getUser()
+    if (authUser) {
+      console.log('✅ [1] Autenticação SSR sucesso:', authUser.id)
+      user = authUser;
+    } else {
+      console.warn('⚠️ [1] Falha getUser:', authError?.message)
+    }
+  }
+
+  // --- ESTRATÉGIA 2: Token Passado Explicitamente (Argumento) ---
+  if (!user && data.accessToken) {
+    console.log('🔄 [2] Tentando autenticação via accessToken fornecido...')
+    
+    // Se tivermos AdminClient, usamos ele (mais seguro/rápido para validar)
+    // Se não, criamos um cliente temporário com a Anon Key apenas para validar o token
+    let tokenValidatorClient = adminClient;
+    
+    if (!tokenValidatorClient) {
+      console.log('⚠️ AdminClient não disponível. Usando AnonClient para validar token.')
+      tokenValidatorClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+    }
+
+    const { data: { user: tokenUser }, error: tokenError } = await tokenValidatorClient.auth.getUser(data.accessToken)
+    if (tokenUser) {
+      console.log('✅ [2] Autenticação sucesso via accessToken.')
+      user = tokenUser
+      
+      // Se não tínhamos authClient válido, podemos tentar criar um "ad-hoc" 
+      // usando esse token para operações futuras se o adminClient também falhar
+      if (!authClient) {
+         authClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { global: { headers: { Authorization: `Bearer ${data.accessToken}` } } }
+         )
+      }
+    } else {
+      console.error('❌ [2] Token inválido:', tokenError?.message)
+    }
+  }
+
+  // --- ESTRATÉGIA 3: Fallback Manual com Token dos Cookies ---
+  if (!user) {
+    console.log('🔄 [3] Tentando autenticação de fallback via cookies...')
+    const cookieStore = await cookies()
+    const token = cookieStore.get('sb-auth-token')?.value || cookieStore.get('sb-access-token')?.value
+    
+    if (token) {
+      console.log('🍪 Token encontrado nos cookies.')
+      const validator = adminClient || createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const { data: { user: tokenUser }, error: tokenError } = await validator.auth.getUser(token)
+      if (tokenUser) {
+        console.log('✅ [3] Autenticação fallback sucesso.')
+        user = tokenUser
+      } else {
+        console.error('❌ [3] Falha na validação do cookie:', tokenError?.message)
+      }
+    } else {
+      console.warn('⚠️ [3] Nenhum token encontrado nos cookies.')
+    }
+  }
+
+  if (!user) {
+    console.error('❌ Falha em TODAS as tentativas de autenticação.')
+    throw new Error("Não autorizado: Não foi possível identificar o usuário. Tente fazer login novamente.")
+  }
+
+  console.log('✅ Usuário FINAL identificado:', user.email, `(${user.id})`)
+
+  // 2. Verificar Permissões (Super Admin ou Parceiro)
+  // Usamos adminClient preferencialmente para ler dados de usuários/parceiros sem bloqueio de RLS
+  // Se adminClient não existir, tentamos authClient (mas pode falhar se RLS for estrito)
+  const dbReader = adminClient || authClient;
+
+  if (!dbReader) {
+    throw new Error("Erro de Configuração: Não foi possível estabelecer conexão com o banco de dados (Admin ou Auth).")
+  }
+
+  // Verificar perfil
+  const { data: profile } = await dbReader
+    .from('users_internal')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const isSuperAdmin = user.email?.toLowerCase() === 'vendaslachef@gmail.com' || profile?.role === 'super_admin'
+  
+  let partnerId = data.partnerId;
+
+  if (!isSuperAdmin) {
+     console.log('⚠️ Usuário não é Super Admin, verificando se é Parceiro...')
+     const { data: partner } = await dbReader
+       .from('partners')
+       .select('id')
+       .eq('user_id', user.id)
+       .maybeSingle()
+     
+     if (!partner) {
+       console.error('❌ Acesso negado: Nem Super Admin, nem Parceiro.')
+       throw new Error("Permissão negada: Apenas Super Admins ou Parceiros podem criar ecossistemas")
+     }
+     console.log('✅ Usuário é Parceiro ID:', partner.id)
+     partnerId = partner.id;
+  } else {
+    console.log('✅ Usuário é Super Admin.')
+  }
+
+  // 3. Criar o Studio
+  // Aqui PRECISARÍAMOS do adminClient para garantir bypass de RLS na criação de tabelas 'globais' como studios
+  // Se não tiver adminClient, tentamos com authClient, mas avisamos se der erro.
+  const dbWriter = adminClient || authClient;
+
+  if (!adminClient) {
+    console.warn('⚠️ AVISO: Service Role Key ausente. Tentando criar studio com permissões do usuário (pode falhar por RLS).')
+  }
+
+  console.log('🏗️ Criando novo studio:', data.name)
+  
+  const slugBase = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+  const slug = `${slugBase}-${Math.random().toString(36).substring(2, 7)}`
+
+  const studioData: any = {
+    name: data.name,
+    owner_id: user.id, 
+    slug: slug
+  }
+
+  if (partnerId) {
+    studioData.partner_id = partnerId
+  }
+
+  const { data: studio, error: studioError } = await dbWriter
+    .from('studios')
+    .insert(studioData)
+    .select()
+    .single()
+
+  if (studioError) {
+    console.error('❌ Erro ao criar studio:', studioError)
+    throw new Error(`Erro ao criar studio: ${studioError.message} (Dica: Verifique se SUPABASE_SERVICE_ROLE_KEY está configurada)`)
+  }
+  console.log('✅ Studio criado com sucesso:', studio.id)
+
+  // 4. Criar Configurações
+  console.log('⚙️ Criando configurações para o studio...')
+  const { error: settingsError } = await dbWriter
+    .from('organization_settings')
+    .upsert({
+      studio_id: studio.id,
+      niche: data.niche,
+      enabled_modules: data.modules,
+      vocabulary: getVocabularyForNiche(data.niche)
+    })
+
+  if (settingsError) {
+    console.error('❌ Erro ao criar configurações:', settingsError)
+    throw new Error(`Erro ao criar configurações: ${settingsError.message}`)
+  }
+
+  // 5. Gerar Token de Convite
+  console.log('🎫 Gerando convite...')
+  const token = randomBytes(32).toString('hex')
+  
+  const { error: inviteError } = await dbWriter
+    .from('studio_invites')
+    .insert({
+      studio_id: studio.id,
+      email: data.clientEmail,
+      token: token,
+      created_by: user.id
+    })
+
+  if (inviteError) {
+    console.error('❌ Erro ao criar convite:', inviteError)
+    throw new Error(`Erro ao criar convite: ${inviteError.message}`)
+  }
+
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/setup/invite/${token}`
+  console.log('✅ Ecossistema criado com sucesso! URL:', inviteUrl)
+
+  return { 
+    success: true, 
+    inviteUrl,
+    studioId: studio.id
+  }
+}
+
+/**
+ * Resgata o convite: Transfere a propriedade do estúdio para o usuário atual
+ */
+export async function claimEcosystem(token: string) {
+  console.log('➡️ Tentativa de resgate de ecossistema para token:', token)
+  
+  let user = null;
+  const authClient = await getAuthenticatedClient()
+  if (authClient) {
+    const { data: { user: authUser } } = await authClient.auth.getUser()
+    user = authUser
+  }
+  
+  if (!user) {
+    const cookieStore = await cookies()
+    const tokenCookie = cookieStore.get('sb-auth-token')?.value || cookieStore.get('sb-access-token')?.value
+    if (tokenCookie) {
+      const adminClient = await getAdminClient()
+      // Fallback para Anon se admin não existir
+      const validator = adminClient || createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      
+      const { data: { user: tokenUser } } = await validator.auth.getUser(tokenCookie)
+      user = tokenUser
+    }
+  }
+
+  if (!user) throw new Error("Não autenticado")
+
+  console.log('✅ Usuário autenticado para resgate:', user.id)
+
+  const adminClient = await getAdminClient()
+  // Aqui realmente precisamos do AdminClient para trocar dono, ou que o usuário tenha permissão.
+  // Vamos tentar com authClient se admin não existir, mas provavelmente falhará sem RLS permissivo.
+  const dbWriter = adminClient || authClient;
+  
+  if (!dbWriter) throw new Error("Erro interno: Cliente de banco indisponível")
+
+  // 1. Buscar convite válido
+  const { data: invite, error: inviteError } = await dbWriter
+    .from('studio_invites')
+    .select('*, studio:studios(id, name)')
+    .eq('token', token)
+    .is('used_at', null)
+    .single()
+
+  if (inviteError || !invite) {
+    console.error('❌ Convite inválido:', inviteError)
+    throw new Error("Convite inválido ou expirado")
+  }
+
+  // 2. Atualizar dono do estúdio
+  const { error: updateError } = await dbWriter
+    .from('studios')
+    .update({ owner_id: user.id })
+    .eq('id', invite.studio.id)
+
+  if (updateError) throw new Error(`Erro ao vincular estúdio: ${updateError.message}`)
+
+  // 3. Atualizar usuário para Admin do estúdio
+  const { data: existingUser } = await dbWriter
+    .from('users_internal')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (existingUser) {
+    await dbWriter
+      .from('users_internal')
+      .update({ 
+        studio_id: invite.studio.id,
+        role: 'admin' 
+      })
+      .eq('id', user.id)
+  } else {
+    await dbWriter
+      .from('users_internal')
+      .insert({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email?.split('@')[0],
+        studio_id: invite.studio.id,
+        role: 'admin'
+      })
+  }
+
+  // 4. Marcar convite como usado
+  await dbWriter
+    .from('studio_invites')
+    .update({ used_at: new Date().toISOString() })
+    .eq('id', invite.id)
+
+  return { 
+    success: true, 
+    studioName: invite.studio.name 
+  }
+}
+
+/**
+ * Helper para vocabulário inicial
+ */
+function getVocabularyForNiche(niche: string) {
+  // @ts-ignore
+  return nicheDictionary[niche] || nicheDictionary.dance
+}

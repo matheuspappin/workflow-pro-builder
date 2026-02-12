@@ -1,0 +1,218 @@
+"use client"
+
+import React, { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { 
+  BarChart3, 
+  Users, 
+  Wallet, 
+  Building2, 
+  ArrowUpRight, 
+  Settings,
+  LogOut,
+  Loader2,
+  Sparkles
+} from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  partnerId?: string;
+}
+
+export default function AffiliateDashboard() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        router.push("/portal/affiliate/login")
+        return
+      }
+
+      // Tenta pegar do localStorage primeiro para ser mais rápido
+      const storedUser = localStorage.getItem("danceflow_user")
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser)
+        if (parsedUser.role !== 'partner' && parsedUser.role !== 'admin' && parsedUser.role !== 'super_admin') {
+           toast({
+             title: "Acesso restrito",
+             description: "Esta área é apenas para afiliados.",
+             variant: "destructive"
+           })
+           router.push("/portal/login")
+           return
+        }
+        setUser(parsedUser)
+      } else {
+        // Fallback se não tiver no localStorage (ou refetch)
+        // Idealmente, faria um fetch para /api/auth/me ou similar
+      }
+      
+      setIsLoading(false)
+    }
+
+    checkAuth()
+  }, [router, toast])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    localStorage.removeItem("danceflow_user")
+    router.push("/portal/affiliate/login")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* Header */}
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
+              <BarChart3 className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-xl tracking-tight">Painel do Afiliado</span>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="hidden md:block text-right">
+              <p className="text-sm font-medium">{user?.name}</p>
+              <p className="text-xs text-slate-500">Afiliado</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
+              <LogOut className="w-5 h-5 text-slate-500 hover:text-red-600" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        
+        {/* Welcome Section */}
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Visão Geral
+          </h1>
+          <p className="text-slate-500">
+            Acompanhe o desempenho dos seus estúdios indicados.
+          </p>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Estúdios Ativos
+              </CardTitle>
+              <Building2 className="h-4 w-4 text-slate-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-slate-500">
+                +0% em relação ao mês passado
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Membros Totais
+              </CardTitle>
+              <Users className="h-4 w-4 text-slate-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-slate-500">
+                Somando todos os estúdios
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Comissões (Mês)
+              </CardTitle>
+              <Wallet className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-600">R$ 0,00</div>
+              <p className="text-xs text-slate-500">
+                Disponível para saque
+              </p>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Taxa de Conversão
+              </CardTitle>
+              <ArrowUpRight className="h-4 w-4 text-indigo-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0%</div>
+              <p className="text-xs text-slate-500">
+                Leads vs. Vendas
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity or List */}
+        <Card className="col-span-1 md:col-span-2">
+          <CardHeader>
+            <CardTitle>Seus Parceiros</CardTitle>
+            <CardDescription>
+              Lista de parceiros que você indicou e estão ativos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+              <div className="bg-slate-100 p-4 rounded-full">
+                <Building2 className="w-8 h-8 text-slate-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">Nenhuma empresa encontrada</h3>
+                <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1">
+                  voce ainda nao tem empresas vinculadas a sua conta de afiliado
+                </p>
+              </div>
+              <div className="flex gap-4">
+                <Link href="/portal/affiliate/ecosystems/new">
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Criar Novo Sistema
+                  </Button>
+                </Link>
+                <Button variant="outline">
+                  Gerar Link Genérico
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+      </main>
+    </div>
+  )
+}
