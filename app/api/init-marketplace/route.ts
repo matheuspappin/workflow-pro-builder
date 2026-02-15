@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import postgres from 'postgres'
+import logger from '@/lib/logger';
 
 export async function GET() {
   const DATABASE_URL = process.env.DATABASE_URL
@@ -8,7 +9,7 @@ export async function GET() {
   const sql = postgres(DATABASE_URL)
 
   try {
-    console.log('🚀 Iniciando migração via API...')
+    logger.info('🚀 Iniciando migração via API...')
     
     await sql.unsafe(`
       CREATE TABLE IF NOT EXISTS marketplace_settings (
@@ -43,7 +44,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, message: 'Tabelas do Marketplace criadas com sucesso!' })
   } catch (error: any) {
-    console.error('❌ Erro na migração via API:', error)
+    logger.error('❌ Erro na migração via API:', error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   } finally {
     await sql.end()

@@ -1,4 +1,4 @@
-# 🚀 Guia Rápido: Configurar Supabase no DanceFlow AI
+# 🚀 Guia Rápido: Configurar Supabase no Workflow AI
 
 ## ❌ Problema Atual
 O sistema está mostrando erro porque o Supabase não está configurado corretamente.
@@ -11,7 +11,7 @@ O sistema está mostrando erro porque o Supabase não está configurado corretam
 3. Faça login/cadastro
 4. Clique: **"New project"**
 5. Preencha:
-   - **Name:** `DanceFlow AI`
+   - **Name:** `Workflow AI`
    - **Database Password:** `Wanrltwaezakmi171` (sua senha)
    - **Region:** `São Paulo (South America)`
 

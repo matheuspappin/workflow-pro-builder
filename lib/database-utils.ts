@@ -1,9 +1,10 @@
 /**
- * Utilitários para operações no banco de dados DanceFlow AI
+ * Utilitários para operações no banco de dados Workflow AI
  * Funções helper para operações CRUD comuns com suporte a Multi-Tenancy
  */
 
 import { supabase } from './supabase'
+import logger from './logger'
 
 /**
  * Obtém o ID do estúdio atual do localStorage (apenas no cliente)
@@ -17,7 +18,7 @@ function getCurrentStudioId() {
       return user.studio_id || user.studioId || null
     }
   } catch (e) {
-    console.error('Erro ao ler studio_id do localStorage:', e)
+    logger.error('Erro ao ler studio_id do localStorage:', e)
   }
   return null
 }
@@ -37,7 +38,7 @@ async function getStudents(options = {}) {
   } = options
 
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para buscar alunos.')
+    logger.warn('⚠️ Studio ID não disponível para buscar alunos.')
     return { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
   }
 
@@ -122,13 +123,13 @@ async function saveStudent(studentData, studioId = studentData.studio_id || getC
       .maybeSingle()
 
     if (error) {
-      console.error('❌ Erro Supabase updateStudent:', error)
+      logger.error('❌ Erro Supabase updateStudent:', error)
       throw error
     }
     return result
   } else {
     // Create
-    console.log('📝 Tentando inserir aluno:', finalData)
+    logger.info('📝 Tentando inserir aluno:', finalData)
     const { data: result, error } = await supabase
       .from('students')
       .insert(finalData)
@@ -136,7 +137,7 @@ async function saveStudent(studentData, studioId = studentData.studio_id || getC
       .maybeSingle()
 
     if (error) {
-      console.error('❌ Erro Supabase insertStudent (DETALHADO):', {
+      logger.error('❌ Erro Supabase insertStudent (DETALHADO):', {
         message: error.message,
         details: error.details,
         hint: error.hint,
@@ -179,12 +180,12 @@ async function getTeachers(options = {}) {
   } = options
 
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para buscar professores.')
+    logger.warn('⚠️ Studio ID não disponível para buscar professores.')
     return []
   }
 
   let query = supabase
-    .from('teachers')
+    .from('professionals')
     .select('*')
     .eq('studio_id', studioId)
     .order('created_at', { ascending: false })
@@ -208,16 +209,16 @@ async function getTeachers(options = {}) {
  */
 async function getTeacherById(id, studioId = getCurrentStudioId()) {
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para buscar professor.')
+    logger.warn('⚠️ Studio ID não disponível para buscar professor.')
     return null
   }
 
   const { data, error } = await supabase
-    .from('teachers')
+    .from('professionals')
     .select(`
       *,
       classes:classes(id, name, dance_style, level, current_students, max_students),
-      finances:teacher_finances(*)
+      finances:professional_finances(*)
     `)
     .eq('id', id)
     .eq('studio_id', studioId)
@@ -228,7 +229,7 @@ async function getTeacherById(id, studioId = getCurrentStudioId()) {
 }
 
 async function saveTeacher(teacherData, studioId = teacherData.studio_id || getCurrentStudioId()) {
-  const { id, ...data } = teacherData
+  const { id, bio, ...data } = teacherData // Remove bio explicitly if present
 
   if (!studioId) throw new Error('Studio ID é obrigatório para salvar professor')
 
@@ -237,7 +238,7 @@ async function saveTeacher(teacherData, studioId = teacherData.studio_id || getC
     if (id) {
     // Update
     const { data: result, error } = await supabase
-      .from('teachers')
+      .from('professionals')
       .update(finalData)
       .eq('id', id)
       .eq('studio_id', studioId)
@@ -245,20 +246,20 @@ async function saveTeacher(teacherData, studioId = teacherData.studio_id || getC
       .maybeSingle()
 
     if (error) {
-      console.error('❌ Erro Supabase updateTeacher:', error)
+      logger.error('❌ Erro Supabase updateTeacher:', error)
       throw error
     }
     return result
   } else {
     // Create
     const { data: result, error } = await supabase
-      .from('teachers')
+      .from('professionals')
       .insert(finalData)
       .select()
       .maybeSingle()
 
     if (error) {
-      console.error('❌ Erro Supabase insertTeacher:', error)
+      logger.error('❌ Erro Supabase insertTeacher:', error)
       throw error
     }
     return result
@@ -272,7 +273,7 @@ async function deleteTeacher(id, studioId = getCurrentStudioId()) {
   if (!studioId) throw new Error('Studio ID é obrigatório para excluir professor')
 
   const { error } = await supabase
-    .from('teachers')
+    .from('professionals')
     .delete()
     .eq('id', id)
     .eq('studio_id', studioId)
@@ -294,7 +295,7 @@ async function getClasses(options = {}) {
   } = options
 
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para buscar turmas.')
+    logger.warn('⚠️ Studio ID não disponível para buscar turmas.')
     return []
   }
 
@@ -302,7 +303,8 @@ async function getClasses(options = {}) {
     .from('classes')
     .select(`
       *,
-      teacher:teacher_id(name)
+      teacher_id:professional_id,
+      teacher:professional_id(name)
     `)
     .eq('studio_id', studioId)
     .order('created_at', { ascending: false })
@@ -312,13 +314,19 @@ async function getClasses(options = {}) {
   }
 
   if (teacherId) {
-    query = query.eq('teacher_id', teacherId)
+    query = query.eq('professional_id', teacherId)
   }
 
   const { data, error } = await query
 
   if (error) {
-    console.error('❌ Erro no Supabase getClasses:', error)
+    logger.error('❌ Erro no Supabase getClasses:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      fullError: error
+    })
     throw error
   }
   return data || []
@@ -328,11 +336,16 @@ async function getClasses(options = {}) {
  * Cria ou atualiza uma turma
  */
 async function saveClass(classData, studioId = classData.studio_id || getCurrentStudioId()) {
-  const { id, ...data } = classData
+  const { id, teacher_id, ...data } = classData
 
   if (!studioId) throw new Error('Studio ID é obrigatório para salvar turma')
 
-  const finalData = { ...data, studio_id: studioId }
+  // Map teacher_id to professional_id if present
+  const finalData = { 
+    ...data, 
+    studio_id: studioId,
+    ...(teacher_id ? { professional_id: teacher_id } : {})
+  }
 
   if (id) {
     const { data: result, error } = await supabase
@@ -501,7 +514,7 @@ async function registerPayment(paymentData, studioId = paymentData.studio_id || 
  */
 async function getDashboardStats(studioId = getCurrentStudioId()) {
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para estatísticas. Retornando dados zerados.')
+    logger.warn('⚠️ Studio ID não disponível para estatísticas. Retornando dados zerados.')
     return {
       activeStudents: 0,
       activeTeachers: 0,
@@ -524,7 +537,7 @@ async function getDashboardStats(studioId = getCurrentStudioId()) {
 
     // Professores ativos
     const { count: activeTeachers } = await supabase
-      .from('teachers')
+      .from('professionals')
       .select('*', { count: 'exact', head: true })
       .eq('studio_id', studioId)
       .eq('status', 'active')
@@ -820,7 +833,7 @@ async function getDashboardStats(studioId = getCurrentStudioId()) {
       studentDistribution
     }
   } catch (error) {
-    console.error('Erro ao buscar estatísticas:', error)
+    logger.error('Erro ao buscar estatísticas:', error)
     return {
       activeStudents: 0,
       activeTeachers: 0,
@@ -840,7 +853,7 @@ async function getDashboardStats(studioId = getCurrentStudioId()) {
  */
 async function getStudioSetting(key, studioId = getCurrentStudioId()) {
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para buscar configurações.')
+    logger.warn('⚠️ Studio ID não disponível para buscar configurações.')
     return null
   }
 
@@ -881,12 +894,12 @@ async function updateStudioSetting(key, value, description = '', studioId = getC
         details: error.details,
         hint: error.hint
       }
-      console.error(`❌ Erro no Supabase updateStudioSetting (${key}):`, errorDetail)
+      logger.error(`❌ Erro no Supabase updateStudioSetting (${key}):`, errorDetail)
       throw errorDetail
     }
     return data
   } catch (error) {
-    console.error(`💥 Exceção em updateStudioSetting (${key}):`, error)
+    logger.error(`💥 Exceção em updateStudioSetting (${key}):`, error)
     throw error
   }
 }
@@ -898,7 +911,7 @@ async function updateStudioSetting(key, value, description = '', studioId = getC
  */
 async function getModalities(studioId = getCurrentStudioId()) {
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para buscar modalidades.')
+    logger.warn('⚠️ Studio ID não disponível para buscar modalidades.')
     return []
   }
 
@@ -909,7 +922,7 @@ async function getModalities(studioId = getCurrentStudioId()) {
     .order('name', { ascending: true })
 
   if (error) {
-    console.error('❌ Erro ao buscar modalidades:', error)
+    logger.error('❌ Erro ao buscar modalidades:', error)
     return []
   }
   return data || []
@@ -962,7 +975,7 @@ async function getExpenses(options = {}) {
   } = options
 
   if (!studioId) {
-    console.warn('⚠️ Studio ID não disponível para buscar despesas.')
+    logger.warn('⚠️ Studio ID não disponível para buscar despesas.')
     return []
   }
 
@@ -980,7 +993,7 @@ async function getExpenses(options = {}) {
   const { data, error } = await query
 
   if (error) {
-    console.error('❌ Erro ao buscar despesas:', error)
+    logger.error('❌ Erro ao buscar despesas:', error)
     return []
   }
   return data || []
@@ -1065,7 +1078,7 @@ async function generateNextOccurrence(expense) {
       notes: expense.notes
     })
 
-  if (error) console.error('Erro ao gerar próxima despesa recorrente:', error)
+  if (error) logger.error('Erro ao gerar próxima despesa recorrente:', error)
 }
 
 /**
@@ -1088,7 +1101,7 @@ async function getTeacherByUserId(userId, studioId = getCurrentStudioId()) {
   if (!userId) throw new Error('User ID é obrigatório')
   
   const { data, error } = await supabase
-    .from('teachers')
+    .from('professionals')
     .select('*')
     .eq('user_id', userId)
     .maybeSingle()
@@ -1145,7 +1158,7 @@ async function getStudioApiKey(serviceName, studioId = getCurrentStudioId()) {
     .maybeSingle()
 
   if (error) {
-    console.error(`Erro ao buscar API key (${serviceName}):`, error.message)
+    logger.error(`Erro ao buscar API key (${serviceName}):`, error.message)
     return null
   }
   return data?.api_key
@@ -1204,7 +1217,7 @@ async function saveChatSession(sessionData, studioId = getCurrentStudioId()) {
 
   if (error) {
     // Silencioso para não quebrar o chat se a tabela não existir
-    console.warn('Erro ao salvar sessão de chat (verifique se a tabela chat_sessions existe):', error.message)
+    logger.warn('Erro ao salvar sessão de chat (verifique se a tabela chat_sessions existe):', error.message)
     return null
   }
   return data
@@ -1227,7 +1240,7 @@ async function getChatSessions(studioId = getCurrentStudioId()) {
     .order('updated_at', { ascending: false })
 
   if (error) {
-    console.warn('Erro ao buscar sessões de chat:', error.message)
+    logger.warn('Erro ao buscar sessões de chat:', error.message)
     return []
   }
   return data || []

@@ -73,6 +73,7 @@ import {
 import { DynamicMetadataForm } from "@/components/niche/dynamic-metadata-form"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { ModuleGuard } from "@/components/providers/module-guard"
+import { pluralize } from "@/lib/pluralize"
 
 interface Student {
   id: number
@@ -392,7 +393,7 @@ function StudentsContent() {
   ]
 
   const handleSendEmail = (student: Student) => {
-    window.open(`mailto:${student.email}?subject=DanceFlow AI - Contato&body=Ola ${student.name},`)
+    window.open(`mailto:${student.email}?subject=Workflow AI - Contato&body=Ola ${student.name},`)
     toast({
       title: "Email",
       description: `Abrindo email para ${student.name}`,

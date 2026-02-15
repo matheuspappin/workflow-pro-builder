@@ -12,6 +12,7 @@ import { getPartnersList, deletePartner } from "@/lib/actions/super-admin"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { EditPartnerModal } from "@/components/admin/edit-partner-modal"
+import logger from "@/lib/logger"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +45,7 @@ export default function AffiliatesPage() {
       const { partners } = await getPartnersList(1, 50, session?.access_token)
       setPartners(partners || [])
     } catch (error) {
-      console.error(error)
+      logger.error(error)
       toast({
         title: "Erro ao carregar afiliados",
         description: "Não foi possível buscar a lista de afiliados.",
@@ -68,7 +69,7 @@ export default function AffiliatesPage() {
       
       loadPartners()
     } catch (error: any) {
-      console.error(error)
+      logger.error(error)
       toast({
         title: "Erro ao excluir",
         description: error.message || "Não foi possível excluir o afiliado.",

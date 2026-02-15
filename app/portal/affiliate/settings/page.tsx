@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getAffiliateProfile, getAffiliatePayoutSettings, saveAffiliatePayoutSettings, createStripeConnectAccountLink, getAffiliateStripeBalance, createAffiliateStripePayout } from '@/lib/actions/affiliate';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 const AffiliateSettingsPage = () => {
   const [user, setUser] = useState<{ id: string } | null>(null);
@@ -38,7 +39,7 @@ const AffiliateSettingsPage = () => {
       }
 
       setUser({ id: currentUser.id });
-      console.log("👤 Usuário logado no frontend:", currentUser.id);
+      logger.info("👤 Usuário logado no frontend:", currentUser.id);
       
       try {
         const profile = await getAffiliateProfile(currentUser.id);
@@ -49,7 +50,7 @@ const AffiliateSettingsPage = () => {
             const balance = await getAffiliateStripeBalance(currentUser.id);
             setAvailableBalance(balance);
           } catch (balanceError: any) {
-            console.error("Erro ao buscar saldo:", balanceError);
+            logger.error("Erro ao buscar saldo:", balanceError);
             toast.error(balanceError.message || "Falha ao buscar saldo do Stripe.");
           }
         } else {
@@ -64,7 +65,7 @@ const AffiliateSettingsPage = () => {
           });
         }
       } catch (error) {
-        console.error("Erro ao buscar dados do perfil:", error);
+        logger.error("Erro ao buscar dados do perfil:", error);
         toast.error("Erro ao carregar dados do perfil.");
       } finally {
         setLoading(false);
@@ -101,7 +102,7 @@ const AffiliateSettingsPage = () => {
         return;
       }
       const returnUrl = window.location.href;
-      console.log("Iniciando conexão com Stripe via Server Action...");
+      logger.info("Iniciando conexão com Stripe via Server Action...");
       
       const url = await createStripeConnectAccountLink(user.id, returnUrl);
       
@@ -111,7 +112,7 @@ const AffiliateSettingsPage = () => {
         toast.error("Falha ao iniciar conexão com Stripe: URL não retornada.");
       }
     } catch (error: any) {
-      console.error("Erro ao conectar Stripe:", error);
+      logger.error("Erro ao conectar Stripe:", error);
       toast.error(error.message || "Erro ao conectar com Stripe.");
     } finally {
       setLoading(false);
@@ -137,7 +138,7 @@ const AffiliateSettingsPage = () => {
         return;
       }
 
-      console.log("Solicitando saque via Server Action...");
+      logger.info("Solicitando saque via Server Action...");
       const payout = await createAffiliateStripePayout(user.id, payoutAmount);
       
       if (payout) {
@@ -153,7 +154,7 @@ const AffiliateSettingsPage = () => {
         toast.error("Falha ao solicitar saque.");
       }
     } catch (error: any) {
-      console.error("Erro ao solicitar saque:", error);
+      logger.error("Erro ao solicitar saque:", error);
       toast.error(error.message || "Erro ao solicitar saque.");
     } finally {
       setLoading(false);
@@ -171,7 +172,7 @@ const AffiliateSettingsPage = () => {
       await saveAffiliatePayoutSettings(user.id, payoutSettings);
       toast.success("Configurações de pagamento salvas com sucesso!");
     } catch (error) {
-      console.error("Erro ao salvar configurações de pagamento:", error);
+      logger.error("Erro ao salvar configurações de pagamento:", error);
       toast.error("Erro ao salvar configurações de pagamento.");
     } finally {
       setLoading(false);

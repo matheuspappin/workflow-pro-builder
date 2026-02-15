@@ -6,6 +6,8 @@ import { randomBytes } from "crypto"
 import { nicheDictionary } from "@/config/niche-dictionary"
 import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
+import logger from "@/lib/logger"
+import { generateUniqueSlug } from "@/lib/utils/slug"
 
 /**
  * Cria um novo ecossistema (Studio + Settings) e gera um link de convite.
@@ -15,12 +17,13 @@ export async function createEcosystemInvite(data: {
   name: string,
   niche: string,
   clientEmail?: string,
+  businessModel?: 'CREDIT' | 'MONETARY',
   modules: any,
   partnerId?: string,
   accessToken?: string
 }) {
-  console.log('🚀 Iniciando createEcosystemInvite:', data.name)
-  console.log('🔑 AccessToken fornecido:', data.accessToken ? `Sim (${data.accessToken.substring(0, 10)}...)` : 'Não')
+  logger.info('🚀 Iniciando createEcosystemInvite:', data.name)
+  logger.debug('🔑 AccessToken fornecido:', data.accessToken ? `Sim (${data.accessToken.substring(0, 10)}...)` : 'Não')
 
   // 1. Tentar Autenticação Robust
   let user = null;
@@ -28,32 +31,32 @@ export async function createEcosystemInvite(data: {
   const adminClient = await getAdminClient()    // Cliente Admin (se chave existir)
 
   // Log de diagnóstico
-  console.log('🛠️ Diagnóstico de Clientes:')
-  console.log('   - authClient (Cookie):', authClient ? 'Inicializado' : 'Null')
-  console.log('   - adminClient (Service Role):', adminClient ? 'Inicializado' : 'Null (Verifique SUPABASE_SERVICE_ROLE_KEY)')
+  logger.debug('🛠️ Diagnóstico de Clientes:')
+  logger.debug('   - authClient (Cookie):', authClient ? 'Inicializado' : 'Null')
+  logger.debug('   - adminClient (Service Role):', adminClient ? 'Inicializado' : 'Null (Verifique SUPABASE_SERVICE_ROLE_KEY)')
 
   // --- ESTRATÉGIA 1: Cliente Autenticado Padrão (SSR/Cookies) ---
   if (authClient) {
-    console.log('🔄 [1] Tentando autenticação via SSR Client (Cookies)...')
+    logger.debug('🔄 [1] Tentando autenticação via SSR Client (Cookies)...')
     const { data: { user: authUser }, error: authError } = await authClient.auth.getUser()
     if (authUser) {
-      console.log('✅ [1] Autenticação SSR sucesso:', authUser.id)
+      logger.info('✅ [1] Autenticação SSR sucesso:', authUser.id)
       user = authUser;
     } else {
-      console.warn('⚠️ [1] Falha getUser:', authError?.message)
+      logger.warn('⚠️ [1] Falha getUser:', authError?.message)
     }
   }
 
   // --- ESTRATÉGIA 2: Token Passado Explicitamente (Argumento) ---
   if (!user && data.accessToken) {
-    console.log('🔄 [2] Tentando autenticação via accessToken fornecido...')
+    logger.debug('🔄 [2] Tentando autenticação via accessToken fornecido...')
     
     // Se tivermos AdminClient, usamos ele (mais seguro/rápido para validar)
     // Se não, criamos um cliente temporário com a Anon Key apenas para validar o token
     let tokenValidatorClient = adminClient;
     
     if (!tokenValidatorClient) {
-      console.log('⚠️ AdminClient não disponível. Usando AnonClient para validar token.')
+      logger.warn('⚠️ AdminClient não disponível. Usando AnonClient para validar token.')
       tokenValidatorClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -62,7 +65,7 @@ export async function createEcosystemInvite(data: {
 
     const { data: { user: tokenUser }, error: tokenError } = await tokenValidatorClient.auth.getUser(data.accessToken)
     if (tokenUser) {
-      console.log('✅ [2] Autenticação sucesso via accessToken.')
+      logger.info('✅ [2] Autenticação sucesso via accessToken.')
       user = tokenUser
       
       // Se não tínhamos authClient válido, podemos tentar criar um "ad-hoc" 
@@ -75,18 +78,18 @@ export async function createEcosystemInvite(data: {
          )
       }
     } else {
-      console.error('❌ [2] Token inválido:', tokenError?.message)
+      logger.error('❌ [2] Token inválido:', tokenError?.message)
     }
   }
 
   // --- ESTRATÉGIA 3: Fallback Manual com Token dos Cookies ---
   if (!user) {
-    console.log('🔄 [3] Tentando autenticação de fallback via cookies...')
+    logger.debug('🔄 [3] Tentando autenticação de fallback via cookies...')
     const cookieStore = await cookies()
     const token = cookieStore.get('sb-auth-token')?.value || cookieStore.get('sb-access-token')?.value
     
     if (token) {
-      console.log('🍪 Token encontrado nos cookies.')
+      logger.debug('🍪 Token encontrado nos cookies.')
       const validator = adminClient || createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -94,22 +97,22 @@ export async function createEcosystemInvite(data: {
 
       const { data: { user: tokenUser }, error: tokenError } = await validator.auth.getUser(token)
       if (tokenUser) {
-        console.log('✅ [3] Autenticação fallback sucesso.')
+        logger.info('✅ [3] Autenticação fallback sucesso.')
         user = tokenUser
       } else {
-        console.error('❌ [3] Falha na validação do cookie:', tokenError?.message)
+        logger.error('❌ [3] Falha na validação do cookie:', tokenError?.message)
       }
     } else {
-      console.warn('⚠️ [3] Nenhum token encontrado nos cookies.')
+      logger.warn('⚠️ [3] Nenhum token encontrado nos cookies.')
     }
   }
 
   if (!user) {
-    console.error('❌ Falha em TODAS as tentativas de autenticação.')
+    logger.error('❌ Falha em TODAS as tentativas de autenticação.')
     throw new Error("Não autorizado: Não foi possível identificar o usuário. Tente fazer login novamente.")
   }
 
-  console.log('✅ Usuário FINAL identificado:', user.email, `(${user.id})`)
+  logger.info('✅ Usuário FINAL identificado:', user.email, `(${user.id})`)
 
   // 2. Verificar Permissões (Super Admin ou Parceiro)
   // Usamos adminClient preferencialmente para ler dados de usuários/parceiros sem bloqueio de RLS
@@ -127,12 +130,19 @@ export async function createEcosystemInvite(data: {
     .eq('id', user.id)
     .maybeSingle()
 
-  const isSuperAdmin = user.email?.toLowerCase() === 'vendaslachef@gmail.com' || profile?.role === 'super_admin'
+  const isSuperAdmin = 
+    profile?.role === 'super_admin' || 
+    user.user_metadata?.role === 'super_admin' || 
+    user.app_metadata?.role === 'super_admin' ||
+    user.email?.toLowerCase() === 'vendaslachef@gmail.com';
+
+  logger.info(`🔍 Verificação de permissão para ${user.email}: DB=${profile?.role}, Meta=${user.user_metadata?.role}, AppMeta=${user.app_metadata?.role} -> SuperAdmin=${isSuperAdmin}`)
+
   
   let partnerId = data.partnerId;
 
   if (!isSuperAdmin) {
-     console.log('⚠️ Usuário não é Super Admin, verificando se é Parceiro...')
+     logger.warn('⚠️ Usuário não é Super Admin, verificando se é Parceiro...')
      const { data: partner } = await dbReader
        .from('partners')
        .select('id')
@@ -140,13 +150,13 @@ export async function createEcosystemInvite(data: {
        .maybeSingle()
      
      if (!partner) {
-       console.error('❌ Acesso negado: Nem Super Admin, nem Parceiro.')
+       logger.error(`❌ Acesso negado para ${user.email}: Nem Super Admin, nem Parceiro.`)
        throw new Error("Permissão negada: Apenas Super Admins ou Parceiros podem criar ecossistemas")
      }
-     console.log('✅ Usuário é Parceiro ID:', partner.id)
+     logger.info('✅ Usuário é Parceiro ID:', partner.id)
      partnerId = partner.id;
   } else {
-    console.log('✅ Usuário é Super Admin.')
+    logger.info('✅ Usuário é Super Admin.')
   }
 
   // 3. Criar o Studio
@@ -155,18 +165,18 @@ export async function createEcosystemInvite(data: {
   const dbWriter = adminClient || authClient;
 
   if (!adminClient) {
-    console.warn('⚠️ AVISO: Service Role Key ausente. Tentando criar studio com permissões do usuário (pode falhar por RLS).')
+    logger.warn('⚠️ AVISO: Service Role Key ausente. Tentando criar studio com permissões do usuário (pode falhar por RLS).')
   }
 
-  console.log('🏗️ Criando novo studio:', data.name)
+  logger.info('🏗️ Criando novo studio:', data.name)
   
-  const slugBase = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
-  const slug = `${slugBase}-${Math.random().toString(36).substring(2, 7)}`
+  const slug = await generateUniqueSlug(data.name, 'studios')
 
   const studioData: any = {
     name: data.name,
     owner_id: user.id, 
-    slug: slug
+    slug: slug,
+    business_model: data.businessModel || 'CREDIT'
   }
 
   if (partnerId) {
@@ -180,13 +190,13 @@ export async function createEcosystemInvite(data: {
     .single()
 
   if (studioError) {
-    console.error('❌ Erro ao criar studio:', studioError)
+    logger.error('❌ Erro ao criar studio:', studioError)
     throw new Error(`Erro ao criar studio: ${studioError.message} (Dica: Verifique se SUPABASE_SERVICE_ROLE_KEY está configurada)`)
   }
-  console.log('✅ Studio criado com sucesso:', studio.id)
+  logger.info('✅ Studio criado com sucesso:', studio.id)
 
   // 4. Criar Configurações
-  console.log('⚙️ Criando configurações para o studio...')
+  logger.info('⚙️ Criando configurações para o studio...')
   const { error: settingsError } = await dbWriter
     .from('organization_settings')
     .upsert({
@@ -197,12 +207,12 @@ export async function createEcosystemInvite(data: {
     })
 
   if (settingsError) {
-    console.error('❌ Erro ao criar configurações:', settingsError)
+    logger.error('❌ Erro ao criar configurações:', settingsError)
     throw new Error(`Erro ao criar configurações: ${settingsError.message}`)
   }
 
   // 5. Gerar Token de Convite
-  console.log('🎫 Gerando convite...')
+  logger.info('🎫 Gerando convite...')
   const token = randomBytes(32).toString('hex')
   
   const { error: inviteError } = await dbWriter
@@ -215,12 +225,12 @@ export async function createEcosystemInvite(data: {
     })
 
   if (inviteError) {
-    console.error('❌ Erro ao criar convite:', inviteError)
+    logger.error('❌ Erro ao criar convite:', inviteError)
     throw new Error(`Erro ao criar convite: ${inviteError.message}`)
   }
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/setup/invite/${token}`
-  console.log('✅ Ecossistema criado com sucesso! URL:', inviteUrl)
+  logger.info('✅ Ecossistema criado com sucesso! URL:', inviteUrl)
 
   return { 
     success: true, 
@@ -233,7 +243,7 @@ export async function createEcosystemInvite(data: {
  * Resgata o convite: Transfere a propriedade do estúdio para o usuário atual
  */
 export async function claimEcosystem(token: string) {
-  console.log('➡️ Tentativa de resgate de ecossistema para token:', token)
+  logger.info('➡️ Tentativa de resgate de ecossistema para token:', token)
   
   let user = null;
   const authClient = await getAuthenticatedClient()
@@ -260,7 +270,7 @@ export async function claimEcosystem(token: string) {
 
   if (!user) throw new Error("Não autenticado")
 
-  console.log('✅ Usuário autenticado para resgate:', user.id)
+  logger.info('✅ Usuário autenticado para resgate:', user.id)
 
   const adminClient = await getAdminClient()
   // Aqui realmente precisamos do AdminClient para trocar dono, ou que o usuário tenha permissão.
@@ -278,7 +288,7 @@ export async function claimEcosystem(token: string) {
     .single()
 
   if (inviteError || !invite) {
-    console.error('❌ Convite inválido:', inviteError)
+    logger.error('❌ Convite inválido:', inviteError)
     throw new Error("Convite inválido ou expirado")
   }
 
@@ -334,5 +344,5 @@ export async function claimEcosystem(token: string) {
  */
 function getVocabularyForNiche(niche: string) {
   // @ts-ignore
-  return nicheDictionary[niche] || nicheDictionary.dance
+  return nicheDictionary.pt[niche] || nicheDictionary.pt.dance
 }

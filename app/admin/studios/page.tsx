@@ -159,7 +159,7 @@ export default function TenantsPage() {
                   {filteredTenants.map((tenant) => {
                     const settings = Array.isArray(tenant.organization_settings) ? tenant.organization_settings[0] : tenant.organization_settings
                     const niche = settings?.niche || 'dance'
-                    const nicheInfo = nicheDictionary[niche as keyof typeof nicheDictionary]
+                    const nicheInfo = nicheDictionary.pt[niche as keyof typeof nicheDictionary.pt]
                     const nicheLabel = nicheInfo?.name || 'Dança'
                     
                     const studioEmail = tenant.studio_settings?.find((s: any) => s.setting_key === 'email')?.setting_value || 'N/A'

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { nicheDictionary, NicheType, VocabularyType } from '@/config/niche-dictionary'
 import { ModuleKey, normalizeModules, MODULE_DEFINITIONS } from '@/config/modules'
 import { supabase } from '@/lib/supabase'
+import logger from '@/lib/logger';
 
 interface OrganizationState {
   niche: NicheType
@@ -11,22 +12,41 @@ interface OrganizationState {
   enabledModules: Record<ModuleKey, boolean>
   isLoading: boolean
   studioId: string | null
+  language: 'pt' | 'en'
+  setLanguage: (lang: 'pt' | 'en') => void
   refresh: () => Promise<void>
 }
 
 const defaultState: OrganizationState = {
   niche: 'dance',
-  vocabulary: nicheDictionary.dance,
+  vocabulary: nicheDictionary.pt.dance,
   enabledModules: normalizeModules({}),
   isLoading: true,
   studioId: null,
+  language: 'pt',
+  setLanguage: () => {},
   refresh: async () => {}
 }
 
 const OrganizationContext = createContext<OrganizationState>(defaultState)
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<Omit<OrganizationState, 'refresh'>>(defaultState)
+  const [state, setState] = useState<Omit<OrganizationState, 'refresh' | 'setLanguage'>>({
+    ...defaultState,
+    language: 'pt'
+  })
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem('workflow_pro_lang') as 'pt' | 'en'
+    if (savedLang && (savedLang === 'pt' || savedLang === 'en')) {
+      setState(prev => ({ ...prev, language: savedLang }))
+    }
+  }, [])
+
+  const setLanguage = useCallback((lang: 'pt' | 'en') => {
+    localStorage.setItem('workflow_pro_lang', lang)
+    setState(prev => ({ ...prev, language: lang }))
+  }, [])
 
   const loadSettings = useCallback(async () => {
     try {
@@ -39,10 +59,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       }
 
       // 0. Super Admin Bypass
-      const isSuperAdmin = user.email?.toLowerCase() === 'vendaslachef@gmail.com' || user.user_metadata?.role === 'super_admin'
+      const isSuperAdmin = user.user_metadata?.role === 'super_admin'
 
       // 1. Tentar obter studio_id
-      let studioId: string | null = null;
+      let studioId: string | null = user.user_metadata?.studio_id || null; // Priorizar metadados do Auth
+      
+      if (!studioId) { // Se não encontrou nos metadados, tenta as consultas ao banco
 
       // Tentativa A: Staff (users_internal) - Mais comum para admins
       const { data: internalProfile } = await supabase
@@ -74,14 +96,15 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             if (studentProfile?.studio_id) studioId = studentProfile.studio_id
         }
       }
+    }
 
       if (!studioId) {
         // Se for super admin e não tiver studio, tenta pegar o primeiro studio ou cria contexto global
         if (isSuperAdmin) {
-            console.log('👑 Super Admin sem estúdio vinculado. Carregando modo global...');
+            logger.info('👑 Super Admin sem estúdio vinculado. Carregando modo global...');
              // Lógica especial ou apenas continua sem studioId
         } else {
-            console.warn('⚠️ [OrganizationProvider] Usuário sem studio_id vinculado.');
+            logger.warn('⚠️ [OrganizationProvider] Usuário sem studio_id vinculado.');
         }
         
         setState(prev => ({ ...prev, isLoading: false, studioId: studioId || null }))
@@ -101,7 +124,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       }
 
       const nicheKey = (orgSettings?.niche as NicheType) || 'dance'
-      const vocabulary = nicheDictionary[nicheKey] || nicheDictionary.dance
+      const vocabulary = nicheDictionary[state.language][nicheKey] || nicheDictionary[state.language].dance
       
       let enabledModules = normalizeModules(orgSettings?.enabled_modules)
       
@@ -122,10 +145,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       })
 
     } catch (error) {
-      console.error('❌ [OrganizationProvider] Erro fatal:', error)
+      logger.error('❌ [OrganizationProvider] Erro fatal:', error)
       setState(prev => ({ ...prev, isLoading: false }))
     }
-  }, [])
+  }, [setState])
 
   useEffect(() => {
     loadSettings()
@@ -157,7 +180,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           filter: `studio_id=eq.${state.studioId}` 
         },
         () => {
-             console.log('🔄 Configurações atualizadas em tempo real!')
+             logger.info('🔄 Configurações atualizadas em tempo real!')
              loadSettings()
         }
       )
@@ -169,7 +192,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   }, [state.studioId, loadSettings])
 
   return (
-    <OrganizationContext.Provider value={{ ...state, refresh: loadSettings }}>
+    <OrganizationContext.Provider value={{ ...state, setLanguage, refresh: loadSettings }}>
       {children}
     </OrganizationContext.Provider>
   )

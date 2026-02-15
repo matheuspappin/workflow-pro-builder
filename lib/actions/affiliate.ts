@@ -2,40 +2,38 @@
 
 import { getAuthenticatedClient } from "@/lib/server-utils";
 import { getStripe } from "@/lib/stripe";
+import logger from "@/lib/logger";
 
 export async function createStripeConnectAccountLink(userId: string, returnUrl: string) {
   const stripe = getStripe();
   const client = await getAuthenticatedClient();
 
-  // Tenta buscar o profile em users_internal ou partners
-  let profileTable = 'users_internal';
-  let { data: profileData, error: profileError } = await client
-    .from('users_internal')
-    .select('stripe_account_id, email')
-    .eq('id', userId)
+  // Fonte única de verdade para o Stripe Account ID do afiliado: tabela 'partners'
+  const { data: partnerData, error: partnerError } = await client
+    .from('partners')
+    .select('stripe_account_id, name')
+    .eq('user_id', userId)
     .maybeSingle();
 
-  if (profileError || !profileData) {
-    // Se não encontrou em users_internal, tenta em partners
-    const { data: partnerData, error: partnerError } = await client
-      .from('partners')
-      .select('user_id, name')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (partnerData) {
-      profileTable = 'partners';
-      profileData = partnerData as any;
-    }
+  if (partnerError) {
+    logger.error("Erro ao buscar perfil de parceiro:", partnerError);
+    throw new Error("Erro ao validar perfil de parceiro.");
   }
 
-  let accountId = profileData?.stripe_account_id;
+  if (!partnerData) {
+    logger.error(`Usuário ${userId} não possui um registro na tabela 'partners'.`);
+    throw new Error("Usuário não identificado como parceiro/afiliado.");
+  }
+
+  let accountId = partnerData.stripe_account_id;
 
   if (!accountId) {
-    // Busca o email do usuário se não tiver no profileData
+    // Busca o email do usuário
     const { data: { user } } = await client.auth.getUser();
     const email = user?.email;
 
+    logger.info(`Criando nova conta Stripe Connect para o parceiro ${userId}`);
+    
     // Crie uma nova conta Express no Stripe Connect
     const account = await stripe.accounts.create({
       type: 'express',
@@ -48,21 +46,15 @@ export async function createStripeConnectAccountLink(userId: string, returnUrl: 
     });
     accountId = account.id;
 
-    // Salve o accountId no perfil do usuário (na tabela correta)
-    // Se a tabela for partners, precisamos garantir que a coluna existe. 
-    // Como a migração 18 adicionou a users_internal, vamos tentar nela primeiro.
-    // Se falhar, tentamos em partners ou em affiliate_payout_settings.
-    
+    // Salva o accountId apenas na tabela 'partners' (Fonte única de verdade)
     const { error: updateError } = await client
-      .from(profileTable)
+      .from('partners')
       .update({ stripe_account_id: accountId })
-      .eq(profileTable === 'partners' ? 'user_id' : 'id', userId);
+      .eq('user_id', userId);
 
     if (updateError) {
-      console.error(`Erro ao salvar Stripe Account ID em ${profileTable}:`, updateError);
-      // Fallback: Tenta salvar em affiliate_payout_settings se a coluna stripe_account_id for adicionada lá futuramente
-      // ou apenas lança o erro se for crítico.
-      throw new Error("Falha ao salvar a conta Stripe no perfil.");
+      logger.error(`Erro ao salvar Stripe Account ID na tabela 'partners':`, updateError);
+      throw new Error("Falha ao vincular conta Stripe ao seu perfil de parceiro.");
     }
   }
 
@@ -80,22 +72,19 @@ export async function createStripeConnectAccountLink(userId: string, returnUrl: 
 export async function getAffiliateProfile(userId: string) {
   const client = await getAuthenticatedClient();
   
-  // Tenta buscar em ambas as tabelas
-  const { data: internalProfile } = await client
-    .from('users_internal')
-    .select('stripe_account_id')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (internalProfile?.stripe_account_id) return internalProfile;
-
-  const { data: partnerProfile } = await client
+  // Fonte única de verdade: tabela 'partners'
+  const { data: partnerProfile, error } = await client
     .from('partners')
-    .select('stripe_account_id')
+    .select('stripe_account_id, name, slug, commission_rate')
     .eq('user_id', userId)
     .maybeSingle();
 
-  return partnerProfile || null;
+  if (error) {
+    logger.error("Erro ao buscar perfil de parceiro:", error);
+    return null;
+  }
+
+  return partnerProfile;
 }
 
 export async function getAffiliatePayoutSettings(userId: string) {
@@ -107,7 +96,7 @@ export async function getAffiliatePayoutSettings(userId: string) {
     .maybeSingle();
 
   if (error) {
-    console.error("Erro ao buscar configurações de pagamento do afiliado:", error);
+    logger.error("Erro ao buscar configurações de pagamento do afiliado:", error);
     return null;
   }
   return data;
@@ -120,7 +109,7 @@ export async function saveAffiliatePayoutSettings(userId: string, settings: { pa
     .upsert({ user_id: userId, ...settings }, { onConflict: 'user_id' });
 
   if (error) {
-    console.error("Erro ao salvar configurações de pagamento do afiliado:", error);
+    logger.error("Erro ao salvar configurações de pagamento do afiliado:", error);
     throw new Error("Falha ao salvar configurações de pagamento.");
   }
   return { success: true };

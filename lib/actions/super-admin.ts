@@ -4,95 +4,114 @@ import { supabase as supabaseClient } from "@/lib/supabase"
 import { getAuthenticatedClient, getAdminClient } from "@/lib/server-utils"
 import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
+import logger from "@/lib/logger"
+
+/**
+ * Interface para retorno detalhado da verificação de admin
+ */
+interface AdminCheckResult {
+  isAdmin: boolean;
+  user: any | null;
+  authClient: any | null;
+  adminClient: any | null;
+}
 
 /**
  * Verifica se o usuário atual é Super Admin de forma robusta
  */
-async function checkSuperAdmin(accessToken?: string) {
-  // 1. Tentar obter usuário
-  let user = null;
-  const authClient = await getAuthenticatedClient()
-  const adminClient = await getAdminClient()
+async function checkSuperAdminDetailed(accessToken?: string): Promise<AdminCheckResult> {
+  try {
+    let user = null;
+    const authClient = await getAuthenticatedClient()
+    const adminClient = await getAdminClient()
 
-  // Tentativa 1: SSR
-  if (authClient) {
-    const { data: { user: authUser } } = await authClient.auth.getUser()
-    if (authUser) user = authUser
-  }
+    // Tentativa 1: SSR
+    if (authClient) {
+      const { data: { user: authUser } } = await authClient.auth.getUser()
+      if (authUser) user = authUser
+    }
 
-  // Tentativa 2: Token explícito
-  if (!user && accessToken && adminClient) {
-    const { data: { user: tokenUser } } = await adminClient.auth.getUser(accessToken)
-    if (tokenUser) user = tokenUser
-  }
-
-  // Tentativa 3: Cookie Fallback
-  if (!user && adminClient) {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('sb-auth-token')?.value || cookieStore.get('sb-access-token')?.value
-    if (token) {
-      const validator = adminClient || createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { data: { user: tokenUser } } = await validator.auth.getUser(token)
+    // Tentativa 2: Token explícito
+    if (!user && accessToken && adminClient) {
+      const { data: { user: tokenUser } } = await adminClient.auth.getUser(accessToken)
       if (tokenUser) user = tokenUser
     }
+
+    // Tentativa 3: Cookie Fallback
+    if (!user && adminClient) {
+      const cookieStore = await cookies()
+      const token = cookieStore.get('sb-auth-token')?.value || cookieStore.get('sb-access-token')?.value
+      if (token) {
+        const { data: { user: tokenUser } } = await adminClient.auth.getUser(token)
+        if (tokenUser) user = tokenUser
+      }
+    }
+
+    if (!user) {
+      logger.error('❌ checkSuperAdminDetailed: Usuário não identificado')
+      return { isAdmin: false, user: null, authClient, adminClient }
+    }
+
+    // Debug
+    logger.debug(`🔍 checkSuperAdminDetailed: Verificando user ${user.id} (${user.email})`)
+
+    // 1. Verifica metadata (cache rápido)
+    const role = user.user_metadata?.role
+    if (role === 'super_admin') {
+      return { isAdmin: true, user, authClient, adminClient }
+    }
+    
+    // 2. Verifica na tabela users_internal (fonte da verdade segura)
+    const dbReader = adminClient || authClient
+    if (!dbReader) return { isAdmin: false, user, authClient, adminClient }
+
+    const { data: profile } = await dbReader
+      .from('users_internal')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profile?.role === 'super_admin') {
+      logger.info(`✅ checkSuperAdminDetailed: Acesso concedido via DB (users_internal)`)
+      return { isAdmin: true, user, authClient, adminClient }
+    }
+    
+    logger.warn(`⛔ checkSuperAdminDetailed: Acesso NEGADO para ${user.email}. Role DB: ${profile?.role}`)
+    return { isAdmin: false, user, authClient, adminClient }
+  } catch (error) {
+    logger.error('❌ checkSuperAdminDetailed: Erro crítico na verificação', error)
+    return { isAdmin: false, user: null, authClient: null, adminClient: null }
   }
+}
 
-  if (!user) {
-    console.error('❌ checkSuperAdmin: Usuário não identificado')
-    return false
-  }
-
-  // Debug
-  console.log(`🔍 checkSuperAdmin: Verificando user ${user.id} (${user.email})`)
-  console.log(`   Metadata Role: ${user.user_metadata?.role}`)
-
-  // 2. Verificar Permissões
-  // Regra de Ouro: VendasLaChef é Super Admin
-  if (user.email?.toLowerCase() === 'vendaslachef@gmail.com') return true
-
-  // Verifica metadata (cache rápido)
-  const role = user.user_metadata?.role
-  if (role === 'super_admin') return true
-  
-  // Verifica na tabela users_internal (fonte da verdade segura)
-  // Usa adminClient para bypass de RLS se possível, ou authClient como fallback
-  const dbReader = adminClient || authClient
-  if (!dbReader) return false
-
-  const { data: profile } = await dbReader
-    .from('users_internal')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profile?.role === 'super_admin') {
-    console.log(`✅ checkSuperAdmin: Acesso concedido via DB (users_internal)`)
-    return true
-  }
-  
-  console.warn(`⛔ checkSuperAdmin: Acesso NEGADO para ${user.email}. Role DB: ${profile?.role}`)
-  return false
+/**
+ * Versão simplificada para manter compatibilidade
+ */
+async function checkSuperAdmin(accessToken?: string): Promise<boolean> {
+  const result = await checkSuperAdminDetailed(accessToken)
+  return result.isAdmin
 }
 
 /**
  * Busca estatísticas globais do sistema para o Dashboard
  */
 export async function getGlobalSystemStats(accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, authClient, adminClient } = await checkSuperAdminDetailed(accessToken)
+  
   if (!isAdmin) {
     throw new Error("Unauthorized Access")
   }
 
-  const authClient = await getAuthenticatedClient()
-  const adminClient = await getAdminClient()
   const client = adminClient || authClient || supabaseClient
 
   // 1. Total de Tenants e Status
   const { count: totalTenants } = await client
     .from('studios')
+    .select('*', { count: 'exact', head: true })
+
+  // 1.1 Total de Afiliados
+  const { count: totalPartners } = await client
+    .from('partners')
     .select('*', { count: 'exact', head: true })
 
   // 2. Tenants por Nicho (Agregação)
@@ -126,19 +145,13 @@ export async function getGlobalSystemStats(accessToken?: string) {
 
 
   // 3. Receita Recorrente (Estimativa baseada em planos ativos)
-  // Usamos a tabela studios que tem o campo 'plan' vinculado a 'system_plans'
-  // Como não existe chave estrangeira explícita no banco, fazemos a junção manualmente ou via código
-  // Mas o ideal é tentar via join se o Supabase detectar a relação (fk implícita ou explícita)
-  // Verificando o schema: studios.plan (varchar) -> system_plans.id (varchar)
-  // Se não houver FK, o join falha. Vamos tentar buscar os studios e depois somar os preços.
-  
   const { data: activeStudios, error } = await client
     .from('studios')
     .select('plan')
     .eq('status', 'active');
 
   if (error) {
-    console.error("Erro ao buscar estúdios ativos para MRR:", error);
+    logger.error("Erro ao buscar estúdios ativos para MRR:", error);
     throw new Error("Não foi possível buscar os dados de MRR.");
   }
 
@@ -158,6 +171,7 @@ export async function getGlobalSystemStats(accessToken?: string) {
     overview: {
       totalTenants: totalTenants || 0,
       activeTenants: totalTenants || 0, // Ajustar lógica de ativo
+      totalPartners: totalPartners || 0,
       mrr: mrr,
       churnRate: 0 // Implementar lógica de churn
     },
@@ -170,15 +184,12 @@ export async function getGlobalSystemStats(accessToken?: string) {
  * Busca lista detalhada de tenants
  */
 export async function getTenantsList(page = 1, limit = 10, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, authClient, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ getTenantsList: Acesso negado (não é Super Admin)')
+    logger.error('❌ getTenantsList: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const authClient = await getAuthenticatedClient()
-  const adminClient = await getAdminClient()
-  // Prefira adminClient para garantir acesso total
   const client = adminClient || authClient || supabaseClient
 
   const from = (page - 1) * limit
@@ -198,7 +209,7 @@ export async function getTenantsList(page = 1, limit = 10, accessToken?: string)
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('❌ getTenantsList: Erro ao buscar dados', error)
+    logger.error('❌ getTenantsList: Erro ao buscar dados', error)
     throw error
   }
 
@@ -209,13 +220,12 @@ export async function getTenantsList(page = 1, limit = 10, accessToken?: string)
  * Deleta um tenant (empresa) e seus dados associados.
  */
 export async function deleteTenant(tenantId: string, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ deleteTenant: Acesso negado (não é Super Admin)')
+    logger.error('❌ deleteTenant: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const adminClient = await getAdminClient()
   if (!adminClient) {
     throw new Error("Could not create admin client.")
   }
@@ -227,7 +237,7 @@ export async function deleteTenant(tenantId: string, accessToken?: string) {
     .eq('id', tenantId)
 
   if (error) {
-    console.error('❌ deleteTenant: Erro ao deletar tenant', error)
+    logger.error('❌ deleteTenant: Erro ao deletar tenant', error)
     throw error
   }
 
@@ -246,11 +256,9 @@ export async function updateTenantSettings(
   }, 
   accessToken?: string
 ) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, authClient, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) throw new Error("Unauthorized")
   
-  const authClient = await getAuthenticatedClient()
-  const adminClient = await getAdminClient()
   const client = adminClient || authClient || supabaseClient
 
   const updateData: any = {}
@@ -275,13 +283,12 @@ export async function updateTenantModules(tenantId: string, modules: any, access
  * Busca ou cria um token de convite para um estúdio
  */
 export async function getOrCreateStudioInvite(studioId: string, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, user, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ getOrCreateStudioInvite: Acesso negado (não é Super Admin)')
+    logger.error('❌ getOrCreateStudioInvite: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const adminClient = await getAdminClient()
   if (!adminClient) {
     throw new Error("Could not create admin client.")
   }
@@ -296,10 +303,10 @@ export async function getOrCreateStudioInvite(studioId: string, accessToken?: st
     .gt('expires_at', now)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows found
-    console.error('❌ Erro ao buscar convite existente:', fetchError)
+  if (fetchError) {
+    logger.error('❌ Erro ao buscar convite existente:', fetchError)
     throw fetchError
   }
 
@@ -309,8 +316,7 @@ export async function getOrCreateStudioInvite(studioId: string, accessToken?: st
   }
 
   // 3. Se não existir, cria um novo
-  const { data: authData } = await adminClient.auth.getUser(accessToken)
-  const created_by = authData.user?.id
+  const created_by = user?.id
 
   if (!created_by) {
     throw new Error("Não foi possível identificar o usuário para criar o convite.")
@@ -332,7 +338,7 @@ export async function getOrCreateStudioInvite(studioId: string, accessToken?: st
     .single()
 
   if (insertError) {
-    console.error('❌ Erro ao criar novo convite:', insertError)
+    logger.error('❌ Erro ao criar novo convite:', insertError)
     throw insertError
   }
 
@@ -343,13 +349,12 @@ export async function getOrCreateStudioInvite(studioId: string, accessToken?: st
  * Exclui um estúdio permanentemente
  */
 export async function deleteStudio(studioId: string, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ deleteStudio: Acesso negado (não é Super Admin)')
+    logger.error('❌ deleteStudio: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const adminClient = await getAdminClient()
   if (!adminClient) {
      throw new Error("Could not create admin client.")
   }
@@ -361,7 +366,7 @@ export async function deleteStudio(studioId: string, accessToken?: string) {
     .eq('id', studioId)
 
   if (error) {
-    console.error('❌ Erro ao deletar estúdio:', error)
+    logger.error('❌ Erro ao deletar estúdio:', error)
     throw error
   }
 
@@ -372,13 +377,12 @@ export async function deleteStudio(studioId: string, accessToken?: string) {
  * Exclui um parceiro/afiliado permanentemente
  */
 export async function deletePartner(partnerId: string, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ deletePartner: Acesso negado (não é Super Admin)')
+    logger.error('❌ deletePartner: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const adminClient = await getAdminClient()
   if (!adminClient) {
     throw new Error("Could not create admin client.")
   }
@@ -397,7 +401,7 @@ export async function deletePartner(partnerId: string, accessToken?: string) {
     .eq('id', partnerId)
 
   if (error) {
-    console.error('❌ deletePartner: Erro ao deletar parceiro', error)
+    logger.error('❌ deletePartner: Erro ao deletar parceiro', error)
     throw error
   }
 
@@ -405,7 +409,7 @@ export async function deletePartner(partnerId: string, accessToken?: string) {
   if (partner?.user_id) {
     const { error: authError } = await adminClient.auth.admin.deleteUser(partner.user_id)
     if (authError) {
-      console.warn('⚠️ deletePartner: Parceiro excluído do DB, mas falha ao excluir do Auth:', authError.message)
+      logger.warn('⚠️ deletePartner: Parceiro excluído do DB, mas falha ao excluir do Auth:', authError.message)
     }
   }
 
@@ -416,14 +420,12 @@ export async function deletePartner(partnerId: string, accessToken?: string) {
  * Busca lista de parceiros/afiliados
  */
 export async function getPartnersList(page = 1, limit = 10, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, authClient, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ getPartnersList: Acesso negado (não é Super Admin)')
+    logger.error('❌ getPartnersList: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const authClient = await getAuthenticatedClient()
-  const adminClient = await getAdminClient()
   const client = adminClient || authClient || supabaseClient
 
   const from = (page - 1) * limit
@@ -435,10 +437,10 @@ export async function getPartnersList(page = 1, limit = 10, accessToken?: string
     .range(from, to)
     .order('created_at', { ascending: false })
 
-  console.log('🔍 getPartnersList result:', { data_length: data?.length, count, error })
+  logger.debug('🔍 getPartnersList result:', { data_length: data?.length, count, error })
 
   if (error) {
-    console.error('❌ getPartnersList: Erro ao buscar parceiros', error)
+    logger.error('❌ getPartnersList: Erro ao buscar parceiros', error)
     throw error
   }
 
@@ -457,13 +459,12 @@ export async function updatePartner(
   }, 
   accessToken?: string
 ) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ updatePartner: Acesso negado (não é Super Admin)')
+    logger.error('❌ updatePartner: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const adminClient = await getAdminClient()
   if (!adminClient) {
     throw new Error("Could not create admin client.")
   }
@@ -487,6 +488,8 @@ export async function updatePartner(
     .update(data)
     .eq('id', partnerId)
 
+  if (error) throw error
+
   return { success: true }
 }
 
@@ -494,13 +497,12 @@ export async function updatePartner(
  * Cria ou atualiza um plano do sistema
  */
 export async function saveSystemPlan(planData: any, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ saveSystemPlan: Acesso negado (não é Super Admin)')
+    logger.error('❌ saveSystemPlan: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const adminClient = await getAdminClient()
   if (!adminClient) {
     throw new Error("Could not create admin client.")
   }
@@ -510,7 +512,7 @@ export async function saveSystemPlan(planData: any, accessToken?: string) {
     .upsert(planData)
 
   if (error) {
-    console.error('❌ saveSystemPlan: Erro ao salvar plano', error)
+    logger.error('❌ saveSystemPlan: Erro ao salvar plano', error)
     throw error
   }
 
@@ -521,13 +523,12 @@ export async function saveSystemPlan(planData: any, accessToken?: string) {
  * Exclui um plano do sistema
  */
 export async function deleteSystemPlan(planId: string, accessToken?: string) {
-  const isAdmin = await checkSuperAdmin(accessToken)
+  const { isAdmin, adminClient } = await checkSuperAdminDetailed(accessToken)
   if (!isAdmin) {
-    console.error('❌ deleteSystemPlan: Acesso negado (não é Super Admin)')
+    logger.error('❌ deleteSystemPlan: Acesso negado (não é Super Admin)')
     throw new Error("Unauthorized")
   }
 
-  const adminClient = await getAdminClient()
   if (!adminClient) {
     throw new Error("Could not create admin client.")
   }
@@ -538,10 +539,9 @@ export async function deleteSystemPlan(planId: string, accessToken?: string) {
     .eq('id', planId)
 
   if (error) {
-    console.error('❌ deleteSystemPlan: Erro ao excluir plano', error)
+    logger.error('❌ deleteSystemPlan: Erro ao excluir plano', error)
     throw error
   }
 
   return { success: true }
 }
-

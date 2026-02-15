@@ -1,5 +1,5 @@
 /**
- * Definições de limites para os planos do DanceFlow AI
+ * Definições de limites para os planos do Workflow AI
  */
 
 export interface PlanLimits {

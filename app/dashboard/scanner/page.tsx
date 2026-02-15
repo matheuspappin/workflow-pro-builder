@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Header } from "@/components/dashboard/header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import logger from "@/lib/logger"
 import { 
   QrCode as QrCodeIcon, 
   ArrowLeft, 
@@ -66,17 +67,17 @@ export default function AdminScannerPage() {
       }
 
       // 2. FORÇAR PERMISSÃO (Fundamental para Chrome Mobile em domínios Vercel/HTTPS)
-      console.log('🔐 Solicitando permissão de câmera...');
+      logger.debug('🔐 Solicitando permissão de câmera...');
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         stream.getTracks().forEach(track => track.stop()); // Libera para o scanner usar
       } catch (e: any) {
-        console.warn('Aviso ao solicitar permissão:', e);
+        logger.warn('Aviso ao solicitar permissão:', e);
         // Não lançamos erro aqui, pois o getCameras pode funcionar se já tiver permissão
       }
 
       // 3. DESCOBERTA DE DISPOSITIVOS
-      console.log('🚀 Buscando câmeras disponíveis...');
+      logger.debug('🚀 Buscando câmeras disponíveis...');
       const devices = await Html5Qrcode.getCameras();
       
       if (!devices || devices.length === 0) {
@@ -91,7 +92,7 @@ export default function AdminScannerPage() {
         d.label.toLowerCase().includes('direção 1')
       ) || devices[devices.length - 1];
 
-      console.log('📸 Usando câmera:', backCamera.label);
+      logger.debug('📸 Usando câmera:', backCamera.label);
 
       const html5QrCode = new Html5Qrcode("scanner-container");
       scannerRef.current = html5QrCode;
@@ -128,7 +129,7 @@ export default function AdminScannerPage() {
   };
 
   const handleScannerError = (err: any) => {
-    console.error("❌ Erro no scanner:", err);
+    logger.error("❌ Erro no scanner:", err);
     let msg = "Não foi possível acessar a câmera.";
     
     if (err.name === 'NotAllowedError' || err.toString().includes('Permission denied')) {
@@ -156,7 +157,7 @@ export default function AdminScannerPage() {
         await scannerRef.current.stop()
         scannerRef.current = null
       } catch (err) {
-        console.error("Erro ao parar scanner:", err)
+        logger.error("Erro ao parar scanner:", err)
       }
     }
     setIsScanning(false)
@@ -166,8 +167,8 @@ export default function AdminScannerPage() {
     if (loading) return
 
     const cleanedCode = scannedCode.trim().toUpperCase();
-    console.log('🔍 [DEBUG] Código Bruto:', scannedCode);
-    console.log('🔍 [DEBUG] Código Limpo:', cleanedCode);
+    logger.debug('🔍 [DEBUG] Código Bruto:', scannedCode);
+    logger.debug('🔍 [DEBUG] Código Limpo:', cleanedCode);
 
     let attendanceId = "";
 
@@ -176,31 +177,31 @@ export default function AdminScannerPage() {
     // CASO 1: Formato Completo (QR Code Antigo)
     if (cleanedCode.startsWith('DANCEFLOW_ATTENDANCE_')) {
       attendanceId = cleanedCode.replace('DANCEFLOW_ATTENDANCE_', '');
-      console.log('✅ [DEBUG] Detectado: Full ID', attendanceId);
+      logger.debug('✅ [DEBUG] Detectado: Full ID', attendanceId);
     }
     // CASO 2: Formato Curto com Prefixo (QR Code Novo / Manual com DF-)
     else if (cleanedCode.startsWith('DF-')) {
       // Aceita se tiver pelo menos o prefixo e algum conteúdo depois
       if (cleanedCode.length > 3) {
         attendanceId = cleanedCode;
-        console.log('✅ [DEBUG] Detectado: Short Code com Prefixo', attendanceId);
+        logger.debug('✅ [DEBUG] Detectado: Short Code com Prefixo', attendanceId);
       }
     }
     // CASO 3: Formato Curto sem Prefixo (Manual apenas código)
     // Aceita qualquer alfanumérico de 8 caracteres
     else if (cleanedCode.length === 8 && /^[A-Z0-9]+$/.test(cleanedCode)) {
       attendanceId = `DF-${cleanedCode}`;
-      console.log('✅ [DEBUG] Detectado: Short Code sem Prefixo (Adicionado DF-)', attendanceId);
+      logger.debug('✅ [DEBUG] Detectado: Short Code sem Prefixo (Adicionado DF-)', attendanceId);
     }
     // CASO 4: UUID Solto (Fallback)
     else if (cleanedCode.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/)) {
         attendanceId = cleanedCode;
-        console.log('✅ [DEBUG] Detectado: UUID Puro', attendanceId);
+        logger.debug('✅ [DEBUG] Detectado: UUID Puro', attendanceId);
     }
 
     // Se após todas as tentativas ainda não tivermos um ID
     if (!attendanceId) {
-      console.log('❌ [DEBUG] Falha: Nenhum formato reconhecido para', cleanedCode);
+      logger.debug('❌ [DEBUG] Falha: Nenhum formato reconhecido para', cleanedCode);
       toast({
         title: "Código Inválido",
         description: `Formato não reconhecido: ${cleanedCode}`,
@@ -222,7 +223,7 @@ export default function AdminScannerPage() {
     await stopScanner()
 
     try {
-      console.log('🚀 [DEBUG] Enviando para API:', attendanceId);
+      logger.debug('🚀 [DEBUG] Enviando para API:', attendanceId);
       const response = await fetch('/api/admin/confirm-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

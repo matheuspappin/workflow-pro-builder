@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('🔍 Executando query:', query, { table, filters, limit })
+    logger.info('🔍 Executando query:', query, { table, filters, limit })
 
     let result
 
@@ -91,14 +92,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (result.error) {
-      console.error('Erro na query:', result.error)
+      logger.error('Erro na query:', result.error)
       return NextResponse.json(
         { error: 'Erro ao executar query', details: result.error.message },
         { status: 500 }
       )
     }
 
-    console.log('✅ Query executada com sucesso, retornando dados')
+    logger.info('✅ Query executada com sucesso, retornando dados')
 
     return NextResponse.json({
       success: true,
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Erro na API de query:', error)
+    logger.error('Erro na API de query:', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

@@ -1,4 +1,4 @@
-# 🚀 Melhorias Significativas no Sistema de Chat - DanceFlow AI
+# 🚀 Melhorias Significativas no Sistema de Chat - Workflow AI
 
 ## ❌ Problemas Anteriores
 
@@ -256,4 +256,4 @@ De um chat básico com problemas de duplicação e perda de contexto, evoluímos
 - 🎯 **Oferece insights acionáveis** baseados em métricas
 - 🔒 **Opera com alta confiabilidade** e sem duplicações
 
-**DanceFlow AI agora tem um chat de nível profissional!** 🚀✨
+**Workflow AI agora tem um chat de nível profissional!** 🚀✨

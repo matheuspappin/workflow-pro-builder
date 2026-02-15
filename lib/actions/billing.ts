@@ -3,6 +3,7 @@
 import { getAuthenticatedClient, getAdminClient } from "@/lib/server-utils"
 import { supabase } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
+import logger from "@/lib/logger"
 
 /**
  * Ativa um módulo para um estúdio (Upsell simplificado)
@@ -16,8 +17,12 @@ export async function activateModule(moduleId: string) {
     const { data: { user } } = await client.auth.getUser()
     if (!user) throw new Error("Usuário não encontrado")
 
-    // 1. Obter o studio_id do usuário (lógica simplificada, idealmente via contexto ou metadados seguros)
-    // Tenta obter via users_internal primeiro
+    // 1. Obter o studio_id do usuário
+    // A lógica abaixo tenta determinar o 'studio_id' associado ao usuário autenticado.
+    // Primeiro, verifica na tabela 'users_internal'. Se não encontrar, tenta na tabela 'teachers'.
+    // Esta abordagem simplifica a obtenção do ID do estúdio para fins de demonstração/upsell simplificado.
+    // Em um ambiente de produção real, o studio_id provavelmente seria gerenciado de forma mais robusta,
+    // talvez via JWT, metadados de sessão seguros ou um serviço de identidade.
     let studioId = null;
     
     // Tenta users_internal
@@ -65,7 +70,7 @@ export async function activateModule(moduleId: string) {
     revalidatePath('/dashboard')
     return { success: true }
   } catch (error: any) {
-    console.error("Erro ao ativar módulo:", error)
+    logger.error("Erro ao ativar módulo:", error)
     return { success: false, error: error.message }
   }
 }

@@ -1,4 +1,4 @@
--- Tabela de Planos do Sistema (DanceFlow Global)
+-- Tabela de Planos do Sistema (Workflow Global)
 CREATE TABLE IF NOT EXISTS system_plans (
   id VARCHAR(50) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,

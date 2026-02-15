@@ -108,7 +108,7 @@ export default function AdminUsersPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!newUser.name || !newUser.email || !newUser.password || !newUser.studioId) {
+    if (!newUser.name || !newUser.email || !newUser.password || (newUser.role !== 'super_admin' && !newUser.studioId)) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos.",
@@ -417,19 +417,26 @@ export default function AdminUsersPage() {
                     <Label htmlFor="role">Nível de Acesso</Label>
                     <Select 
                       value={newUser.role} 
-                      onValueChange={(val) => setNewUser({...newUser, role: val})}
+                      onValueChange={(val) => {
+                        const updatedUser = { ...newUser, role: val };
+                        // Se for super_admin, limpa o estúdio
+                        if (val === 'super_admin') {
+                          updatedUser.studioId = '';
+                        }
+                        setNewUser(updatedUser);
+                      }}
                     >
                       <SelectTrigger className="bg-slate-50 dark:bg-slate-800 border-none">
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="super_admin">Super Admin (Global)</SelectItem>
-                        <SelectItem value="owner">Proprietário (Owner)</SelectItem>
+                        <SelectItem value="owner">Proprietário (Admin Master)</SelectItem>
                         <SelectItem value="admin">Administrador (Admin)</SelectItem>
-                        <SelectItem value="manager">Gerente (Manager)</SelectItem>
-                        <SelectItem value="teacher">Professor (Teacher)</SelectItem>
+                        <SelectItem value="manager">Gerente (Staff)</SelectItem>
+                        <SelectItem value="professional">Professor / Profissional</SelectItem>
                         <SelectItem value="receptionist">Recepcionista</SelectItem>
-                        <SelectItem value="student">Aluno (Student)</SelectItem>
+                        <SelectItem value="student">Aluno (Apenas Visualização)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -438,9 +445,13 @@ export default function AdminUsersPage() {
                     <Select 
                       value={newUser.studioId} 
                       onValueChange={(val) => setNewUser({...newUser, studioId: val})}
+                      disabled={newUser.role === 'super_admin'}
                     >
-                      <SelectTrigger className="bg-slate-50 dark:bg-slate-800 border-none">
-                        <SelectValue placeholder="Selecione" />
+                      <SelectTrigger className={cn(
+                        "bg-slate-50 dark:bg-slate-800 border-none",
+                        newUser.role === 'super_admin' && "opacity-50"
+                      )}>
+                        <SelectValue placeholder={newUser.role === 'super_admin' ? "Global (Nenhum)" : "Selecione"} />
                       </SelectTrigger>
                       <SelectContent>
                         {studios.map((s: any) => (

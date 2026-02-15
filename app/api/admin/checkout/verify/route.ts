@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { supabase } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 /**
  * Verifica uma sessão de checkout do Stripe e atualiza o estúdio
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Processar atualização usando RPC (mesma lógica do webhook)
-    console.log(`🔄 Sincronização manual: Processando pagamento para estúdio ${studio_id}`);
+    logger.info(`🔄 Sincronização manual: Processando pagamento para estúdio ${studio_id}`);
     
     const { error: rpcError } = await supabase.rpc('mark_studio_invoice_as_paid', {
       p_invoice_id: invoice_id,
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (rpcError) {
-      console.error('❌ Erro ao sincronizar pagamento via RPC:', rpcError);
+      logger.error('❌ Erro ao sincronizar pagamento via RPC:', rpcError);
       return NextResponse.json({ error: 'Erro ao atualizar dados no banco' }, { status: 500 });
     }
 
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('💥 Erro ao verificar checkout:', error);
+    logger.error('💥 Erro ao verificar checkout:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

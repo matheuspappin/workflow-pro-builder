@@ -4,6 +4,12 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
+const logger = {
+  info: (msg) => console.log(`[INFO] ${msg}`),
+  error: (msg, err) => console.error(`[ERROR] ${msg}`, err || ''),
+  warn: (msg) => console.warn(`[WARN] ${msg}`)
+};
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
@@ -18,7 +24,7 @@ const DB_NAME = 'postgres'
 
 const connectionString = `postgresql://${DB_USER}:${DB_PASS}@${DB_IP}:${DB_PORT}/${DB_NAME}?pgbouncer=true`
 
-console.log('🔗 Usando conexão via IP do Pooler:', DB_IP)
+logger.info('🔗 Usando conexão via IP do Pooler:', DB_IP)
 
 const sql = postgres(connectionString, {
   ssl: 'require',
@@ -32,22 +38,23 @@ async function runMigrations() {
     '16_add_missing_user_fields.sql',
     '17_fix_foreign_keys.sql',
     '20_fix_system_plans_rls.sql',
-    '21_add_modules_to_system_plans.sql'
+    '21_add_modules_to_system_plans.sql',
+    '24_create_support_system.sql'
   ]
 
   for (const migration of migrations) {
-    console.log(`🚀 Executando migração: ${migration}...`)
+    logger.info(`🚀 Executando migração: ${migration}...`)
     try {
       const migrationPath = path.join(process.cwd(), 'database', 'migrations', migration)
       if (!fs.existsSync(migrationPath)) {
-        console.warn(`⚠️ Arquivo não encontrado: ${migrationPath}`)
+        logger.warn(`⚠️ Arquivo não encontrado: ${migrationPath}`)
         continue
       }
       const migrationSql = fs.readFileSync(migrationPath, 'utf8')
       await sql.unsafe(migrationSql)
-      console.log(`✅ Migração ${migration} executada com sucesso!`)
+      logger.info(`✅ Migração ${migration} executada com sucesso!`)
     } catch (error) {
-      console.error(`❌ Erro ao executar migração ${migration}:`, error.message)
+      logger.error(`❌ Erro ao executar migração ${migration}:`, error.message)
     }
   }
   

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveStudioApiKey } from '@/lib/database-utils';
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Erro ao salvar integração:', error);
+    logger.error('Erro ao salvar integração:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

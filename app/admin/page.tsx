@@ -65,7 +65,7 @@ export default function AdminDashboard() {
       <div className="p-8 space-y-8 max-w-[1600px] mx-auto w-full">
         
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <GlassCard>
             <div className="flex justify-between items-start mb-2">
               <div className="p-2 bg-indigo-500/10 rounded-lg"><Building2 className="w-5 h-5 text-indigo-500"/></div>
@@ -100,6 +100,15 @@ export default function AdminDashboard() {
             </div>
             <h3 className="text-3xl font-black">{stats?.moduleData?.length || 0}</h3>
             <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Módulos Ativos</p>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex justify-between items-start mb-2">
+              <div className="p-2 bg-blue-500/10 rounded-lg"><Users className="w-5 h-5 text-blue-500"/></div>
+              <span className="text-xs font-bold text-blue-500 bg-blue-500/10 px-2 py-1 rounded">Parceiros</span>
+            </div>
+            <h3 className="text-3xl font-black">{stats?.overview.totalPartners || 0}</h3>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Total Afiliados</p>
           </GlassCard>
         </div>
 

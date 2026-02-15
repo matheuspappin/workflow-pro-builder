@@ -51,7 +51,7 @@ import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { PLAN_LIMITS } from "@/lib/plan-limits"
 import { ModuleGuard } from "@/components/providers/module-guard"
-
+import logger from '@/lib/logger'
 import { useVocabulary } from "@/hooks/use-vocabulary"
 
 export default function WhatsAppPage() {
@@ -209,7 +209,7 @@ export default function WhatsAppPage() {
         })
       }
     } catch (e) {
-      console.error('Erro ao carregar plano:', e)
+      logger.error('Erro ao carregar plano:', e)
     }
   }
 
@@ -313,7 +313,7 @@ export default function WhatsAppPage() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
-
+   
   const loadChats = async () => {
     const studioId = JSON.parse(localStorage.getItem('danceflow_user') || '{}').studio_id
 
@@ -324,7 +324,7 @@ export default function WhatsAppPage() {
       .order('updated_at', { ascending: false })
 
     if (error) {
-      console.error('Erro ao carregar chats:', error)
+      logger.error('Erro ao carregar chats:', error)
     } else {
       setChats(data || [])
       if (!selectedChat && data?.length > 0) {
@@ -599,7 +599,7 @@ export default function WhatsAppPage() {
                       {getContactBadge(selectedChat.contact_type)}
                     </h4>
                     <div className="text-[10px] text-emerald-500 font-medium flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online via DanceFlow AI
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online via Workflow AI
                     </div>
                   </div>
                 </div>
@@ -642,7 +642,7 @@ export default function WhatsAppPage() {
                             }`}>
                               {msg.is_ai && !msg.from_me && (
                                 <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-slate-100 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 font-bold text-[9px] uppercase tracking-[0.15em]">
-                                  <Sparkles className="w-3 h-3 animate-pulse" /> DanceFlow AI
+                                  <Sparkles className="w-3 h-3 animate-pulse" /> Workflow AI
                                 </div>
                               )}
                               <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>

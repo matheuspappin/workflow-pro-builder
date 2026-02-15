@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { createPublicERPOrder } from '@/lib/actions/erp';
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
-    console.error('Error creating checkout session:', error);
+    logger.error('Error creating checkout session:', error);
     return new NextResponse(`Error creating checkout session: ${error.message}`, { status: 500 });
   }
 }

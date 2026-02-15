@@ -1,6 +1,6 @@
-# DanceFlow AI - Roadmap para Lançamento Comercial 🚀
+# Workflow AI - Roadmap para Lançamento Comercial 🚀
 
-Este documento detalha o progresso atual e os passos necessários para transformar o DanceFlow AI em um SaaS (Software as a Service) comercializável e seguro.
+Este documento detalha o progresso atual e os passos necessários para transformar o Workflow AI em um SaaS (Software as a Service) comercializável e seguro.
 
 ## 📊 Status Atual do Ecossistema
 *   **Multi-tenancy:** Implementado via `studio_id` em todas as tabelas com RLS Estrito via JWT.

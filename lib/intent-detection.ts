@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import logger from './logger'
 
 // Tipos de intenção detectadas
 export interface DetectedIntent {
@@ -112,7 +113,7 @@ async function extractAttendanceData(text: string, context?: any) {
   const studioId = context?.studio_id || context?.studioId
   
   if (!studioId) {
-    console.error('❌ Studio ID não encontrado no contexto para extração de presença')
+    logger.error('❌ Studio ID não encontrado no contexto para extração de presença')
   }
 
   // Identificar data

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createStripeConnectAccountLink } from '@/lib/actions/affiliate';
 import { getAuthenticatedClient } from "@/lib/server-utils";
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,19 +14,19 @@ export async function POST(req: NextRequest) {
     }
 
     const { returnUrl } = await req.json();
-    console.log("Recebida requisição para Stripe Connect com returnUrl:", returnUrl);
+    logger.info("Recebida requisição para Stripe Connect com returnUrl:", returnUrl);
 
     if (!returnUrl) {
-      console.error("Erro: URL de retorno é obrigatória.");
+      logger.error("Erro: URL de retorno é obrigatória.");
       return NextResponse.json({ error: 'URL de retorno é obrigatória' }, { status: 400 });
     }
 
     const accountLinkUrl = await createStripeConnectAccountLink(user.id, returnUrl);
-    console.log("Link da conta Stripe Connect criado:", accountLinkUrl);
+    logger.info("Link da conta Stripe Connect criado:", accountLinkUrl);
 
     return NextResponse.json({ url: accountLinkUrl });
   } catch (error: any) {
-    console.error('Erro ao criar link da conta Stripe Connect:', error);
+    logger.error('Erro ao criar link da conta Stripe Connect:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

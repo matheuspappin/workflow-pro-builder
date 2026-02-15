@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (authError) {
-      console.error('Erro ao desativar usuário no Supabase Auth:', authError);
+      logger.error('Erro ao desativar usuário no Supabase Auth:', authError);
       return NextResponse.json({ error: 'Falha ao desativar usuário no sistema de autenticação.' }, { status: 500 });
     }
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (profileError) {
-      console.error('Erro ao atualizar status do perfil no DB:', profileError);
+      logger.error('Erro ao atualizar status do perfil no DB:', profileError);
       // Considere reativar no Supabase Auth se esta parte falhar?
       return NextResponse.json({ error: 'Falha ao desativar perfil do usuário no banco de dados.' }, { status: 500 });
     }
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: 'Usuário desativado com sucesso.' });
 
   } catch (error: any) {
-    console.error('Erro fatal ao desativar usuário:', error);
+    logger.error('Erro fatal ao desativar usuário:', error);
     return NextResponse.json({ error: 'Erro interno ao processar a desativação do usuário.' }, { status: 500 });
   }
 }

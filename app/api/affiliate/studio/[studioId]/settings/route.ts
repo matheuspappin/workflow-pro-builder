@@ -1,16 +1,18 @@
-import { createRouteHandlerClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+
+import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { normalizeModules } from '@/config/modules';
+import logger from '@/lib/logger';
+
+// REMOVED local createClient
 
 export async function GET(
   request: Request,
   { params }: { params: { studioId: string } }
 ) {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -48,7 +50,7 @@ export async function GET(
     .maybeSingle();
 
   if (error) {
-    console.error('Error fetching organization settings:', error);
+    logger.error('Error fetching organization settings:', error);
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
   }
 
@@ -62,10 +64,9 @@ export async function POST(
   request: Request,
   { params }: { params: { studioId: string } }
 ) {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -105,7 +106,7 @@ export async function POST(
     );
 
   if (error) {
-    console.error('Error updating organization settings:', error);
+    logger.error('Error updating organization settings:', error);
     return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
   }
 

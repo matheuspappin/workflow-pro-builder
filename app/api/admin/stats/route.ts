@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -159,7 +160,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('💥 Erro na API Admin Stats:', error)
+    logger.error('💥 Erro na API Admin Stats:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

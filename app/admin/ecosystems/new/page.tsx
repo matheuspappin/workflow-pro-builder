@@ -26,6 +26,7 @@ const GET_AVAILABLE_MODULES = (vocabulary: any) => [
   { id: 'scanner', label: 'Scanner' },
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'erp', label: 'ERP' },
+  { id: 'service_orders', label: 'Ordens de Serviço' },
 ]
 
 type PackageType = 'custom' | 'basic' | 'pro'
@@ -37,9 +38,9 @@ const PACKAGES = {
     limit: 3
   },
   pro: {
-    label: 'Profissional (10 Módulos)',
-    modules: ['dashboard', 'students', 'classes', 'financial', 'whatsapp', 'ai_chat', 'pos', 'scanner', 'marketplace', 'erp'],
-    limit: 10
+    label: 'Profissional (11 Módulos)',
+    modules: ['dashboard', 'students', 'classes', 'financial', 'whatsapp', 'ai_chat', 'pos', 'scanner', 'marketplace', 'erp', 'service_orders'],
+    limit: 11
   }
 }
 
@@ -51,6 +52,7 @@ export default function NewEcosystemPage() {
     name: "",
     clientEmail: "",
     niche: "law" as NicheType,
+    businessModel: "CREDIT" as "CREDIT" | "MONETARY",
     studioSlug: "",
   })
   const [modules, setModules] = useState<Record<string, boolean>>({
@@ -63,10 +65,11 @@ export default function NewEcosystemPage() {
     pos: true,
     scanner: true,
     marketplace: true,
-    erp: true
+    erp: true,
+    service_orders: true
   })
 
-  const currentVocabulary = nicheDictionary[formData.niche] || nicheDictionary.dance
+  const currentVocabulary = nicheDictionary.pt[formData.niche] || nicheDictionary.pt.dance
   const availableModules = GET_AVAILABLE_MODULES(currentVocabulary)
 
   const handlePackageChange = (type: PackageType) => {
@@ -105,10 +108,11 @@ export default function NewEcosystemPage() {
 
       console.log("🔑 Token encontrado, enviando para server action...")
 
-      const result = await createEcosystemInvite({
+        const result = await createEcosystemInvite({
         name: formData.name,
         niche: formData.niche,
         clientEmail: formData.clientEmail,
+        businessModel: formData.businessModel,
         modules: modules,
         accessToken: session.access_token // Passar token garantido
       })
@@ -213,7 +217,7 @@ export default function NewEcosystemPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      {Object.entries(nicheDictionary).map(([key, value]) => (
+                      {Object.entries(nicheDictionary.pt).map(([key, value]) => (
                         <SelectItem key={key} value={key}>
                           <span className="font-bold">{value.name}</span>
                           <span className="ml-2 text-xs text-muted-foreground italic">
@@ -221,6 +225,31 @@ export default function NewEcosystemPage() {
                           </span>
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Modelo de Cobrança</Label>
+                  <Select 
+                    value={formData.businessModel} 
+                    onValueChange={v => setFormData({...formData, businessModel: v as "CREDIT" | "MONETARY"})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CREDIT">
+                        <span className="font-bold">Créditos (Flex Pass)</span>
+                        <span className="ml-2 text-xs text-muted-foreground italic">
+                          (Ideal para pacotes de aulas)
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="MONETARY">
+                        <span className="font-bold">Monetário (Direto)</span>
+                        <span className="ml-2 text-xs text-muted-foreground italic">
+                          (Cobrança em moeda por serviço)
+                        </span>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

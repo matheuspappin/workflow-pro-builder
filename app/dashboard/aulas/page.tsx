@@ -67,6 +67,8 @@ interface ClassItem {
   enrolledStudents: number
   level: "beginner" | "intermediate" | "advanced"
   status: "ativa" | "cancelada" | "cheia"
+  price_in_credits: number
+  price_in_currency: number
   isCancelledToday?: boolean
 }
 
@@ -87,6 +89,7 @@ export default function ClassesPage() {
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState<string>("Segunda")
+  const [businessModel, setBusinessModel] = useState<'CREDIT' | 'MONETARY'>('CREDIT')
   
   useEffect(() => {
     // Sincronizar o dia da semana atual com o selectedDay ao montar
@@ -114,6 +117,8 @@ export default function ClassesPage() {
     room: "Sala 1",
     maxStudents: "15",
     level: "beginner",
+    price_in_credits: 0,
+    price_in_currency: 0,
   })
 
   // Sincronizar o dia da nova turma com o dia selecionado no filtro
@@ -273,11 +278,12 @@ export default function ClassesPage() {
       const studioId = user.studio_id || user.studioId
       const today = new Date().toISOString().split('T')[0]
 
-      const [data, teachersData, modalitiesData, sessionsData] = await Promise.all([
+      const [data, teachersData, modalitiesData, sessionsData, studioData] = await Promise.all([
         getClasses(),
         getTeachers(),
         getModalities(),
-        supabase.from('sessions').select('class_id').eq('studio_id', studioId).eq('scheduled_date', today).eq('status', 'cancelled')
+        supabase.from('sessions').select('class_id').eq('studio_id', studioId).eq('scheduled_date', today).eq('status', 'cancelled'),
+        supabase.from('studios').select('business_model').eq('id', studioId).single()
       ])
       
       setTeachersList(teachersData)
@@ -285,6 +291,10 @@ export default function ClassesPage() {
       
       if (sessionsData.data) {
         setCancelledToday(sessionsData.data.map(s => s.class_id))
+      }
+
+      if (studioData.data) {
+        setBusinessModel(studioData.data.business_model as 'CREDIT' | 'MONETARY' || 'CREDIT')
       }
 
       console.log('📚 Turmas carregadas:', data)
@@ -321,7 +331,9 @@ export default function ClassesPage() {
           enrolledStudents: c.current_students || 0,
           level: c.level || "beginner",
           status: c.status === 'active' ? ((c.current_students || 0) >= c.max_students ? "cheia" : "ativa") : "cancelada",
-          isCancelledToday: sessionsData.data?.some(s => s.class_id === c.id) || false
+          isCancelledToday: sessionsData.data?.some(s => s.class_id === c.id) || false,
+          price_in_credits: c.price_in_credits || 0,
+          price_in_currency: c.price_in_currency || 0
         }
       })
 
@@ -573,6 +585,8 @@ export default function ClassesPage() {
         dance_style: editingClass.modality,
         level: editingClass.level,
         max_students: Number(editingClass.maxStudents),
+        price_in_credits: Number(editingClass.price_in_credits),
+        price_in_currency: Number(editingClass.price_in_currency),
         schedule: [{
           day_of_week: dayToNumber[editingClass.day],
           start_time: editingClass.time,
@@ -844,6 +858,33 @@ export default function ClassesPage() {
                       className="bg-background"
                     />
                   </div>
+                  {businessModel === 'MONETARY' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="priceCurrency">Preço ({vocabulary.currencySymbol})</Label>
+                      <Input
+                        id="priceCurrency"
+                        type="number"
+                        step="0.01"
+                        value={newClass.price_in_currency}
+                        onChange={(e) => setNewClass({ ...newClass, price_in_currency: parseFloat(e.target.value) || 0 })}
+                        placeholder="Ex: 99.90"
+                        className="bg-background"
+                      />
+                    </div>
+                  )}
+                  {businessModel === 'CREDIT' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="priceCredits">Créditos</Label>
+                      <Input
+                        id="priceCredits"
+                        type="number"
+                        value={newClass.price_in_credits}
+                        onChange={(e) => setNewClass({ ...newClass, price_in_credits: parseInt(e.target.value) || 0 })}
+                        placeholder="Ex: 10"
+                        className="bg-background"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -965,6 +1006,33 @@ export default function ClassesPage() {
                     />
                   </div>
                 </div>
+                {businessModel === 'MONETARY' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-priceCurrency">Preço ({vocabulary.currencySymbol})</Label>
+                    <Input
+                      id="edit-priceCurrency"
+                      type="number"
+                      step="0.01"
+                      value={editingClass.price_in_currency}
+                      onChange={(e) => setEditingClass({ ...editingClass, price_in_currency: parseFloat(e.target.value) || 0 })}
+                      placeholder="Ex: 99.90"
+                      className="bg-background"
+                    />
+                  </div>
+                )}
+                {businessModel === 'CREDIT' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-priceCredits">Créditos</Label>
+                    <Input
+                      id="edit-priceCredits"
+                      type="number"
+                      value={editingClass.price_in_credits}
+                      onChange={(e) => setEditingClass({ ...editingClass, price_in_credits: parseInt(e.target.value) || 0 })}
+                      placeholder="Ex: 10"
+                      className="bg-background"
+                    />
+                  </div>
+                )}
               </div>
             )}
             <div className="flex justify-end gap-2">

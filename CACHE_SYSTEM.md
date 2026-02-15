@@ -1,4 +1,4 @@
-# 🚀 Sistema de Cache - DanceFlow AI
+# 🚀 Sistema de Cache - Workflow AI
 
 ## ❌ Problema Anterior
 Quando o usuário navegava entre abas, **todos os dados eram perdidos** porque:

@@ -1,4 +1,5 @@
 import dns from 'dns';
+import logger from '../lib/logger.js';
 
 const domains = [
   'google.com',
@@ -7,16 +8,16 @@ const domains = [
   'aws-0-sa-east-1.pooler.supabase.com'
 ];
 
-console.log('Diagnóstico de DNS iniciando...');
+logger.info('Diagnóstico de DNS iniciando...');
 
 const lookups = domains.map(domain => {
   return new Promise((resolve) => {
     dns.lookup(domain, (err, address, family) => {
       if (err) {
-        console.error(`❌ Falha ao resolver ${domain}: ${err.message}`);
+        logger.error(`❌ Falha ao resolver ${domain}: ${err.message}`);
         resolve({ domain, success: false });
       } else {
-        console.log(`✅ ${domain} resolvido para ${address} (IPv${family})`);
+        logger.info(`✅ ${domain} resolvido para ${address} (IPv${family})`);
         resolve({ domain, success: true, address });
       }
     });
@@ -24,4 +25,4 @@ const lookups = domains.map(domain => {
 });
 
 await Promise.all(lookups);
-console.log('Diagnóstico finalizado.');
+logger.info('Diagnóstico finalizado.');

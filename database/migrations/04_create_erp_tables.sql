@@ -1,4 +1,4 @@
--- Tabela de Configuração do Negócio (Para transformar DanceFlow em TattooFlow, etc)
+-- Tabela de Configuração do Negócio (Para transformar Workflow em TattooFlow, etc)
 CREATE TABLE IF NOT EXISTS organization_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     studio_id UUID REFERENCES studios(id) ON DELETE CASCADE,

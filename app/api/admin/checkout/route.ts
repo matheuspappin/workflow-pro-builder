@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { supabase } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 /**
  * Cria uma sessão de checkout do Stripe para planos do sistema (Studio -> Plataforma)
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (invoiceError) {
-      console.error('❌ Erro ao criar fatura do estúdio:', invoiceError);
+      logger.error('❌ Erro ao criar fatura do estúdio:', invoiceError);
       return NextResponse.json({ error: 'Erro ao gerar fatura' }, { status: 500 });
     }
 
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: 'brl',
             product_data: {
-              name: `Plano ${plan.name} - DanceFlow AI`,
+              name: `Plano ${plan.name} - Workflow AI`,
               description: plan.description,
             },
             unit_amount: Math.round(parseFloat(plan.price) * 100),
@@ -67,10 +68,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log(`💳 Checkout MESTRE criado para estúdio ${studioId} (Plano: ${planId})`);
+    logger.info(`💳 Checkout MESTRE criado para estúdio ${studioId} (Plano: ${planId})`);
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
-    console.error('💥 Erro ao criar checkout session mestre:', error);
+    logger.error('💥 Erro ao criar checkout session mestre:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

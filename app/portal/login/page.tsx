@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Sparkles, Eye, EyeOff, Loader2, ArrowLeft, User, GraduationCap } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import logger from "@/lib/logger"
 
 function PortalLoginContent() {
   const router = useRouter()
@@ -74,7 +75,7 @@ function PortalLoginContent() {
         })
       }
     } catch (error) {
-      console.error('Erro ao entrar:', error)
+      logger.error('Erro ao entrar:', error)
       toast({
         title: "Erro de conexão",
         description: "Verifique sua internet.",

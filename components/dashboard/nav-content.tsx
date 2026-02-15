@@ -1,4 +1,3 @@
-// components/dashboard/nav-content.tsx
 "use client"
 
 import Link from "next/link"
@@ -7,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import logger from "@/lib/logger"
 import {
   Sparkles,
   LayoutDashboard,
@@ -26,7 +26,13 @@ import {
   ShoppingBag,
   Lock,
   User2,
+  LifeBuoy,
+  Wrench,
+  Languages,
 } from "lucide-react"
+import { getNicheIcon } from "@/lib/niche-utils"
+import { useOrganization } from "@/components/providers/organization-provider"
+import { Button } from "@/components/ui/button"
 
 interface NavContentProps {
   collapsed?: boolean
@@ -36,39 +42,40 @@ interface NavContentProps {
 
 export function NavContent({ collapsed = false, onNavigate, isAffiliate = false }: NavContentProps) {
   const pathname = usePathname()
-  const { vocabulary, enabledModules, loading: vocabLoading } = useVocabulary()
+  const { vocabulary, enabledModules, niche, loading: vocabLoading } = useVocabulary()
+  const { language, setLanguage } = useOrganization()
 
   const dashboardMenuItems = [
     {
       id: 'dashboard',
       icon: LayoutDashboard,
-      label: "Dashboard",
+      label: language === 'pt' ? "Dashboard" : "Dashboard",
       href: "/dashboard"
     },
     {
       id: 'ao-vivo',
       icon: Video,
-      label: `${vocabulary.services} ao Vivo`,
+      label: language === 'pt' ? `${vocabulary.services} ao Vivo` : `Live ${vocabulary.services}`,
       href: "/dashboard/ao-vivo",
       module: 'classes'
     },
     {
       id: 'scanner',
       icon: QrCodeIcon,
-      label: "Scanner Portaria",
+      label: language === 'pt' ? "Scanner Portaria" : "Gate Scanner",
       href: "/dashboard/scanner",
       module: 'scanner'
     },
     {
       id: 'pos',
       icon: ShoppingCart,
-      label: "PDV (Vendas)",
+      label: language === 'pt' ? "PDV (Vendas)" : "POS (Sales)",
       href: "/dashboard/estoque",
       module: 'pos'
     },
     {
       id: 'students',
-      icon: Users,
+      icon: getNicheIcon(niche || 'dance', 'client'),
       label: `${vocabulary.clients}`,
       href: "/dashboard/alunos",
       module: 'students'
@@ -76,20 +83,20 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
     {
       id: 'leads',
       icon: TrendingUp,
-      label: "Leads (CRM)",
+      label: language === 'pt' ? "Leads (CRM)" : "Leads (CRM)",
       href: "/dashboard/leads",
       module: 'leads'
     },
     {
       id: 'teachers',
-      icon: GraduationCap,
+      icon: getNicheIcon(niche || 'dance', 'provider'),
       label: `${vocabulary.providers}`,
       href: "/dashboard/professores",
       module: 'classes'
     },
     {
       id: 'classes',
-      icon: Calendar,
+      icon: getNicheIcon(niche || 'dance', 'service'),
       label: `${vocabulary.services}`,
       href: "/dashboard/aulas",
       module: 'classes'
@@ -97,7 +104,7 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
     {
       id: 'financial',
       icon: DollarSign,
-      label: "Financeiro",
+      label: language === 'pt' ? "Financeiro" : "Financial",
       href: "/dashboard/financeiro",
       module: 'financial'
     },
@@ -116,6 +123,13 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
       module: 'erp'
     },
     {
+      id: 'service-orders',
+      icon: Wrench,
+      label: language === 'pt' ? "Ordens de Serviço" : "Service Orders",
+      href: "/dashboard/os",
+      module: 'service_orders'
+    },
+    {
       id: 'marketplace',
       icon: ShoppingBag,
       label: "Marketplace",
@@ -125,15 +139,21 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
     {
       id: 'ai_chat',
       icon: MessageSquare,
-      label: "Chat IA",
+      label: language === 'pt' ? "Chat IA" : "AI Chat",
       href: "/dashboard/chat",
       module: 'ai_chat'
     },
     {
       id: 'settings',
       icon: Settings,
-      label: "Configurações",
+      label: language === 'pt' ? "Configurações" : "Settings",
       href: "/dashboard/configuracoes"
+    },
+    {
+      id: 'support',
+      icon: LifeBuoy,
+      label: language === 'pt' ? "Suporte" : "Support",
+      href: "/dashboard/support"
     },
   ]
 
@@ -147,8 +167,14 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
     {
       id: 'affiliate-settings',
       icon: Settings,
-      label: "Configurações",
+      label: language === 'pt' ? "Configurações" : "Settings",
       href: "/portal/affiliate/settings"
+    },
+    {
+      id: 'affiliate-support',
+      icon: LifeBuoy,
+      label: language === 'pt' ? "Suporte" : "Support",
+      href: "/dashboard/support" 
     },
   ]
 
@@ -158,7 +184,7 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch (e) {
-      console.error('Erro ao limpar cookie de sessão:', e)
+      logger.error('Erro ao limpar cookie de sessão:', e)
     }
     localStorage.removeItem("danceflow_user")
     window.location.href = isAffiliate ? "/portal/affiliate/login" : "/login"
@@ -237,7 +263,22 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t border-sidebar-border">
+      <div className="p-2 border-t border-sidebar-border space-y-1">
+        <button
+          onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full",
+            "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <Languages className="w-5 h-5 flex-shrink-0" />
+          {!collapsed && (
+            <span className="text-sm font-medium">
+              {language === 'pt' ? '🇺🇸 English' : '🇧🇷 Português'}
+            </span>
+          )}
+        </button>
+
         <button
           onClick={handleLogout}
           className={cn(
@@ -246,7 +287,7 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
           )}
         >
           <LogOut className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Sair</span>}
+          {!collapsed && <span className="text-sm font-medium">{language === 'pt' ? 'Sair' : 'Logout'}</span>}
         </button>
       </div>
     </div>

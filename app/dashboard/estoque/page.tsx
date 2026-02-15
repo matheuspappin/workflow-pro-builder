@@ -21,12 +21,13 @@ import { useToast } from "@/hooks/use-toast"
 import { 
   getInventory, createProduct, registerTransaction, getRecentTransactions, Product, Transaction, getProductBySku, updateProduct, deleteProduct
 } from "@/lib/actions/inventory"
+import { processPosPayment } from "@/lib/actions/pos"
 import { getStudents } from "@/lib/database-utils"
 import { BarcodeScanner } from "@/components/dashboard/barcode-scanner"
 import { GLOBAL_SKU_LIST, type GlobalSku } from "@/lib/constants/global-skus"
 import { searchNcm, type Ncm } from "@/lib/services/brasil-api"
 import { validateGTIN } from "@/lib/validation-utils"
-import { MoreHorizontal, Trash2, Edit2, User, CreditCard, Banknote, QrCode, RefreshCw } from "lucide-react"
+import { MoreHorizontal, Trash2, Edit2, User, CreditCard, Banknote, QrCode, RefreshCw, Coins, Loader2 } from "lucide-react"
 import { ModuleGuard } from "@/components/providers/module-guard"
 import {
   DropdownMenu,
@@ -46,8 +47,10 @@ import {
 } from "@/components/ui/alert-dialog"
 
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { createClient } from "@/lib/supabase/client"
 
 export default function InventoryPage() {
+  const supabase = createClient()
   const { toast } = useToast()
   const { vocabulary } = useVocabulary()
   const [products, setProducts] = useState<Product[]>([])
@@ -55,6 +58,7 @@ export default function InventoryPage() {
   const [stats, setStats] = useState({ totalItems: 0, totalSalesValue: 0, potentialProfit: 0 })
   const [loading, setLoading] = useState(true)
   const [studioId, setStudioId] = useState<string | null>(null)
+  const [businessModel, setBusinessModel] = useState<'CREDIT' | 'MONETARY'>('CREDIT')
   
   // Modais
   const [isNewProductOpen, setIsNewProductOpen] = useState(false)
@@ -72,6 +76,7 @@ export default function InventoryPage() {
   const [isFinalizingSale, setIsFinalizingSale] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'money' | 'card' | 'pix' | null>(null)
+  const [modalPaymentMode, setModalPaymentMode] = useState<'CREDIT' | 'MONETARY'>('CREDIT')
   
   // Alunos para associação
   const [students, setStudents] = useState<any[]>([])
@@ -81,9 +86,31 @@ export default function InventoryPage() {
   // Busca PDV
   const [pdvSearchInput, setPdvSearchInput] = useState("")
   const [showPdvResults, setShowPdvResults] = useState(false)
+  const [amountReceived, setAmountReceived] = useState<number>(0)
+  const [change, setChange] = useState<number>(0)
+
+  useEffect(() => {
+    if (amountReceived > 0) {
+      const total = cart.reduce((acc, item) => acc + (item.product.selling_price * item.quantity), 0)
+      setChange(Math.max(0, amountReceived - total))
+    } else {
+      setChange(0)
+    }
+  }, [amountReceived, cart])
   
   // Formulários
-  const [newProduct, setNewProduct] = useState({ name: "", category: "Bebidas", min_quantity: 5, quantity: 0, cost_price: 0, selling_price: 0, sku: "", ncm: "" })
+  const [newProduct, setNewProduct] = useState({ 
+    name: "", 
+    category: "Bebidas", 
+    min_quantity: 5, 
+    quantity: 0, 
+    cost_price: 0, 
+    selling_price: 0, 
+    price_in_credits: 0,
+    price_in_currency: 0,
+    sku: "", 
+    ncm: "" 
+  })
   const [skuSearchQuery, setSkuSearchQuery] = useState("")
   const [showSkuGlobalResults, setShowSkuGlobalResults] = useState(false)
   const [ncmSearchQuery, setNcmSearchQuery] = useState("")
@@ -109,6 +136,18 @@ export default function InventoryPage() {
       const inventory = await getInventory(studioId!)
       const history = await getRecentTransactions(studioId!)
       const studentsData = await getStudents({ studioId: studioId!, limit: 100 })
+      
+      // Carregar modelo de negócio
+      const { data: studioData } = await supabase
+        .from('studios')
+        .select('business_model')
+        .eq('id', studioId)
+        .single()
+      
+      if (studioData) {
+        setBusinessModel(studioData.business_model as 'CREDIT' | 'MONETARY' || 'CREDIT')
+      }
+
       setProducts(inventory.products)
       setStats(inventory.stats as any)
       setTransactions(history)
@@ -118,6 +157,10 @@ export default function InventoryPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const formatPrice = (price: number) => {
+    return `R$ ${price.toFixed(2)}`
   }
 
   const handleCreateProduct = async () => {
@@ -154,29 +197,51 @@ export default function InventoryPage() {
 
   const handleOpenPaymentModal = () => {
     if (cart.length === 0) return
+    setModalPaymentMode(businessModel) // Resetar para o padrão do estúdio
     setIsPaymentModalOpen(true)
   }
 
   const handleFinalizeSaleWithPayment = async () => {
-    if (!paymentMethod) {
+    // Usamos modalPaymentMode para decidir a validação e o fluxo
+    const mode = modalPaymentMode || businessModel;
+
+    if (mode === 'MONETARY' && !paymentMethod) {
       toast({ title: "Selecione um método de pagamento", variant: "destructive" })
       return
     }
+    
+    if (mode === 'CREDIT' && !selectedStudentId) {
+      toast({ title: "Selecione um aluno para debitar os créditos", variant: "destructive" })
+      return
+    }
+
     setIsFinalizingSale(true)
     try {
-      for (const item of cart) {
-        await registerTransaction(
-          item.product.id,
-          'sale',
-          item.quantity,
-          'Venda PDV Local',
-          studioId!,
-          undefined,
-          paymentMethod, // Passar o método de pagamento
-          selectedStudentId || undefined // Passar o ID do aluno
-        )
+      const items = cart.map(item => ({
+        id: item.product.id,
+        name: item.product.name,
+        priceInCredits: (item.product as any).price_in_credits || 0,
+        priceInCurrency: item.product.selling_price || 0,
+        quantity: item.quantity,
+        type: 'product' as const
+      }))
+
+      // Se for MONETARY, paymentMethod estará preenchido (money, pix, card)
+      // Se for CREDIT, passamos 'credit' explicitamente para o backend saber
+      const method = mode === 'MONETARY' ? paymentMethod! : 'credit';
+
+      const result = await processPosPayment(
+        studioId!,
+        selectedStudentId === 'none' ? null : selectedStudentId,
+        items,
+        method
+      )
+
+      if (!result.success) {
+        throw new Error(result.message || result.error)
       }
-      toast({ title: "Venda finalizada com sucesso!", description: `${cart.length} itens vendidos.` })
+
+      toast({ title: "Venda finalizada com sucesso!", description: result.message })
       setCart([])
       setPaymentMethod(null)
       setSelectedStudentId(null)
@@ -606,7 +671,7 @@ export default function InventoryPage() {
                     onClick={() => addToCart(p)}
                   >
                     <span className="text-xs font-bold truncate w-full text-center">{p.name}</span>
-                    <span className="text-primary font-bold">R$ {p.selling_price.toFixed(2)}</span>
+                    <span className="text-primary font-bold">{formatPrice(p.selling_price)}</span>
                   </Button>
                 ))}
              </div>
@@ -795,12 +860,24 @@ export default function InventoryPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label>Preço de Custo (R$)</Label>
-                      <Input type="number" step="0.01" value={newProduct.cost_price} onChange={e => setNewProduct({...newProduct, cost_price: parseFloat(e.target.value)})} />
+                      <Label>Preço de Venda (R$)</Label>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        value={newProduct.selling_price || newProduct.price_in_currency} 
+                        onChange={e => {
+                          const val = parseFloat(e.target.value);
+                          setNewProduct({...newProduct, selling_price: val, price_in_currency: val});
+                        }} 
+                      />
                     </div>
                     <div className="grid gap-2">
-                      <Label>Preço de Venda (R$)</Label>
-                      <Input type="number" step="0.01" value={newProduct.selling_price} onChange={e => setNewProduct({...newProduct, selling_price: parseFloat(e.target.value)})} />
+                      <Label>Preço em Créditos</Label>
+                      <Input 
+                        type="number" 
+                        value={newProduct.price_in_credits} 
+                        onChange={e => setNewProduct({...newProduct, price_in_credits: parseInt(e.target.value)})} 
+                      />
                     </div>
                   </div>
                   <div className="grid gap-2 bg-primary/5 p-3 rounded-lg border border-primary/20">
@@ -866,21 +943,23 @@ export default function InventoryPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label>Preço de Custo (R$)</Label>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          value={editingProduct.cost_price} 
-                          onChange={e => setEditingProduct({...editingProduct, cost_price: e.target.value === '' ? 0 : parseFloat(e.target.value)})} 
-                        />
-                      </div>
-                      <div className="grid gap-2">
                         <Label>Preço de Venda (R$)</Label>
                         <Input 
                           type="number" 
                           step="0.01" 
                           value={editingProduct.selling_price} 
-                          onChange={e => setEditingProduct({...editingProduct, selling_price: e.target.value === '' ? 0 : parseFloat(e.target.value)})} 
+                          onChange={e => {
+                            const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                            setEditingProduct({...editingProduct, selling_price: val, price_in_currency: val});
+                          }} 
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Preço em Créditos</Label>
+                        <Input 
+                          type="number" 
+                          value={(editingProduct as any).price_in_credits || 0} 
+                          onChange={e => setEditingProduct({...editingProduct, price_in_credits: e.target.value === '' ? 0 : parseInt(e.target.value)})} 
                         />
                       </div>
                     </div>
@@ -953,7 +1032,7 @@ export default function InventoryPage() {
                             {product.quantity}
                           </span>
                         </td>
-                        <td className="p-3 text-right font-medium">R$ {product.selling_price.toFixed(2)}</td>
+                        <td className="p-3 text-right font-medium">{formatPrice(product.selling_price)}</td>
                         <td className="p-3 text-center">
                           {product.quantity === 0 ? (
                             <Badge variant="destructive">Esgotado</Badge>
@@ -1045,7 +1124,7 @@ export default function InventoryPage() {
                   <div key={item.product.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700">
                     <div className="flex-1 min-w-0 mr-2">
                       <p className="font-medium text-sm truncate">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground font-bold text-primary">R$ {item.product.selling_price.toFixed(2)} / un</p>
+                      <p className="text-xs text-muted-foreground font-bold text-primary">{formatPrice(item.product.selling_price)} / un</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center border rounded-md h-8 bg-slate-50">
@@ -1088,11 +1167,11 @@ export default function InventoryPage() {
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>R$ {cart.reduce((acc, item) => acc + (item.product.selling_price * item.quantity), 0).toFixed(2)}</span>
+                  <span>{formatPrice(cart.reduce((acc, item) => acc + (item.product.selling_price * item.quantity), 0))}</span>
                 </div>
                 <div className="flex justify-between text-xl font-black">
                   <span>TOTAL</span>
-                  <span className="text-primary">R$ {cart.reduce((acc, item) => acc + (item.product.selling_price * item.quantity), 0).toFixed(2)}</span>
+                  <span className="text-primary">{formatPrice(cart.reduce((acc, item) => acc + (item.product.selling_price * item.quantity), 0))}</span>
                 </div>
               </div>
               <Button 
@@ -1112,38 +1191,85 @@ export default function InventoryPage() {
               <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
                 <DialogContent className="sm:max-w-[400px]">
                   <DialogHeader>
-                    <DialogTitle className="text-center text-xl font-bold">Como o {vocabulary.client.toLowerCase()} pagou?</DialogTitle>
+                    <DialogTitle className="text-center text-xl font-bold">
+                      {businessModel === 'MONETARY' 
+                        ? `Como o ${vocabulary.client.toLowerCase()} pagou?` 
+                        : `Confirmar débito de créditos?`}
+                    </DialogTitle>
                   </DialogHeader>
-                  <div className="grid grid-cols-1 gap-3 py-6">
-                    <Button 
-                      variant={paymentMethod === 'money' ? 'default' : 'outline'}
-                      className={`h-16 text-lg justify-start px-6 gap-4 ${paymentMethod === 'money' ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                      onClick={() => setPaymentMethod('money')}
-                    >
-                      <Banknote className="w-8 h-8" /> Dinheiro
-                    </Button>
-                    <Button 
-                      variant={paymentMethod === 'pix' ? 'default' : 'outline'}
-                      className={`h-16 text-lg justify-start px-6 gap-4 ${paymentMethod === 'pix' ? 'bg-cyan-600 hover:bg-cyan-700 text-white' : ''}`}
-                      onClick={() => setPaymentMethod('pix')}
-                    >
-                      <QrCode className="w-8 h-8" /> PIX
-                    </Button>
-                    <Button 
-                      variant={paymentMethod === 'card' ? 'default' : 'outline'}
-                      className={`h-16 text-lg justify-start px-6 gap-4 ${paymentMethod === 'card' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                      onClick={() => setPaymentMethod('card')}
-                    >
-                      <CreditCard className="w-8 h-8" /> Cartão (Crédito/Débito)
-                    </Button>
-                  </div>
+                  
+                  {businessModel === 'MONETARY' ? (
+                    <div className="grid grid-cols-1 gap-3 py-6">
+                      <Button 
+                        variant={paymentMethod === 'money' ? 'default' : 'outline'}
+                        className={`h-16 text-lg justify-start px-6 gap-4 ${paymentMethod === 'money' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                        onClick={() => setPaymentMethod('money')}
+                      >
+                        <Banknote className="w-8 h-8" /> Dinheiro
+                      </Button>
+
+                      {paymentMethod === 'money' && (
+                        <div className="p-4 bg-slate-50 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-2">
+                          <div className="space-y-2">
+                            <Label>Valor Recebido</Label>
+                            <Input 
+                              type="number" 
+                              step="0.01" 
+                              placeholder="R$ 0,00" 
+                              value={amountReceived || ''}
+                              onChange={(e) => setAmountReceived(parseFloat(e.target.value))}
+                              className="text-lg h-12"
+                            />
+                          </div>
+                          {change > 0 && (
+                            <div className="flex justify-between items-center p-3 bg-green-100 rounded border border-green-200">
+                              <span className="font-bold text-green-800">TROCO:</span>
+                              <span className="text-xl font-black text-green-900">R$ {change.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <Button 
+                        variant={paymentMethod === 'pix' ? 'default' : 'outline'}
+                        className={`h-16 text-lg justify-start px-6 gap-4 ${paymentMethod === 'pix' ? 'bg-cyan-600 hover:bg-cyan-700 text-white' : ''}`}
+                        onClick={() => setPaymentMethod('pix')}
+                      >
+                        <QrCode className="w-8 h-8" /> PIX
+                      </Button>
+                      <Button 
+                        variant={paymentMethod === 'card' ? 'default' : 'outline'}
+                        className={`h-16 text-lg justify-start px-6 gap-4 ${paymentMethod === 'card' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                        onClick={() => setPaymentMethod('card')}
+                      >
+                        <CreditCard className="w-8 h-8" /> Cartão (Crédito/Débito)
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center space-y-4">
+                      <div className="p-6 bg-yellow-50 rounded-full w-24 h-24 mx-auto flex items-center justify-center">
+                        <Coins className="w-12 h-12 text-yellow-500" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-medium">Total a debitar:</p>
+                        <p className="text-3xl font-black text-primary">
+                          {cart.reduce((acc, item) => acc + (item.product.selling_price * item.quantity), 0)} Créditos
+                        </p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        O saldo do aluno <strong>{students.find(s => s.id === selectedStudentId)?.name}</strong> será atualizado imediatamente.
+                      </p>
+                    </div>
+                  )}
+
                   <DialogFooter>
                     <Button 
                       className="w-full h-12 text-lg font-bold"
                       onClick={handleFinalizeSaleWithPayment} 
-                      disabled={!paymentMethod || isFinalizingSale}
+                      disabled={(businessModel === 'MONETARY' && !paymentMethod) || isFinalizingSale}
                     >
-                      Confirmar e Finalizar
+                      {isFinalizingSale ? <Loader2 className="animate-spin mr-2" /> : null}
+                      {businessModel === 'MONETARY' ? 'Confirmar e Finalizar' : 'Confirmar Débito'}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

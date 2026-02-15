@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import logger from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -21,7 +22,7 @@ export async function GET() {
 
     if (!response.ok) {
       const errorData = await response.json()
-      console.error('Erro ao buscar modelos do Gemini:', errorData)
+      logger.error('Erro ao buscar modelos do Gemini:', errorData)
       return NextResponse.json(
         { error: 'Erro ao buscar modelos disponíveis' },
         { status: 500 }
@@ -29,7 +30,7 @@ export async function GET() {
     }
 
     const data = await response.json()
-    console.log('📋 Modelos disponíveis:', data.models?.map((m: any) => m.name) || 'Nenhum modelo encontrado')
+    logger.info('📋 Modelos disponíveis:', data.models?.map((m: any) => m.name) || 'Nenhum modelo encontrado')
 
     // Filtrar apenas modelos do Gemini que suportam generateContent
     const geminiModels = data.models
@@ -45,7 +46,7 @@ export async function GET() {
       }))
       .sort((a: any, b: any) => b.version.localeCompare(a.version)) // Ordenar por versão mais recente
 
-    console.log('🎯 Modelos Gemini filtrados:', geminiModels.map(m => m.id))
+    logger.info('🎯 Modelos Gemini filtrados:', geminiModels.map(m => m.id))
 
     return NextResponse.json({
       models: geminiModels,
@@ -54,7 +55,7 @@ export async function GET() {
     })
 
   } catch (error) {
-    console.error('Erro no servidor ao buscar modelos:', error)
+    logger.error('Erro no servidor ao buscar modelos:', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

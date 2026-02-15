@@ -111,7 +111,7 @@ export default function TenantDetailPage() {
     setNiche(newNiche)
     // Acoplar lógica: Ao trocar o nicho, sugerimos o vocabulário padrão
     // mas o usuário ainda poderá salvar
-    toast.info(`Nicho alterado para ${nicheDictionary[newNiche].name}. O vocabulário será atualizado ao salvar.`)
+    toast.info(`Nicho alterado para ${nicheDictionary.pt[newNiche].name}. O vocabulário será atualizado ao salvar.`)
   }
 
   const handleSaveSettings = async () => {
@@ -121,10 +121,10 @@ export default function TenantDetailPage() {
       
       // Lógica de Acoplamento: Gerar vocabulário baseado no nicho selecionado
       const newVocab = {
-        client: nicheDictionary[niche].client,
-        provider: nicheDictionary[niche].provider,
-        service: nicheDictionary[niche].service,
-        establishment: nicheDictionary[niche].establishment
+        client: nicheDictionary.pt[niche].client,
+        provider: nicheDictionary.pt[niche].provider,
+        service: nicheDictionary.pt[niche].service,
+        establishment: nicheDictionary.pt[niche].establishment
       }
 
       await updateTenantSettings(params.id as string, { 
@@ -173,7 +173,7 @@ export default function TenantDetailPage() {
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>
   if (!tenant) return <div>Tenant não encontrado</div>
 
-  const vocab = nicheDictionary[niche]
+  const vocab = nicheDictionary.pt[niche]
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
@@ -257,7 +257,7 @@ export default function TenantDetailPage() {
                         <SelectValue placeholder="Selecione o nicho" />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(nicheDictionary).map(([key, value]) => (
+                        {Object.entries(nicheDictionary.pt).map(([key, value]) => (
                           <SelectItem key={key} value={key}>
                             {value.name}
                           </SelectItem>

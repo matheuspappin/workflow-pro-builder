@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import logger from '@/lib/logger';
 
 /**
  * CRON PARA ENVIO DE LEMBRETES DE AULA E CONFIRMAÇÃO
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, messagesSent })
   } catch (error: any) {
-    console.error('💥 Erro no Cron de Lembretes:', error)
+    logger.error('💥 Erro no Cron de Lembretes:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

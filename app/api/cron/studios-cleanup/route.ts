@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import logger from '@/lib/logger';
 
 /**
  * CRON JOB: Limpeza e Gerenciamento de Ciclo de Vida dos Estúdios
@@ -14,7 +15,7 @@ export async function GET() {
     const now = new Date().toISOString()
     const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
 
-    console.log(`[CRON] Iniciando limpeza de estúdios: ${now}`)
+    logger.info(`[CRON] Iniciando limpeza de estúdios: ${now}`)
 
     // 1. DESATIVAÇÃO: Estúdios com Trial vencido
     // Regra: trial_ends_at < agora E subscription_status não é 'active' E status é 'active'
@@ -30,9 +31,9 @@ export async function GET() {
       .select('id, name')
 
     if (deactivateError) {
-      console.error('[CRON] Erro ao desativar estúdios:', deactivateError)
+      logger.error('[CRON] Erro ao desativar estúdios:', deactivateError)
     } else if (toDeactivate?.length) {
-      console.log(`[CRON] ${toDeactivate.length} estúdios desativados por fim de trial.`)
+      logger.info(`[CRON] ${toDeactivate.length} estúdios desativados por fim de trial.`)
     }
 
     // 2. EXCLUSÃO: Estúdios inativos há mais de 15 dias
@@ -47,9 +48,9 @@ export async function GET() {
       .select('id, name')
 
     if (deleteError) {
-      console.error('[CRON] Erro ao excluir estúdios:', deleteError)
+      logger.error('[CRON] Erro ao excluir estúdios:', deleteError)
     } else if (toDelete?.length) {
-      console.log(`[CRON] ${toDelete.length} estúdios excluídos permanentemente por inatividade prolongada.`)
+      logger.info(`[CRON] ${toDelete.length} estúdios excluídos permanentemente por inatividade prolongada.`)
     }
 
     return NextResponse.json({
@@ -60,7 +61,7 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error('[CRON] Erro fatal no job de limpeza:', error)
+    logger.error('[CRON] Erro fatal no job de limpeza:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

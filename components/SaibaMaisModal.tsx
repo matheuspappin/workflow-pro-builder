@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Modal, ModalContent, ModalTrigger } from "@/components/ui/modal";
 import { Play } from "lucide-react";
 
-export function SaibaMaisModal() {
+export function SaibaMaisModal({ lang = 'pt' }: { lang?: 'pt' | 'en' }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -13,7 +13,7 @@ export function SaibaMaisModal() {
       <ModalTrigger asChild>
         <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-full hover:bg-muted/50 transition-all hover:scale-105 group">
           <Play className="mr-2 w-5 h-5 fill-current opacity-50 group-hover:opacity-100 transition-opacity" />
-          Saiba Mais
+          {lang === 'pt' ? 'Saiba Mais' : 'Learn More'}
         </Button>
       </ModalTrigger>
       <ModalContent className="max-w-3xl">

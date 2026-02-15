@@ -1,4 +1,4 @@
-# 💬 Sistema de Contexto do Chat - DanceFlow AI
+# 💬 Sistema de Contexto do Chat - Workflow AI
 
 ## ❌ Problema Anterior
 O chat IA **perdia completamente o contexto** quando:
@@ -63,7 +63,7 @@ useEffect(() => {
 #### Interface:
 ```jsx
 <CardTitle className="flex items-center gap-2">
-  Assistente DanceFlow
+  Assistente Workflow AI
   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
     💾 Contexto salvo
   </span>

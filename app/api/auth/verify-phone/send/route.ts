@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (dbError) {
-      console.error('❌ Erro ao salvar código no banco:', dbError)
+      logger.error('❌ Erro ao salvar código no banco:', dbError)
       return NextResponse.json({ error: 'Erro ao gerar código de verificação' }, { status: 500 })
     }
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       </div>
     `
 
-    console.log(`📧 Enviando código ${code} para ${email}...`)
+    logger.info(`📧 Enviando código ${code} para ${email}...`)
 
     const { success, error: emailError } = await sendEmail({
       to: email,
@@ -79,12 +80,12 @@ export async function POST(request: NextRequest) {
     })
 
     if (!success) {
-      console.log('-----------------------------------------')
-      console.log('⚠️ FALHA NO ENVIO DE E-MAIL')
-      console.log(`PARA O E-MAIL: ${email}`)
-      console.log(`CÓDIGO DE VERIFICAÇÃO: ${code}`)
-      console.log(`ERRO: ${emailError}`)
-      console.log('-----------------------------------------')
+      logger.warn('-----------------------------------------')
+      logger.warn('⚠️ FALHA NO ENVIO DE E-MAIL')
+      logger.warn(`PARA O E-MAIL: ${email}`)
+      logger.warn(`CÓDIGO DE VERIFICAÇÃO: ${code}`)
+      logger.warn(`ERRO: ${emailError}`)
+      logger.warn('-----------------------------------------')
       
       // Em desenvolvimento, retornamos sucesso se falhar o envio (para teste sem SMTP configurado)
       if (process.env.NODE_ENV === 'development') {
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: 'Código enviado para seu e-mail!' })
 
   } catch (error) {
-    console.error('💥 Erro fatal no envio de código:', error)
+    logger.error('💥 Erro fatal no envio de código:', error)
     return NextResponse.json({ error: 'Erro interno ao processar solicitação' }, { status: 500 })
   }
 }

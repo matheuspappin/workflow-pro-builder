@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import logger from '@/lib/logger';
 dotenv.config();
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -7,7 +8,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function checkUser(email) {
-  console.log(`Checking email: ${email}`);
+  logger.info(`Checking email: ${email}`);
   
   // Check users_internal
   const { data: internal, error: internalError } = await supabase
@@ -16,8 +17,8 @@ async function checkUser(email) {
     .eq('email', email)
     .maybeSingle();
     
-  if (internalError) console.error('Error users_internal:', internalError);
-  console.log('users_internal:', internal);
+  if (internalError) logger.error('Error users_internal:', internalError);
+  logger.debug('users_internal:', internal);
 
   // Check students
   const { data: student, error: studentError } = await supabase
@@ -26,8 +27,8 @@ async function checkUser(email) {
     .eq('email', email)
     .maybeSingle();
     
-  if (studentError) console.error('Error students:', studentError);
-  console.log('students:', student);
+  if (studentError) logger.error('Error students:', studentError);
+  logger.debug('students:', student);
 
   // Check teachers
   const { data: teacher, error: teacherError } = await supabase
@@ -36,9 +37,9 @@ async function checkUser(email) {
     .eq('email', email)
     .maybeSingle();
     
-  if (teacherError) console.error('Error teachers:', teacherError);
-  console.log('teachers:', teacher);
+  if (teacherError) logger.error('Error teachers:', teacherError);
+  logger.debug('teachers:', teacher);
 }
 
-const email = process.argv[2] || 'vendaslachef@gmail.com';
+const email = process.argv[2] || process.env.CHECK_USER_EMAIL || 'user@example.com';
 checkUser(email);

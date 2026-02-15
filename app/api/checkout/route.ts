@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { supabase } from '@/lib/supabase';
 import Stripe from 'stripe';
+import logger from '@/lib/logger';
 
 /**
  * Cria uma sessão de checkout do Stripe para mensalidades de alunos
@@ -26,13 +27,13 @@ export async function POST(req: NextRequest) {
     
     // Se o estúdio tiver sua própria Secret Key (salva como api_key), criamos um cliente específico
     if (studioKeys?.api_key) {
-      console.log(`💳 Usando Stripe do Admin (Estúdio: ${studioId}) - Chave personalizada`);
+      logger.info(`💳 Usando Stripe do Admin (Estúdio: ${studioId}) - Chave personalizada`);
       stripeClient = new Stripe(studioKeys.api_key, {
         apiVersion: '2025-01-27.acacia' as any,
         typescript: true,
       });
     } else {
-      console.log(`💳 Usando Stripe Global do DanceFlow (Fallback)`);
+      logger.info(`💳 Usando Stripe Global do Workflow AI (Fallback)`);
       stripeClient = getStripe();
     }
 
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
-    console.error('💥 Erro ao criar checkout session:', error);
+    logger.error('💥 Erro ao criar checkout session:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    const { data: users, error } = await supabase
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: users, error } = await supabaseAdmin
       .from('users_internal')
       .select(`
         *,
@@ -13,7 +22,7 @@ export async function GET(request: NextRequest) {
       `)
       .order('created_at', { ascending: false })
 
-    const { data: students, error: studentError } = await supabase
+    const { data: students, error: studentError } = await supabaseAdmin
       .from('students')
       .select(`
         *,
@@ -24,7 +33,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (error || studentError) {
-      console.warn('⚠️ Erro ao buscar usuários ou alunos:', error?.message || studentError?.message)
+      logger.warn('⚠️ Erro ao buscar usuários ou alunos:', error?.message || studentError?.message)
       return NextResponse.json([])
     }
 
@@ -57,27 +66,51 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(allUsers)
   } catch (error: any) {
-    console.error('💥 Erro na API Admin Users:', error)
+    logger.error('💥 Erro na API Admin Users:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, role, studioId, status = 'active' } = await request.json()
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!name || !email || !password || !role || !studioId) {
-      return NextResponse.json({ error: 'Campos obrigatórios ausentes' }, { status: 400 })
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: newUser, error } = await supabase
+    const { name, email, password, role, studioId, status = 'active' } = await request.json()
+
+    if (!name || !email || !password || !role || (role !== 'super_admin' && !studioId)) {
+      return NextResponse.json({ error: 'Campos obrigatórios ausentes ou estúdio não selecionado para função não-global' }, { status: 400 })
+    }
+
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { name, role, studio_id: role === 'super_admin' ? null : studioId }
+    })
+
+    if (authError) {
+      if (authError.message.includes('User already registered')) {
+        return NextResponse.json({ error: 'Este e-mail já está em uso.' }, { status: 400 })
+      }
+      logger.error('💥 Erro ao criar usuário no Auth Supabase:', authError)
+      return NextResponse.json({ error: authError.message }, { status: 500 })
+    }
+
+    // Inserir na tabela users_internal com o ID do auth.users
+    const { data: newUser, error } = await supabaseAdmin
       .from('users_internal')
       .insert({
+        id: authUser.user?.id, // Usar o ID retornado pela criação no auth.users
         name,
         email,
-        password,
+        phone: null, // Pode ser adicionado posteriormente
         role,
-        studio_id: studioId,
+        studio_id: role === 'super_admin' ? null : studioId, // studio_id é nulo para super_admin
         status
       })
       .select()
@@ -92,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, user: newUser })
   } catch (error: any) {
-    console.error('💥 Erro ao criar usuário admin:', error)
+    logger.error('💥 Erro ao criar usuário admin:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

@@ -1,8 +1,8 @@
-# 🎉 DanceFlow AI - Integração Completa com Supabase
+# 🎉 Workflow AI - Integração Completa com Supabase
 
 ## ✅ **INTEGRAÇÃO CONCLUÍDA COM SUCESSO!**
 
-O sistema DanceFlow AI agora está **100% integrado** com o Supabase! Todas as tabelas foram criadas, dados populados e funcionalidades conectadas ao banco de dados.
+O sistema Workflow AI agora está **100% integrado** com o Supabase! Todas as tabelas foram criadas, dados populados e funcionalidades conectadas ao banco de dados.
 
 ---
 
@@ -225,7 +225,7 @@ $$ LANGUAGE plpgsql;
 
 ---
 
-## 🚀 **DanceFlow AI - TOTALMENTE OPERACIONAL!**
+## 🚀 **Workflow AI - TOTALMENTE OPERACIONAL!**
 
 **🎯 Missão cumprida:** Sistema de gestão de estúdios de dança profissional, moderno e inteligente, totalmente integrado com banco de dados PostgreSQL no Supabase!
 

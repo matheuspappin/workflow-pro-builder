@@ -16,6 +16,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
 
+import { useOrganization } from "@/components/providers/organization-provider"
+
 interface HeaderProps {
   title: string
   children?: React.ReactNode
@@ -29,9 +31,24 @@ interface UserData {
 
 export function Header({ title, children }: HeaderProps) {
   const router = useRouter()
+  const { language } = useOrganization()
   const [user, setUser] = useState<UserData | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [loadingNotifications, setLoadingNotifications] = useState(true)
+
+  const t = {
+    searchPlaceholder: language === 'pt' ? "Buscar alunos, turmas..." : "Search students, classes...",
+    notifications: language === 'pt' ? "Notificações" : "Notifications",
+    newNotifications: language === 'pt' ? "novas" : "new",
+    loading: language === 'pt' ? "Carregando..." : "Loading...",
+    noNotifications: language === 'pt' ? "Nenhuma notificação por aqui." : "No notifications here.",
+    viewAll: language === 'pt' ? "Ver Todas" : "View All",
+    myAccount: language === 'pt' ? "Minha Conta" : "My Account",
+    adminProfile: language === 'pt' ? "Perfil Admin" : "Admin Profile",
+    systemSettings: language === 'pt' ? "Configurações do Sistema" : "System Settings",
+    logout: language === 'pt' ? "Sair" : "Logout",
+    dashboard: language === 'pt' ? "Dashboard" : "Dashboard"
+  }
 
   useEffect(() => {
     const userData = localStorage.getItem("danceflow_user")
@@ -86,7 +103,7 @@ export function Header({ title, children }: HeaderProps) {
   return (
     <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold text-card-foreground">{title}</h1>
+        <h1 className="text-xl font-semibold text-card-foreground">{title === 'Dashboard' ? t.dashboard : title}</h1>
         {children}
       </div>
 
@@ -95,7 +112,7 @@ export function Header({ title, children }: HeaderProps) {
         <div className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar alunos, turmas..."
+            placeholder={t.searchPlaceholder}
             className="w-64 pl-9 bg-background"
           />
         </div>
@@ -114,12 +131,12 @@ export function Header({ title, children }: HeaderProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <div className="flex items-center justify-between p-4 border-b border-border">
-               <span className="font-bold text-sm">Notificações</span>
-               {unreadCount > 0 && <Badge variant="secondary" className="text-[10px]">{unreadCount} novas</Badge>}
+               <span className="font-bold text-sm">{t.notifications}</span>
+               {unreadCount > 0 && <Badge variant="secondary" className="text-[10px]">{unreadCount} {t.newNotifications}</Badge>}
             </div>
             <div className="max-h-[300px] overflow-y-auto">
               {loadingNotifications ? (
-                <div className="p-4 text-center text-xs text-muted-foreground italic">Carregando...</div>
+                <div className="p-4 text-center text-xs text-muted-foreground italic">{t.loading}</div>
               ) : notifications.length > 0 ? (
                 notifications.map((notification) => (
                   <DropdownMenuItem 
@@ -145,13 +162,13 @@ export function Header({ title, children }: HeaderProps) {
                 ))
               ) : (
                 <div className="p-8 text-center text-xs text-muted-foreground">
-                   Nenhuma notificação por aqui.
+                   {t.noNotifications}
                 </div>
               )}
             </div>
             {notifications.length > 0 && (
               <div className="p-2 border-t border-border">
-                 <Button variant="ghost" className="w-full h-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ver Todas</Button>
+                 <Button variant="ghost" className="w-full h-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t.viewAll}</Button>
               </div>
             )}
           </DropdownMenuContent>
@@ -165,28 +182,28 @@ export function Header({ title, children }: HeaderProps) {
                 <User className="w-4 h-4 text-primary" />
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-foreground">{user?.name || "Usuario"}</p>
+                <p className="text-sm font-medium text-foreground">{user?.name || (language === 'pt' ? "Usuário" : "User")}</p>
                 <p className="text-xs text-muted-foreground">{user?.studioName || "Studio"}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+            <DropdownMenuLabel>{t.myAccount}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push("/dashboard/configuracoes")}>
               <UserCircle className="w-4 h-4 mr-2" />
-              Perfil Admin
+              {t.adminProfile}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/dashboard/configuracoes?tab=estudio")}>
               <Settings className="w-4 h-4 mr-2" />
-              Configurações do Sistema
+              {t.systemSettings}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}
               className="text-destructive"
             >
-              Sair
+              {t.logout}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

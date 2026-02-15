@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import logger from '@/lib/logger';
 
 interface SendEmailOptions {
   to: string;
@@ -27,10 +28,10 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
       html,
     });
 
-    console.log('✅ E-mail enviado:', info.messageId);
+    logger.info('✅ E-mail enviado:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error: any) {
-    console.error('❌ Erro ao enviar e-mail:', error);
+    logger.error('❌ Erro ao enviar e-mail:', error);
     return { success: false, error: error.message };
   }
 }

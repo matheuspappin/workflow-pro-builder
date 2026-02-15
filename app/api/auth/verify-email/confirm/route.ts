@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('💥 Erro fatal na verificação de código:', error)
+    logger.error('💥 Erro fatal na verificação de código:', error)
     return NextResponse.json({ error: 'Erro interno ao processar verificação' }, { status: 500 })
   }
 }

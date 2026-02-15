@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { notifyLowCredits } from '@/lib/whatsapp';
+import logger from '@/lib/logger';
 
 /**
  * CRON JOB: Processa alunos que confirmaram presença mas não compareceram (No-Show)
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('❌ Erro no processamento de No-Shows:', error);
+    logger.error('❌ Erro no processamento de No-Shows:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

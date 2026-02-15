@@ -1,10 +1,11 @@
 /**
- * DanceFlow AI - WhatsApp Integration Library
+ * Workflow AI - WhatsApp Integration Library
  * Esta biblioteca centraliza o envio de mensagens e formatação de payloads.
  */
 
 import { supabase } from '@/lib/supabase'
 import { guardModule } from '@/lib/modules-server'
+import logger from '@/lib/logger';
 
 interface SendMessageOptions {
   to: string;
@@ -33,7 +34,7 @@ export async function sendWhatsAppMessage({ to, message, studioId }: SendMessage
       instanceId = studioKeys.instance_id || (studioKeys as any).studio?.slug ? `df_${(studioKeys as any).studio.slug}` : 'danceflow';
     } else {
       // Se é uma mensagem de estúdio e ele não tem API configurada, NÃO enviamos
-      console.warn(`⚠️ WhatsApp do Estúdio ${studioId} não configurado. Fallback para SuperAdmin bloqueado.`);
+      logger.warn(`⚠️ WhatsApp do Estúdio ${studioId} não configurado. Fallback para SuperAdmin bloqueado.`);
       return { success: false, error: 'A API de WhatsApp do estúdio não está configurada.' };
     }
   } else {
@@ -45,7 +46,7 @@ export async function sendWhatsAppMessage({ to, message, studioId }: SendMessage
   }
 
   if (!apiKey || !apiUrl) {
-    console.warn('⚠️ WhatsApp API não configurada. Mensagem não enviada:', { to, message, studioId });
+    logger.warn('⚠️ WhatsApp API não configurada. Mensagem não enviada:', { to, message, studioId });
     return { success: false, error: 'Configurações de API ausentes' };
   }
 
@@ -68,7 +69,7 @@ export async function sendWhatsAppMessage({ to, message, studioId }: SendMessage
     });
 
     const result = await response.json();
-    console.log('📤 Resposta do envio WhatsApp:', JSON.stringify(result, null, 2));
+    logger.info('📤 Resposta do envio WhatsApp:', JSON.stringify(result, null, 2));
     
     // Evolution API retorna status: 201 Created quando envia com sucesso
     if (response.ok || response.status === 201) {
@@ -77,7 +78,7 @@ export async function sendWhatsAppMessage({ to, message, studioId }: SendMessage
     
     return { success: false, error: result };
   } catch (error) {
-    console.error('❌ Erro ao enviar mensagem WhatsApp:', error);
+    logger.error('❌ Erro ao enviar mensagem WhatsApp:', error);
     return { success: false, error };
   }
 }
@@ -93,7 +94,7 @@ export async function getWhatsAppConnection(studioId: string) {
     const instanceId = 'danceflow';
     const baseUrl = (process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081').split('/message')[0].replace(/\/$/, "");
 
-    console.log(`📡 Verificando instância SuperAdmin: ${instanceId} em ${baseUrl}`);
+    logger.info(`📡 Verificando instância SuperAdmin: ${instanceId} em ${baseUrl}`);
     return await handleWhatsAppInstance(instanceId, apiKey, baseUrl);
   }
 
@@ -108,7 +109,7 @@ export async function getWhatsAppConnection(studioId: string) {
   // Se não tiver chaves do estúdio, não usamos a do SuperAdmin como fallback aqui
   // pois esta função é usada para gerenciar instâncias de estúdios específicos
   if (!studioKeys || !studioKeys.api_key) {
-    console.error(`❌ Chaves de WhatsApp não encontradas para o estúdio: ${studioId}`);
+    logger.error(`❌ Chaves de WhatsApp não encontradas para o estúdio: ${studioId}`);
     return { success: false, error: 'Configurações de WhatsApp não encontradas para este estúdio.' };
   }
 
@@ -125,7 +126,7 @@ export async function getWhatsAppConnection(studioId: string) {
   // Limpar a URL (remover /message se existir e garantir que não termina com /)
   baseUrl = baseUrl.split('/message')[0].replace(/\/$/, "");
 
-  console.log(`📡 Verificando instância: ${instanceId} em ${baseUrl}`);
+  logger.info(`📡 Verificando instância: ${instanceId} em ${baseUrl}`);
   return await handleWhatsAppInstance(instanceId, apiKey, baseUrl);
 }
 
@@ -141,11 +142,11 @@ async function handleWhatsAppInstance(instanceId: string, apiKey: string, baseUr
       cache: 'no-store'
     });
 
-    console.log(`📊 Status da instância ${instanceId}: ${statusRes.status}`);
+    logger.info(`📊 Status da instância ${instanceId}: ${statusRes.status}`);
 
     if (statusRes.status === 404) {
       // 2. Se não existe, criar a instância automaticamente
-      console.log(`🔨 Instância não encontrada. Criando ${instanceId}...`);
+      logger.info(`🔨 Instância não encontrada. Criando ${instanceId}...`);
       const createRes = await fetch(`${baseUrl}/instance/create`, {
         method: 'POST',
         headers: { 
@@ -162,18 +163,18 @@ async function handleWhatsAppInstance(instanceId: string, apiKey: string, baseUr
 
       if (!createRes.ok) {
         const err = await createRes.text();
-        console.error(`❌ Falha ao criar instância:`, err);
+        logger.error(`❌ Falha ao criar instância:`, err);
         return { success: false, error: `Falha ao criar instância: ${err}` };
       }
       
-      console.log(`✅ Instância ${instanceId} criada com sucesso.`);
+      logger.info(`✅ Instância ${instanceId} criada com sucesso.`);
       
       // Pequena pausa para a API processar a criação
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     // 3. Buscar o QR Code / Status de Conexão
-    console.log(`🔗 Solicitando QR Code/Conexão para: ${instanceId}`);
+    logger.info(`🔗 Solicitando QR Code/Conexão para: ${instanceId}`);
     const response = await fetch(`${baseUrl}/instance/connect/${instanceId}`, {
       method: 'GET',
       headers: { 'apikey': apiKey },
@@ -190,7 +191,7 @@ async function handleWhatsAppInstance(instanceId: string, apiKey: string, baseUr
     });
     const stateData = await stateRes.json();
 
-    console.log(`📦 Estado da instância ${instanceId}:`, JSON.stringify(stateData));
+    logger.info(`📦 Estado da instância ${instanceId}:`, JSON.stringify(stateData));
     
     // Normalizar o estado (Evolution API pode retornar state em locais diferentes)
     const currentState = stateData.instance?.state || stateData.state || stateData.status || 'disconnected';
@@ -208,7 +209,7 @@ async function handleWhatsAppInstance(instanceId: string, apiKey: string, baseUr
       };
     }
 
-    console.log('📦 Resposta da Evolution API recebida (QR Code):', JSON.stringify(result));
+    logger.info('📦 Resposta da Evolution API recebida (QR Code):', JSON.stringify(result));
     
     // Normalizar o QR Code (suporte a v1 e v2 da Evolution API)
     let base64 = result.base64;
@@ -247,7 +248,7 @@ async function handleWhatsAppInstance(instanceId: string, apiKey: string, baseUr
       } 
     };
   } catch (error: any) {
-    console.error('❌ Erro ao buscar conexão WhatsApp:', error);
+    logger.error('❌ Erro ao buscar conexão WhatsApp:', error);
     return { 
       success: false, 
       error: error.message || 'Erro ao conectar com o motor de WhatsApp. Certifique-se que o Docker está rodando.' 
@@ -267,7 +268,7 @@ export async function logoutWhatsApp(studioId: string) {
     const instanceId = 'danceflow';
     const baseUrl = (process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081').split('/message')[0].replace(/\/$/, "");
 
-    console.log(`📡 Desconectando instância SuperAdmin: ${instanceId} em ${baseUrl}`);
+    logger.info(`📡 Desconectando instância SuperAdmin: ${instanceId} em ${baseUrl}`);
     
     try {
       await fetch(`${baseUrl}/instance/logout/${instanceId}`, {
@@ -282,7 +283,7 @@ export async function logoutWhatsApp(studioId: string) {
 
       return { success: true };
     } catch (error: any) {
-      console.error('❌ Erro ao desconectar WhatsApp SuperAdmin:', error);
+      logger.error('❌ Erro ao desconectar WhatsApp SuperAdmin:', error);
       return { success: false, error: error.message };
     }
   }
@@ -323,7 +324,7 @@ export async function logoutWhatsApp(studioId: string) {
 
     return { success: true };
   } catch (error: any) {
-    console.error('❌ Erro ao desconectar WhatsApp:', error);
+    logger.error('❌ Erro ao desconectar WhatsApp:', error);
     return { success: false, error: error.message };
   }
 }
@@ -372,8 +373,8 @@ export async function notifyLowCredits(studentId: string, studioId: string, rema
       studioId
     });
 
-    console.log(`📢 Notificação de crédito baixo enviada para ${student.name} (${remainingCredits} restates)`);
+    logger.info(`📢 Notificação de crédito baixo enviada para ${student.name} (${remainingCredits} restates)`);
   } catch (error) {
-    console.error('❌ Erro ao enviar notificação de crédito baixo:', error);
+    logger.error('❌ Erro ao enviar notificação de crédito baixo:', error);
   }
 }

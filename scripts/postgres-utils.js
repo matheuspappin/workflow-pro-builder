@@ -1,9 +1,10 @@
 /**
- * Utilitários PostgreSQL para DanceFlow AI
+ * Utilitários PostgreSQL para Workflow AI
  * Funções helper para operações avançadas no banco
  */
 
 import sql from '../db.js'
+import logger from '../lib/logger.js'
 
 /**
  * Estatísticas gerais do sistema
@@ -141,7 +142,7 @@ export async function getTeacherPayments(teacherId, startDate, endDate) {
  */
 export async function clearTestData() {
   try {
-    console.log('🧹 Limpando dados de teste...')
+    logger.info('🧹 Limpando dados de teste...')
 
     // Desabilitar triggers temporariamente para performance
     await sql`SET session_replication_role = 'replica'`
@@ -162,7 +163,7 @@ export async function clearTestData() {
     // Reabilitar triggers
     await sql`SET session_replication_role = 'origin'`
 
-    console.log('✅ Dados de teste removidos!')
+    logger.info('✅ Dados de teste removidos!')
   } finally {
     await sql.end()
   }
@@ -180,7 +181,7 @@ export async function backupStudioSettings() {
       settings: settings
     }
 
-    console.log('💾 Backup das configurações criado:', backup)
+    logger.debug('💾 Backup das configurações criado:', backup)
     return backup
   } finally {
     await sql.end()

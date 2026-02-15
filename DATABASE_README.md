@@ -1,8 +1,8 @@
-# DanceFlow AI - Documentação do Banco de Dados
+# Workflow AI - Documentação do Banco de Dados
 
 ## 📊 Visão Geral dos Modelos
 
-O arquivo `models.py` contém o esquema completo do banco de dados para o sistema DanceFlow AI, implementado com SQLAlchemy.
+O arquivo `models.py` contém o esquema completo do banco de dados para o sistema Workflow AI, implementado com SQLAlchemy.
 
 ## 🏗️ Arquitetura dos Dados
 
@@ -296,4 +296,4 @@ WHERE payment_status = 'pago'
 AND reference_month = '2024-01';
 ```
 
-Este modelo fornece uma base sólida e escalável para o sistema DanceFlow AI, suportando todas as funcionalidades solicitadas e permitindo futuras expansões.
+Este modelo fornece uma base sólida e escalável para o sistema Workflow AI, suportando todas as funcionalidades solicitadas e permitindo futuras expansões.

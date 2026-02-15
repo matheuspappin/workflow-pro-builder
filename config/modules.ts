@@ -123,6 +123,15 @@ export const MODULE_DEFINITIONS = {
       'Centralização de dados',
       'Relatórios consolidados'
     ]
+  },
+  service_orders: {
+    label: 'Ordens de Serviço (OS)',
+    default: true,
+    features: [
+      'Controle de consertos e manutenções',
+      'Assinatura digital do cliente',
+      'Histórico de estados da OS'
+    ]
   }
 } as const;
 

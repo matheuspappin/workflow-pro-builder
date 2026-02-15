@@ -2,6 +2,8 @@
 
 import { supabase } from '@/lib/supabase'
 import { guardModule } from '@/lib/modules-server'
+import logger from '@/lib/logger'
+import { getAdminClient } from '@/lib/server-utils'
 
 export interface Lead {
   id: string
@@ -29,7 +31,7 @@ export async function getLeads(studioId: string) {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Erro ao buscar leads:', error)
+    logger.error('Erro ao buscar leads:', error)
     return []
   }
 
@@ -85,6 +87,7 @@ export async function updateLead(leadId: string, updates: Partial<Lead>, studioI
 
 export async function convertLeadToStudent(leadId: string, studioId: string) {
   await guardModule('leads')
+  
   // 1. Buscar o lead
   const { data: lead } = await supabase
     .from('leads')
@@ -94,25 +97,72 @@ export async function convertLeadToStudent(leadId: string, studioId: string) {
 
   if (!lead) throw new Error('Lead não encontrado')
 
-  // 2. Criar aluno (na tabela students)
-  // Nota: Isso é simplificado. Idealmente criaria um usuário Auth se tiver email, 
-  // mas aqui vamos criar apenas o registro de aluno.
+  let authUserId = null
+  const studentEmail = lead.email || `lead-${lead.id}@temp.com`
+
+  // 2. Criar ou Associar usuário Supabase Auth
+  const adminClient = await getAdminClient()
+  if (adminClient) {
+    try {
+      // 2.1 Verificar se já existe um usuário no Auth com este email
+      const { data: userData, error: listError } = await adminClient.auth.admin.listUsers()
+      const existingUser = userData?.users.find(u => u.email === studentEmail)
+
+      if (existingUser) {
+        authUserId = existingUser.id
+        logger.info(`✅ Usuário Auth existente associado ao lead: ${authUserId}`)
+      } else {
+        // 2.2 Criar novo usuário Auth para o aluno
+        const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+          email: studentEmail,
+          password: Math.random().toString(36).slice(-10), // Senha aleatória inicial
+          email_confirm: true,
+          user_metadata: { 
+            name: lead.name,
+            studio_id: studioId,
+            role: 'student'
+          }
+        })
+
+        if (createError) {
+          logger.error('❌ Erro ao criar usuário Auth para o lead:', createError)
+        } else if (newUser?.user) {
+          authUserId = newUser.user.id
+          logger.info(`✨ Novo usuário Auth criado para lead convertido: ${authUserId}`)
+        }
+      }
+    } catch (e) {
+      logger.error('💥 Exceção ao gerenciar Auth para lead:', e)
+    }
+  }
+
+  // 3. Criar aluno (na tabela students)
+  const studentPayload: any = {
+    studio_id: studioId,
+    name: lead.name,
+    email: studentEmail,
+    phone: lead.phone,
+    status: 'active',
+    enrollment_date: new Date().toISOString().split('T')[0] // Formato DATE YYYY-MM-DD
+  }
+
+  // Se conseguimos um ID de usuário Auth, usamos ele como ID do aluno
+  if (authUserId) {
+    studentPayload.id = authUserId
+  }
+
   const { data: student, error: studentError } = await supabase
     .from('students')
-    .insert({
-      studio_id: studioId,
-      name: lead.name,
-      email: lead.email || `lead-${lead.id}@temp.com`, // Email temporário se não tiver
-      phone: lead.phone,
-      status: 'active',
-      enrollment_date: new Date().toISOString()
-    })
+    .insert(studentPayload)
     .select()
     .single()
 
-  if (studentError) throw studentError
+  if (studentError) {
+    logger.error('❌ Erro ao inserir registro na tabela students:', studentError)
+    throw new Error(`Falha ao criar registro de aluno: ${studentError.message}`)
+  }
 
-  // 3. Atualizar lead para 'won' (ganho)
+  // 4. Atualizar lead para 'won' (ganho)
   await updateLeadStage(leadId, 'won', studioId)
 
   return student

@@ -1,6 +1,7 @@
 import postgres from 'postgres';
+import logger from '../lib/logger.js';
 
-console.log('Testando conexão via IPv6 Direto (host separado)...');
+logger.info('Testando conexão via IPv6 Direto (host separado)...');
 
 try {
   const sql = postgres({
@@ -12,8 +13,8 @@ try {
     connect_timeout: 10
   });
   const result = await sql`SELECT 1 as result`;
-  console.log('✅ Conexão via IPv6 SUCESSO:', result);
+  logger.info('✅ Conexão via IPv6 SUCESSO:', result);
   await sql.end();
 } catch (err) {
-  console.error('❌ Conexão via IPv6 FALHOU:', err.message);
+  logger.error('❌ Conexão via IPv6 FALHOU:', err.message);
 }

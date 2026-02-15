@@ -1,5 +1,5 @@
 """
-DanceFlow AI - Models SQLAlchemy
+Workflow AI - Models SQLAlchemy
 Sistema completo de gestão para estúdios de dança
 """
 

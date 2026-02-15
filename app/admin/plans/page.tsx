@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import logger from "@/lib/logger"
 
 export default function AdminPlansPage() {
   const { toast } = useToast()
@@ -57,7 +58,7 @@ export default function AdminPlansPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      console.log('Iniciando carregamento de dados...')
+      logger.info('Iniciando carregamento de dados...')
       
       // Carregar planos
       const plansPromise = supabase
@@ -81,16 +82,16 @@ export default function AdminPlansPage() {
       ])
 
       if (plansRes.error) {
-        console.error('Erro Supabase plans:', plansRes.error)
+        logger.error('Erro Supabase plans:', plansRes.error)
         throw new Error(`Erro ao carregar planos: ${plansRes.error.message || JSON.stringify(plansRes.error)}`)
       }
 
-      console.log('Dados carregados:', { plans: plansRes.data?.length, stats: statsRes })
+      logger.info('Dados carregados:', { plans: plansRes.data?.length, stats: statsRes })
 
       setPlans(plansRes.data || [])
       setStats(statsRes.stats || {})
     } catch (e: any) {
-      console.error("Erro detalhado loadData:", e)
+      logger.error("Erro detalhado loadData:", e)
       toast({ 
         title: "Erro ao carregar dados", 
         description: e.message || "Ocorreu um erro desconhecido", 
@@ -122,12 +123,35 @@ export default function AdminPlansPage() {
     return normalized;
   };
 
+  const getPlanActiveModules = (plan: any) => {
+    // Se tiver a coluna modules, usa ela (prioridade)
+    if (plan.modules && Object.keys(plan.modules).length > 0) {
+      return normalizeModules(plan.modules);
+    }
+
+    // Fallback para colunas legadas se modules for nulo/vazio
+    const modules: any = {};
+    Object.keys(MODULE_DEFINITIONS).forEach(k => {
+      const key = k as ModuleKey;
+      // Defaults do sistema
+      modules[key] = MODULE_DEFINITIONS[key].default;
+    });
+
+    // Sobrescreve com legacy flags se existirem
+    if (plan.has_finance !== undefined) modules.financial = plan.has_finance;
+    if (plan.has_whatsapp !== undefined) modules.whatsapp = plan.has_whatsapp;
+    if (plan.has_ai !== undefined) modules.ai_chat = plan.has_ai;
+    if (plan.has_multi_unit !== undefined) modules.multi_unit = plan.has_multi_unit;
+    
+    return modules;
+  };
+
   const handleEdit = (plan: any) => {
-    const normalizedModules = normalizeModules(plan.modules);
+    const activeModules = getPlanActiveModules(plan);
     setEditingPlan({
       ...plan,
-      features_text: generateFeaturesText(normalizedModules),
-      modules: normalizedModules,
+      features_text: generateFeaturesText(activeModules),
+      modules: activeModules,
     });
     setIsDialogOpen(true);
   };
@@ -331,6 +355,25 @@ export default function AdminPlansPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Módulos Inclusos:</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {Object.entries(getPlanActiveModules(plan)).map(([key, enabled]) => {
+                      if (!enabled) return null;
+                      const moduleDef = MODULE_DEFINITIONS[key as ModuleKey];
+                      return (
+                        <Badge 
+                          key={key} 
+                          variant="secondary" 
+                          className="bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 border-none"
+                        >
+                          {moduleDef?.label || key}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">O que inclui:</p>
                   {(plan.features || []).map((feature: string, i: number) => (

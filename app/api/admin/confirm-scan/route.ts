@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyLowCredits } from '@/lib/whatsapp'
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   // Criar cliente com Service Role para ignorar RLS nas buscas administrativas
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseServiceKey) {
-    console.error('CRÍTICO: SUPABASE_SERVICE_ROLE_KEY não configurada no servidor.');
+    logger.error('CRÍTICO: SUPABASE_SERVICE_ROLE_KEY não configurada no servidor.');
     return NextResponse.json({ success: false, error: 'Erro de configuração no servidor (Chave de API).' }, { status: 500 });
   }
 
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     // 0. Se for formato curto (DF-XXXXXXXX), buscar o ID completo
     if (attendanceId.toString().startsWith('DF-')) {
         const shortCode = attendanceId.replace('DF-', '').toUpperCase();
-        console.log('🔍 [BACKEND] Buscando UUID para código curto:', shortCode);
+        logger.info('🔍 [BACKEND] Buscando UUID para código curto:', shortCode);
         
         // Busca robusta: Filtramos registros do dia para encontrar o UUID correspondente
         const todayStr = new Date().toISOString().split('T')[0];
@@ -41,13 +42,13 @@ export async function POST(request: NextRequest) {
             .eq('date', todayStr);
 
         if (searchError) {
-            console.error('❌ [BACKEND] Erro ao buscar registros do dia:', searchError);
+            logger.error('❌ [BACKEND] Erro ao buscar registros do dia:', searchError);
         }
 
         const match = records?.find(r => r.id.toUpperCase().endsWith(shortCode));
         
         if (!match) {
-            console.log('⚠️ [BACKEND] Código não encontrado nos registros de hoje. Tentando busca global...');
+            logger.warn('⚠️ [BACKEND] Código não encontrado nos registros de hoje. Tentando busca global...');
             // Fallback: Busca global (mais lenta, mas garante se não for de hoje)
             // Nota: ilike em UUID pode falhar em alguns dialetos, por isso o find manual é mais seguro
             const { data: allRecords } = await supabaseAdmin
@@ -58,14 +59,14 @@ export async function POST(request: NextRequest) {
             const globalMatch = allRecords?.find(r => r.id.toUpperCase().endsWith(shortCode));
             
             if (!globalMatch) {
-                console.error('❌ [BACKEND] Código de acesso não localizado:', shortCode);
+                logger.error('❌ [BACKEND] Código de acesso não localizado:', shortCode);
                 return NextResponse.json({ success: false, error: 'Código de acesso não encontrado.' }, { status: 404 })
             }
             targetId = globalMatch.id;
         } else {
             targetId = match.id;
         }
-        console.log('✅ [BACKEND] UUID Localizado:', targetId);
+        logger.info('✅ [BACKEND] UUID Localizado:', targetId);
     }
 
     // 1. Buscar a presença e dados do aluno/turma
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
     // 4. Notificar se os créditos estiverem baixos (assíncrono)
     if (result.new_balance <= 2) {
       notifyLowCredits(attendance.student_id, attendance.class.studio_id, result.new_balance).catch(e => {
-        console.error('Erro ao enviar notificação de crédito baixo:', e);
+        logger.error('Erro ao enviar notificação de crédito baixo:', e);
       });
     }
 
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao validar scan admin:', error)
+    logger.error('Erro ao validar scan admin:', error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

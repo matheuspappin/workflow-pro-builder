@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold text-slate-900 dark:text-white">
-              DanceFlow <span className="text-indigo-600">AI</span>
+              Workflow <span className="text-indigo-600">AI</span>
             </span>
           </Link>
         </div>

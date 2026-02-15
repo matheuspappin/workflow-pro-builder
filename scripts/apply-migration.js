@@ -5,6 +5,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
+const logger = {
+  info: (msg) => console.log(`[INFO] ${msg}`),
+  error: (msg, err) => console.error(`[ERROR] ${msg}`, err || ''),
+  warn: (msg) => console.warn(`[WARN] ${msg}`)
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -14,7 +20,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error('❌ DATABASE_URL não encontrada no .env');
+  logger.error('❌ DATABASE_URL não encontrada no .env');
   process.exit(1);
 }
 
@@ -23,16 +29,15 @@ const sql = postgres(connectionString, {
 });
 
 async function applyMigration() {
-  const migrationFile = path.resolve(__dirname, '../database/migrations/13_fix_rls_policies.sql');
+  const fileName = process.argv[2] || '13_fix_rls_policies.sql';
+  const migrationFile = path.resolve(__dirname, '../database/migrations/', fileName);
   
   if (!fs.existsSync(migrationFile)) {
-    console.error(`❌ Arquivo de migração não encontrado: ${migrationFile}`);
+    logger.error(`❌ Arquivo de migração não encontrado: ${migrationFile}`);
     process.exit(1);
   }
 
-  const migrationSQL = fs.readFileSync(migrationFile, 'utf8');
-
-  console.log('🚀 Aplicando migração RLS...');
+  logger.info(`🚀 Aplicando migração ${fileName}...`);
   
   try {
     // Executa o SQL diretamente
@@ -42,9 +47,9 @@ async function applyMigration() {
     // Na verdade, postgres.js tem sql.file(path)
     await sql.file(migrationFile);
     
-    console.log('✅ Migração aplicada com sucesso!');
+    logger.info('✅ Migração aplicada com sucesso!');
   } catch (error) {
-    console.error('❌ Erro ao aplicar migração:', error);
+    logger.error('❌ Erro ao aplicar migração:', error);
   } finally {
     await sql.end();
   }

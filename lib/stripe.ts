@@ -7,7 +7,7 @@ export const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, {
       apiVersion: '2025-01-27.acacia' as any,
       appInfo: {
-        name: 'DanceFlow AI',
+        name: 'Workflow AI',
         version: '0.1.0',
       },
     })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { updateERPOrderStatus } from '@/lib/actions/erp'; // Assumindo que esta função existe ou será criada
+import logger from '@/lib/logger';
 
 
 export async function POST(req: NextRequest) {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err: any) {
-    console.error(`Webhook signature verification failed: ${err.message}`);
+    logger.error(`Webhook signature verification failed: ${err.message}`);
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
@@ -33,27 +34,27 @@ export async function POST(req: NextRequest) {
 
       const metadata = session.metadata;
       if (!metadata) {
-        console.error("Metadata missing in checkout session", session);
+        logger.error("Metadata missing in checkout session", session);
         return new NextResponse("Metadata missing", { status: 400 });
       }
 
       const { store_id, customer_name, customer_email, customer_phone, erp_order_id } = metadata;
 
       if (!erp_order_id) {
-        console.error("ERP Order ID missing in metadata", session);
+        logger.error("ERP Order ID missing in metadata", session);
         return new NextResponse("ERP Order ID missing", { status: 400 });
       }
 
-      console.log("Checkout session completed for order:", session.id);
-      console.log("Customer:", customer_name, customer_email, customer_phone);
-      console.log("Store ID:", store_id);
-      console.log("ERP Order ID:", erp_order_id);
+      logger.info("Checkout session completed for order:", session.id);
+      logger.info("Customer:", customer_name, customer_email, customer_phone);
+      logger.info("Store ID:", store_id);
+      logger.info("ERP Order ID:", erp_order_id);
 
       await updateERPOrderStatus(store_id, erp_order_id, 'paid');
 
       break;
     default:
-      console.log(`Unhandled event type ${event.type}`);
+      logger.info(`Unhandled event type ${event.type}`);
   }
 
   return new NextResponse("ok", { status: 200 });

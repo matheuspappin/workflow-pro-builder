@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import logger from '@/lib/logger';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -19,15 +20,15 @@ export async function POST(request: NextRequest) {
     const { data, error } = await adminSupabase.auth.admin.resendConfirmationForEmail(email);
 
     if (error) {
-      console.error('Erro ao reenviar e-mail de confirmação:', error);
+      logger.error('Erro ao reenviar e-mail de confirmação:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log('E-mail de confirmação reenviado com sucesso para:', email, data);
+    logger.info('E-mail de confirmação reenviado com sucesso para:', email, data);
     return NextResponse.json({ message: 'E-mail de confirmação reenviado com sucesso.' }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Erro fatal ao reenviar e-mail de confirmação:', error);
+    logger.error('Erro fatal ao reenviar e-mail de confirmação:', error);
     return NextResponse.json({ error: 'Erro interno ao processar reenvio de e-mail.' }, { status: 500 });
   }
 }

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import logger from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseServiceKey) {
-    console.error('❌ [LIVE-CLASSES] SUPABASE_SERVICE_ROLE_KEY não configurada.');
+    logger.error('❌ [LIVE-CLASSES] SUPABASE_SERVICE_ROLE_KEY não configurada.');
     return NextResponse.json({ error: 'Configuração de segurança (Service Key) ausente no servidor.' }, { status: 500 });
   }
 
@@ -47,17 +48,17 @@ export async function GET(req: NextRequest) {
     const dayOfWeek = dayMap[dayName] ?? now.getDay();
     const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(now);
 
-    console.log(`🔍 [LIVE-CLASSES] Buscando para Studio: ${studioId}, Dia: ${dayOfWeek}, Hora: ${currentTime}`);
+    logger.info(`🔍 [LIVE-CLASSES] Buscando para Studio: ${studioId}, Dia: ${dayOfWeek}, Hora: ${currentTime}`);
 
     // 2. Buscar turmas ativas
     const { data: classes, error: classesError } = await supabase
       .from('classes')
-      .select('*, teachers(name)')
+      .select('*, professionals(name)')
       .eq('studio_id', studioId)
       .eq('status', 'active');
 
     if (classesError) {
-      console.error('❌ [LIVE-CLASSES] Erro ao buscar turmas:', classesError);
+      logger.error('❌ [LIVE-CLASSES] Erro ao buscar turmas:', classesError);
       throw classesError;
     }
 
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
         .eq('class_id', cls.id)
         .eq('status', 'active');
 
-      if (enrollError) console.error(`⚠️ [LIVE-CLASSES] Erro enrollments para turma ${cls.name} (${cls.id}):`, enrollError);
+      if (enrollError) logger.warn(`⚠️ [LIVE-CLASSES] Erro enrollments para turma ${cls.name} (${cls.id}):`, enrollError);
 
       // Buscar presenças
       const { data: attendance, error: attError } = await supabase
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
         .eq('class_id', cls.id)
         .eq('date', todayStr);
 
-      if (attError) console.error(`⚠️ [LIVE-CLASSES] Erro attendance para turma ${cls.name} (${cls.id}):`, attError);
+      if (attError) logger.warn(`⚠️ [LIVE-CLASSES] Erro attendance para turma ${cls.name} (${cls.id}):`, attError);
 
       const students = (enrollments || []).map((en: any) => {
         const studentData = en.students || en.student || {};
@@ -136,7 +137,7 @@ export async function GET(req: NextRequest) {
       return {
         id: cls.id,
         name: cls.name,
-        teacher: cls.teachers?.name || 'Não definido',
+        teacher: cls.professionals?.name || 'Não definido',
         style: cls.dance_style,
         level: cls.level,
         startTime: startTime,
@@ -156,7 +157,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('💥 [LIVE-CLASSES] Erro fatal:', error);
+    logger.error('💥 [LIVE-CLASSES] Erro fatal:', error);
     return NextResponse.json({ error: error.message || 'Erro interno no servidor' }, { status: 500 });
   }
 }

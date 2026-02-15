@@ -1,5 +1,6 @@
 import postgres from 'postgres'
 import fs from 'fs'
+import logger from '../lib/logger'
 
 // Configurações para conexão via IP (Pooler)
 const DB_IP = '35.160.209.8'
@@ -15,11 +16,11 @@ const sql = postgres(connectionString, { ssl: 'require' })
 async function run() {
   try {
     const migration = fs.readFileSync('database/migrations/21_add_modules_to_system_plans.sql', 'utf8')
-    console.log('🚀 Executando migração 21 via IP...')
+    logger.info('🚀 Executando migração 21 via IP...')
     await sql.unsafe(migration)
-    console.log('✅ Sucesso!')
+    logger.info('✅ Sucesso!')
   } catch (err) {
-    console.error('❌ Erro:', err.message)
+    logger.error('❌ Erro:', err.message)
   } finally {
     await sql.end()
   }

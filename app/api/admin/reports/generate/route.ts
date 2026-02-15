@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getStudentsData, getTeachersData, getFinancialData, getClassesData } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 /**
  * Gera um novo relatório de contexto para a IA
@@ -121,12 +122,12 @@ ${fStats.debtors.map(d => `- ${d.name}: R$ ${d.amount} (Vencimento: ${d.dueDate}
         .eq('studio_id', studioId)
         .neq('id', report.id); // Deleta todos exceto o que acabamos de criar
 
-      if (deleteError) console.warn('⚠️ Erro ao limpar relatórios antigos:', deleteError);
+      if (deleteError) logger.warn('⚠️ Erro ao limpar relatórios antigos:', deleteError);
     } catch (e) {
-      console.warn('⚠️ Falha silenciosa ao limpar relatórios antigos:', e);
+      logger.warn('⚠️ Falha silenciosa ao limpar relatórios antigos:', e);
     }
 
-    console.log(`📊 Relatório COMPLETO de Contexto IA gerado para estúdio ${studioId} (Antigos removidos)`);
+    logger.info(`📊 Relatório COMPLETO de Contexto IA gerado para estúdio ${studioId} (Antigos removidos)`);
     
     return NextResponse.json({ 
       success: true, 
@@ -135,7 +136,7 @@ ${fStats.debtors.map(d => `- ${d.name}: R$ ${d.amount} (Vencimento: ${d.dueDate}
     });
 
   } catch (error: any) {
-    console.error('💥 Erro ao gerar relatório de IA:', error);
+    logger.error('💥 Erro ao gerar relatório de IA:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

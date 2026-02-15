@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import logger from '@/lib/logger';
 import { randomBytes } from 'crypto'
 // NOTE: We need an email sending utility. For now, we will just log the email content.
 // import { sendEmail } from '@/lib/email' 
@@ -53,14 +54,14 @@ export async function POST(
     })
 
   if (inviteError) {
-    console.error('Error creating invite:', inviteError)
+    logger.error('Error creating invite:', inviteError)
     return NextResponse.json({ error: `Error creating invite: ${inviteError.message}` }, { status: 500 })
   }
   
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/setup/invite/${token}`
 
   // TODO: Replace with actual email sending logic
-  console.log(`
+  logger.info(`
     ---- EMAIL SIMULATION ----
     TO: ${clientEmail}
     SUBJECT: Seu link de setup está pronto!

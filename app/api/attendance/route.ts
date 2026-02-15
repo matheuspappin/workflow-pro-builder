@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('Erro na API de attendance:', error)
+    logger.error('Erro na API de attendance:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno do servidor' },
       { status: 500 }
@@ -187,7 +188,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao buscar attendance:', error)
+    logger.error('Erro ao buscar attendance:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno do servidor' },
       { status: 500 }

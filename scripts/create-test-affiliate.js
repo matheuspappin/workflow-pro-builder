@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
+import logger from '../lib/logger.js';
 config({ path: '.env' });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('❌ Credenciais do Supabase não encontradas no .env');
+  logger.error('❌ Credenciais do Supabase não encontradas no .env');
   process.exit(1);
 }
 
@@ -18,12 +19,12 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 async function createTestAffiliate() {
-  const email = 'teste@afiliado.com.br';
-  const password = 'password123';
+  const email = process.argv[2] || process.env.TEST_AFFILIATE_EMAIL || 'teste@afiliado.com.br';
+  const password = process.env.TEST_AFFILIATE_PASSWORD || 'password123';
   const name = 'Afiliado Teste';
   const slug = 'afiliado-teste';
 
-  console.log(`🚀 Iniciando criação do afiliado: ${email}`);
+  logger.info(`🚀 Iniciando criação do afiliado: ${email}`);
 
   // 1. Criar usuário (ou buscar se já existe)
   let userId;
@@ -41,13 +42,13 @@ async function createTestAffiliate() {
 
     if (createError) {
       if (createError.message && (createError.message.includes('already registered') || createError.status === 422)) {
-         console.log('⚠️ Usuário já existe, buscando ID...');
+         logger.info('⚠️ Usuário já existe, buscando ID...');
          const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
          const existingUser = users.find(u => u.email === email);
          
          if (existingUser) {
            userId = existingUser.id;
-           console.log(`✅ Usuário encontrado: ${userId}`);
+           logger.info(`✅ Usuário encontrado: ${userId}`);
          } else {
            throw new Error('Usuário existe mas não foi encontrado na lista.');
          }
@@ -56,7 +57,7 @@ async function createTestAffiliate() {
       }
     } else {
       userId = newUser.user.id;
-      console.log(`✅ Usuário criado com sucesso: ${userId}`);
+      logger.info(`✅ Usuário criado com sucesso: ${userId}`);
     }
 
     // 2. Verificar se já existe como partner
@@ -67,7 +68,7 @@ async function createTestAffiliate() {
       .maybeSingle();
 
     if (existingPartner) {
-      console.log(`⚠️ Usuário já é um parceiro (ID: ${existingPartner.id}). Atualizando dados...`);
+      logger.info(`⚠️ Usuário já é um parceiro (ID: ${existingPartner.id}). Atualizando dados...`);
       const { error: updateError } = await supabase
         .from('partners')
         .update({
@@ -78,10 +79,10 @@ async function createTestAffiliate() {
         .eq('id', existingPartner.id);
         
       if (updateError) throw updateError;
-      console.log('✅ Dados do parceiro atualizados.');
+      logger.info('✅ Dados do parceiro atualizados.');
       
     } else {
-      console.log('Creating partner record...');
+      logger.info('Creating partner record...');
       const { data: newPartner, error: insertError } = await supabase
         .from('partners')
         .insert({
@@ -95,7 +96,7 @@ async function createTestAffiliate() {
 
       if (insertError) {
           if (insertError.message && insertError.message.includes('duplicate key') && insertError.message.includes('slug')) {
-             console.log('⚠️ Slug em uso, tentando slug alternativo...');
+             logger.info('⚠️ Slug em uso, tentando slug alternativo...');
              const { error: retryError } = await supabase
                 .from('partners')
                 .insert({
@@ -109,16 +110,16 @@ async function createTestAffiliate() {
              throw insertError;
           }
       }
-      console.log(`✅ Parceiro criado com sucesso.`);
+      logger.info(`✅ Parceiro criado com sucesso.`);
     }
 
-    console.log('\n🎉 Processo concluído com sucesso!');
-    console.log(`Login: ${email}`);
-    console.log(`Senha: ${password}`);
+    logger.info('\n🎉 Processo concluído com sucesso!');
+    logger.info(`Login: ${email}`);
+    logger.info(`Senha: ${password}`);
 
   } catch (err) {
-    console.error('❌ Erro durante o processo:', err.message);
-    console.error(err);
+    logger.error('❌ Erro durante o processo:', err.message);
+    logger.error(err);
   }
 }
 

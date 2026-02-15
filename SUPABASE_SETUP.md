@@ -1,4 +1,4 @@
-# 🗄️ Configuração do Supabase - DanceFlow AI
+# 🗄️ Configuração do Supabase - Workflow AI
 
 ## 📋 Pré-requisitos
 
@@ -54,10 +54,10 @@ Após executar o SQL, você deve ver todas estas tabelas criadas:
    - **Project URL**: `https://xxxxx.supabase.co`
    - **anon/public key**: Chave longa começando com `eyJ...`
 
-### 5. Configurar no Sistema DanceFlow
+### 5. Configurar no Sistema Workflow AI
 
 #### Opção A: Via Interface (Recomendado)
-1. Acesse seu sistema DanceFlow
+1. Acesse seu sistema Workflow AI
 2. Vá para **Configurações > Integrações**
 3. Clique em **"Configurar"** no card do Supabase
 4. Cole a **URL do Projeto** no campo "URL do Projeto"
@@ -206,6 +206,6 @@ Após configurar, teste estas perguntas no Chat IA:
 
 ---
 
-🎉 **Parabéns!** Seu banco Supabase está configurado e integrado ao DanceFlow AI.
+🎉 **Parabéns!** Seu banco Supabase está configurado e integrado ao Workflow AI.
 
 O sistema agora pode fornecer respostas inteligentes baseadas em dados reais do seu estúdio de dança!

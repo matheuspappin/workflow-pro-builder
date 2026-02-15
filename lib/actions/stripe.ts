@@ -2,6 +2,7 @@
 
 import { getStripe } from '@/lib/stripe'
 import { NextResponse } from 'next/server'
+import logger from '@/lib/logger'
 
 interface CheckoutItem {
   name: string
@@ -22,6 +23,10 @@ export async function createCheckoutSession({
   successUrl,
   cancelUrl,
 }: CheckoutSessionParams) {
+  // Esta função cria uma sessão de checkout no Stripe.
+  // Ela recebe uma lista de itens, o e-mail do cliente e URLs de sucesso/cancelamento.
+  // O Stripe processa o pagamento e redireciona o usuário para as URLs especificadas.
+  // Em caso de erro, um log é gerado e uma exceção é lançada.
   try {
     const stripe = getStripe()
 
@@ -51,7 +56,7 @@ export async function createCheckoutSession({
 
     return { url: session.url }
   } catch (error: any) {
-    console.error('Erro ao criar sessão de checkout Stripe:', error)
+    logger.error('Erro ao criar sessão de checkout Stripe:', error)
     throw new Error(`Falha ao criar sessão de checkout: ${error.message}`)
   }
 }

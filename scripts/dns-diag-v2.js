@@ -1,4 +1,5 @@
 import dns from 'dns';
+import logger from '../lib/logger.js';
 
 const domains = [
   'drgibkczwshwjjsdauoj.supabase.co',
@@ -9,7 +10,7 @@ const domains = [
 
 domains.forEach(domain => {
   dns.lookup(domain, (err, address) => {
-    if (err) console.log(`${domain}: ❌ ${err.message}`);
-    else console.log(`${domain}: ✅ ${address}`);
+    if (err) logger.error(`${domain}: ❌ ${err.message}`);
+    else logger.info(`${domain}: ✅ ${address}`);
   });
 });

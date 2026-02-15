@@ -1,4 +1,4 @@
--- DanceFlow Functions for Attendance and Credits
+-- Workflow AI Functions for Attendance and Credits
 
 -- 1. Confirm Attendance with Credit Deduction
 CREATE OR REPLACE FUNCTION confirm_attendance_with_credit(

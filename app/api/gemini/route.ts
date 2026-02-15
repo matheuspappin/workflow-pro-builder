@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStudentsData, getTeachersData, getFinancialData, getClassesData } from '@/lib/supabase'
 import { detectIntent, executeIntent, generateConfirmationMessage } from '@/lib/intent-detection'
 import { supabase } from '@/lib/supabase'
+import logger from '@/lib/logger';
 
 /**
- * ENGINE DE IA - DanceFlow AI (Modo Secretaria / Atendimento)
+ * ENGINE DE IA - Workflow AI (Modo Secretaria / Atendimento)
  * Focado em atendimento ao aluno, agendamentos e informações básicas.
  * Bloqueia informações sensíveis para não-admins.
  */
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     // 0. BUSCAR DADOS DO ESTÚDIO E CHAVE DE API
     let apiKey = process.env.GOOGLE_AI_API_KEY
-    let studioName = "DanceFlow AI";
+    let studioName = "Workflow AI";
 
     const { data: studioData } = await supabase
       .from('studios')
@@ -140,10 +141,10 @@ REGRAS CRÍTICAS:
     const result = await response.json()
     
     // Log para depuração profunda
-    console.log('🔍 Resposta Gemini RAW:', JSON.stringify(result, null, 2));
+    logger.debug('🔍 Resposta Gemini RAW:', JSON.stringify(result, null, 2));
 
     if (result.promptFeedback?.blockReason) {
-       console.warn('⚠️ Gemini bloqueou o prompt:', result.promptFeedback);
+       logger.warn('⚠️ Gemini bloqueou o prompt:', result.promptFeedback);
     }
 
     const aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Olá! Como posso te ajudar hoje?'
@@ -151,7 +152,7 @@ REGRAS CRÍTICAS:
     return NextResponse.json({ response: aiResponse })
 
   } catch (error: any) {
-    console.error('💥 Erro Gemini:', error)
+    logger.error('💥 Erro Gemini:', error)
     return NextResponse.json({ error: 'Erro interno no servidor.' }, { status: 500 })
   }
 }

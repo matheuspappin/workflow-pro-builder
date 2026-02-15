@@ -25,7 +25,8 @@ import {
   Sparkles,
   AlertCircle,
   Lock,
-  Trash2
+  Trash2,
+  Upload
 } from "lucide-react"
 import {
   Dialog,
@@ -1012,6 +1013,15 @@ export default function ERPPage() {
           </TabsContent>
 
           <TabsContent value="finance" className="space-y-4">
+            <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-lg border border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30">
+                <div>
+                    <h3 className="font-bold text-blue-700 dark:text-blue-300">Importação Inteligente</h3>
+                    <p className="text-xs text-muted-foreground">Cadastre fornecedores e produtos automaticamente via XML.</p>
+                </div>
+                <Button onClick={() => window.location.href='/dashboard/erp/import'} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                    <Upload className="w-4 h-4" /> Importar NFe
+                </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="md:col-span-2">
                     <CardHeader>

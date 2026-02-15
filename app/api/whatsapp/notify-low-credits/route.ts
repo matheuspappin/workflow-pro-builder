@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyLowCredits } from '@/lib/whatsapp';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Erro na API notify-low-credits:', error);
+    logger.error('Erro na API notify-low-credits:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

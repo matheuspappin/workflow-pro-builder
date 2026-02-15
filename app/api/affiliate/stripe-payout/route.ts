@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAffiliateStripePayout } from '@/lib/actions/affiliate';
 import { getAuthenticatedClient } from "@/lib/server-utils";
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ payout });
   } catch (error: any) {
-    console.error('Erro ao criar pagamento Stripe:', error);
+    logger.error('Erro ao criar pagamento Stripe:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

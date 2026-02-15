@@ -1,9 +1,9 @@
 /**
- * Teste do sistema de cache do DanceFlow AI
+ * Teste do sistema de cache do Workflow AI
  * Execute: node test-cache.js
  */
 
-console.log('🧪 Testando Sistema de Cache do DanceFlow AI\n')
+console.log('🧪 Testando Sistema de Cache do Workflow AI\n')
 
 // Simular dados em cache
 const mockCache = {

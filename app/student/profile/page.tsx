@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -6,9 +7,7 @@ import { StudentHeader } from "@/components/student/student-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { LayoutDashboard as LayoutDashboardIcon, Calendar as CalendarIcon, CreditCard as CreditCardIcon, User as UserIcon } from "lucide-react"
-
-export default function StudentProfile() {
+import { LayoutDashboard as LayoutDashboardIcon, Calendar as CalendarIcon, CreditCard as CreditCardIcon, User as UserIcon, ArrowLeft, Camera, Edit2, Phone, Calendar, MapPin, Shield, Settings, LogOut, ChevronRight, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -89,7 +88,7 @@ export default function StudentProfile() {
         .from('students')
         .update({ address: newAddress })
         .eq('id', student.id)
-
+      
       if (error) throw error
 
       setStudent({ ...student, address: newAddress })

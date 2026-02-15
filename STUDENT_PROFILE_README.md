@@ -1,4 +1,4 @@
-# 🎭 StudentProfile Component - DanceFlow AI
+# 🎭 StudentProfile Component - Workflow AI
 
 ## 📋 Visão Geral
 

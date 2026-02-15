@@ -52,8 +52,9 @@ import {
   FileText,
   Clock,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useOrganization } from "@/components/providers/organization-provider"
 import { getApiKeys, setApiKeys, validateApiKey } from "@/lib/api-config"
 import { updateStudioSetting } from "@/lib/database-utils"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
@@ -61,7 +62,10 @@ import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password
 import { PLAN_LIMITS } from "@/lib/plan-limits"
 import { supabase } from "@/lib/supabase"
 
+import { EcosystemSettings } from "@/components/dashboard/settings/ecosystem-settings"
+
 interface StudioSettings {
+  id?: string
   name: string
   email: string
   phone: string
@@ -86,6 +90,89 @@ interface NotificationSettings {
 function SettingsContent() {
   const { toast } = useToast()
   const { vocabulary } = useVocabulary()
+  const { language } = useOrganization()
+  
+  const TRANSLATIONS = {
+    pt: {
+      profile: "Perfil",
+      studio: "Estúdio",
+      notifications: "Notificações",
+      integrations: "Integrações",
+      appearance: "Aparência",
+      billing: "Faturamento",
+      ecosystem: "Ecossistema",
+      reports: "Relatórios",
+      save: "Salvar Alterações",
+      saving: "Salvando...",
+      personalInfo: "Informações Pessoais",
+      personalInfoDesc: "Gerencie suas informações de acesso e perfil",
+      name: "Nome",
+      email: "E-mail",
+      role: "Cargo",
+      changePassword: "Alterar Senha",
+      changePasswordDesc: "Mantenha sua conta segura com uma senha forte",
+      currentPassword: "Senha Atual",
+      newPassword: "Nova Senha",
+      confirmPassword: "Confirmar Nova Senha",
+      studioInfo: "Informações do Estúdio",
+      studioInfoDesc: "Dados públicos e administrativos da sua empresa",
+      phone: "Telefone",
+      address: "Endereço",
+      cnpj: "CNPJ",
+      planAndUsage: "Plano e Uso",
+      planAndUsageDesc: "Gerencie sua assinatura e acompanhe os limites do sistema",
+      currentPlan: "Plano Atual",
+      changePlan: "Alterar Plano",
+      billingHistory: "Histórico de Faturamento",
+      invoices: "Faturas",
+      language: "Idioma",
+      theme: "Tema",
+      dark: "Escuro",
+      light: "Claro",
+      system: "Sistema",
+    },
+    en: {
+      profile: "Profile",
+      studio: "Studio",
+      notifications: "Notifications",
+      integrations: "Integrations",
+      appearance: "Appearance",
+      billing: "Billing",
+      ecosystem: "Ecosystem",
+      reports: "Reports",
+      save: "Save Changes",
+      saving: "Saving...",
+      personalInfo: "Personal Information",
+      personalInfoDesc: "Manage your access and profile information",
+      name: "Name",
+      email: "Email",
+      role: "Role",
+      changePassword: "Change Password",
+      changePasswordDesc: "Keep your account secure with a strong password",
+      currentPassword: "Current Password",
+      newPassword: "New Password",
+      confirmPassword: "Confirm New Password",
+      studioInfo: "Studio Information",
+      studioInfoDesc: "Public and administrative data of your company",
+      phone: "Phone",
+      address: "Address",
+      cnpj: "Tax ID (CNPJ)",
+      planAndUsage: "Plan and Usage",
+      planAndUsageDesc: "Manage your subscription and track system limits",
+      currentPlan: "Current Plan",
+      changePlan: "Change Plan",
+      billingHistory: "Billing History",
+      invoices: "Invoices",
+      language: "Language",
+      theme: "Theme",
+      dark: "Dark",
+      light: "Light",
+      system: "System",
+    }
+  }
+
+  const t = TRANSLATIONS[language as 'pt' | 'en'] || TRANSLATIONS.pt
+
   const searchParams = useSearchParams()
   const initialTab = searchParams.get("tab") || "perfil"
   const [isLoading, setIsLoading] = useState(false)
@@ -188,13 +275,15 @@ function SettingsContent() {
   const [reports, setReports] = useState<any[]>([])
   const [loadingReports, setLoadingReports] = useState(false)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [studioId, setStudioId] = useState<string>("")
 
   useEffect(() => {
     loadSystemPlans()
     const userData = localStorage.getItem("danceflow_user")
     if (userData) {
       const user = JSON.parse(userData)
-      const studioId = user.studio_id || user.studioId
+      const sId = user.studio_id || user.studioId
+      setStudioId(sId)
       
       setUserSettings({
         name: user.name || "",
@@ -202,6 +291,7 @@ function SettingsContent() {
         role: user.role || "admin",
       })
       setStudioSettings({
+        id: sId,
         name: user.studioName || "",
         email: user.email || "",
         phone: "",
@@ -210,11 +300,11 @@ function SettingsContent() {
       })
 
       // Carregar uso real
-      loadUsage(studioId)
-      loadInvoices(studioId)
-      loadCreditPackages(studioId)
-      loadReports(studioId)
-      loadStudioDetails(studioId)
+      loadUsage(sId)
+      loadInvoices(sId)
+      loadCreditPackages(sId)
+      loadReports(sId)
+      loadStudioDetails(sId)
     }
 
     // Verificar se voltou de um pagamento bem-sucedido
@@ -887,46 +977,46 @@ function SettingsContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header title="Configuracoes" />
+      <Header title={language === 'pt' ? "Configurações" : "Settings"} />
 
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="perfil" className="gap-2">
               <User className="w-4 h-4" />
-              Perfil
+              {t.profile}
             </TabsTrigger>
             <TabsTrigger value="estudio" className="gap-2">
               <Building className="w-4 h-4" />
-              {vocabulary.establishment}
+              {t.studio}
             </TabsTrigger>
             <TabsTrigger value="notificacoes" className="gap-2">
               <Bell className="w-4 h-4" />
-              Notificacoes
+              {t.notifications}
             </TabsTrigger>
             <TabsTrigger value="aparencia" className="gap-2">
               <Palette className="w-4 h-4" />
-              Aparencia
+              {t.appearance}
             </TabsTrigger>
             <TabsTrigger value="integracao" className="gap-2">
               <MessageSquare className="w-4 h-4" />
-              Integracoes
+              {t.integrations}
             </TabsTrigger>
             <TabsTrigger value="seguranca" className="gap-2">
               <Shield className="w-4 h-4" />
-              Seguranca
+              {language === 'pt' ? "Segurança" : "Security"}
             </TabsTrigger>
             <TabsTrigger value="plano" className="gap-2">
               <CreditCard className="w-4 h-4" />
-              Plano
+              {language === 'pt' ? "Plano" : "Plan"}
             </TabsTrigger>
             <TabsTrigger value="creditos" className="gap-2">
               <Sparkles className="w-4 h-4" />
-              Créditos / Sessões
+              {language === 'pt' ? "Créditos / Sessões" : "Credits / Sessions"}
             </TabsTrigger>
             <TabsTrigger value="relatorios" className="gap-2">
               <FileText className="w-4 h-4" />
-              Relatórios
+              {t.reports}
             </TabsTrigger>
           </TabsList>
 
@@ -934,8 +1024,8 @@ function SettingsContent() {
           <TabsContent value="perfil" className="space-y-6">
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">Informacoes Pessoais</CardTitle>
-                <CardDescription>Atualize suas informacoes de perfil</CardDescription>
+                <CardTitle className="text-card-foreground">{t.personalInfo}</CardTitle>
+                <CardDescription>{t.personalInfoDesc}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-6">
@@ -943,13 +1033,13 @@ function SettingsContent() {
                     {userSettings.name.split(" ").map(n => n[0]).slice(0, 2).join("") || "U"}
                   </div>
                   <div>
-                    <Button variant="outline">Alterar Foto</Button>
-                    <p className="text-xs text-muted-foreground mt-2">JPG, PNG ou GIF. Max 2MB</p>
+                    <Button variant="outline">{language === 'pt' ? "Alterar Foto" : "Change Photo"}</Button>
+                    <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome Completo</Label>
+                    <Label htmlFor="name">{t.name}</Label>
                     <Input
                       id="name"
                       value={userSettings.name}
@@ -958,7 +1048,7 @@ function SettingsContent() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t.email}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -969,7 +1059,7 @@ function SettingsContent() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Funcao</Label>
+                  <Label htmlFor="role">{t.role}</Label>
                   <Select value={userSettings.role} onValueChange={(value) => setUserSettings({ ...userSettings, role: value })}>
                     <SelectTrigger className="w-full md:w-[200px] bg-background">
                       <SelectValue />
@@ -993,13 +1083,13 @@ function SettingsContent() {
           <TabsContent value="estudio" className="space-y-6">
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">Dados do {vocabulary.establishment}</CardTitle>
-                <CardDescription>Informacoes do seu estabelecimento</CardDescription>
+                <CardTitle className="text-card-foreground">{language === 'pt' ? "Dados do Estúdio" : "Studio Data"}</CardTitle>
+                <CardDescription>{t.studioInfoDesc}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="studioName">Nome do {vocabulary.establishment}</Label>
+                    <Label htmlFor="studioName">{language === 'pt' ? "Nome do Estúdio" : "Studio Name"}</Label>
                     <Input
                       id="studioName"
                       value={studioSettings.name}
@@ -1008,19 +1098,19 @@ function SettingsContent() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="studioCnpj">CNPJ</Label>
+                    <Label htmlFor="studioCnpj">{t.cnpj}</Label>
                     <Input
                       id="studioCnpj"
                       value={studioSettings.cnpj}
                       onChange={(e) => setStudioSettings({ ...studioSettings, cnpj: e.target.value })}
-                      placeholder="00.000.000/0001-00"
+                      placeholder={language === 'pt' ? "00.000.000/0001-00" : "XX.XXX.XXX/XXXX-XX"}
                       className="bg-background"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="studioEmail">Email do {vocabulary.establishment}</Label>
+                    <Label htmlFor="studioEmail">{language === 'pt' ? "Email do Estúdio" : "Studio Email"}</Label>
                     <Input
                       id="studioEmail"
                       type="email"
@@ -1030,7 +1120,7 @@ function SettingsContent() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="studioPhone">Telefone</Label>
+                    <Label htmlFor="studioPhone">{t.phone}</Label>
                     <Input
                       id="studioPhone"
                       value={studioSettings.phone}
@@ -1040,7 +1130,7 @@ function SettingsContent() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="studioAddress">Endereco Completo</Label>
+                  <Label htmlFor="studioAddress">{t.address}</Label>
                   <Textarea
                     id="studioAddress"
                     value={studioSettings.address}
@@ -1052,11 +1142,13 @@ function SettingsContent() {
                 <div className="pt-4 flex justify-end">
                   <Button onClick={handleSaveStudioSettings} disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                    Salvar Alterações
+                    {t.save}
                   </Button>
                 </div>
               </CardContent>
             </Card>
+
+            <EcosystemSettings studioId={studioSettings.id || studioId} />
           </TabsContent>
 
           {/* Notificacoes Tab */}

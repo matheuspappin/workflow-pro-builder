@@ -2,6 +2,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { guardModule } from '@/lib/modules-server'
+import logger from '@/lib/logger'
 
 export interface Product {
   id: string
@@ -11,6 +12,8 @@ export interface Product {
   min_quantity: number
   cost_price: number
   selling_price: number
+  price_in_credits?: number
+  price_in_currency?: number
   sku?: string
   ncm?: string // Adicionado campo NCM
   image_url?: string
@@ -41,7 +44,7 @@ export async function getProductBySku(sku: string, studioId: string) {
     .maybeSingle()
 
   if (error) {
-    console.error('Erro ao buscar por SKU:', error)
+    logger.error('Erro ao buscar por SKU:', error)
     return null
   }
   
@@ -144,17 +147,20 @@ export async function updateProduct(productId: string, updates: Partial<Product>
 }
 
 /**
- * Remove (arquiva) um produto
+ * Remove (arquiva) um produto - Soft Delete
  */
 export async function deleteProduct(productId: string, studioId: string) {
   await guardModule('inventory')
   const { error } = await supabase
     .from('products')
-    .delete() // Hard delete agora
+    .update({ status: 'archived' }) // Soft delete em vez de exclusão permanente
     .eq('id', productId)
     .eq('studio_id', studioId)
 
-  if (error) throw error
+  if (error) {
+    logger.error('Erro ao arquivar produto:', error)
+    throw error
+  }
   return true
 }
 
@@ -235,7 +241,7 @@ export async function registerTransaction(
       total_value: quantity * transactionPrice
     })
 
-  if (logError) console.error('Erro ao logar transação:', logError)
+  if (logError) logger.error('Erro ao logar transação:', logError)
 
   return true
 }

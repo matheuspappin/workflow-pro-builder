@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AdminHeader } from "@/components/admin/admin-header"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { 
   LifeBuoy,
@@ -16,7 +16,8 @@ import {
   Send,
   User,
   Building2,
-  ExternalLink
+  ExternalLink,
+  X
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -28,50 +29,174 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Textarea } from "@/components/ui/textarea"
 
-const mockTickets = [
-  { 
-    id: "TCK-482", 
-    subject: "Dúvida sobre integração Gemini", 
-    customer: "Ana Paula", 
-    studio: "Estúdio Matriz", 
-    priority: "high", 
-    status: "open", 
-    createdAt: "2026-01-23T10:00:00Z",
-    lastMessage: "Não estou conseguindo ativar a chave do Gemini..."
-  },
-  { 
-    id: "TCK-481", 
-    subject: "Erro no processamento de boleto", 
-    customer: "Carlos Silva", 
-    studio: "Dance Flow SP", 
-    priority: "medium", 
-    status: "in_progress", 
-    createdAt: "2026-01-22T15:30:00Z",
-    lastMessage: "O aluno pagou mas ainda aparece como pendente."
-  },
-  { 
-    id: "TCK-480", 
-    subject: "Sugestão de funcionalidade: Mobile App", 
-    customer: "Ricardo Lima", 
-    studio: "Studio Movimento", 
-    priority: "low", 
-    status: "closed", 
-    createdAt: "2026-01-20T09:15:00Z",
-    lastMessage: "Seria incrível ter um app para os alunos."
+interface Ticket {
+  id: string
+  subject: string
+  status: string
+  priority: string
+  created_at: string
+  updated_at: string
+  lastMessage?: string
+  user: {
+    email: string
+    user_metadata: any
   }
-]
+  studio?: {
+    name: string
+  }
+}
+
+interface Message {
+  id: string
+  message: string
+  created_at: string
+  is_internal: boolean
+  user: {
+    email: string
+    user_metadata: any
+  }
+}
 
 export default function AdminSupportPage() {
   const { toast } = useToast()
-  const [tickets, setTickets] = useState(mockTickets)
+  const [tickets, setTickets] = useState<Ticket[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [newMessage, setNewMessage] = useState("")
+  const [isSending, setIsSending] = useState(false)
+
+  const fetchTickets = async () => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (searchTerm) params.append('search', searchTerm)
+      
+      const response = await fetch(`/api/support/tickets?${params.toString()}`)
+      if (!response.ok) throw new Error('Failed to fetch tickets')
+      const data = await response.json()
+      setTickets(data)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os tickets.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchTickets()
+  }, [searchTerm])
+
+  const fetchMessages = async (ticketId: string) => {
+    try {
+      const response = await fetch(`/api/support/tickets/${ticketId}/messages`)
+      if (!response.ok) throw new Error('Failed to fetch messages')
+      const data = await response.json()
+      setMessages(data)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as mensagens.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleTicketClick = (ticket: Ticket) => {
+    setSelectedTicket(ticket)
+    fetchMessages(ticket.id)
+  }
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedTicket || !newMessage.trim()) return
+
+    setIsSending(true)
+    try {
+      const response = await fetch(`/api/support/tickets/${selectedTicket.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: newMessage })
+      })
+
+      if (!response.ok) throw new Error('Failed to send message')
+
+      const newMsg = await response.json()
+      
+      // Update local state
+      // We might need to fetch the full message object with user data or construct it locally
+      // For simplicity, we'll re-fetch messages
+      await fetchMessages(selectedTicket.id)
+      setNewMessage("")
+      
+      toast({
+        title: "Sucesso",
+        description: "Mensagem enviada.",
+      })
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar a mensagem.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  const updateTicketStatus = async (ticketId: string, status: string) => {
+    try {
+      const response = await fetch(`/api/support/tickets/${ticketId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
+
+      if (!response.ok) throw new Error('Failed to update status')
+
+      toast({
+        title: "Status atualizado",
+        description: `O ticket foi marcado como ${status}.`,
+      })
+      
+      fetchTickets() // Refresh list
+      if (selectedTicket?.id === ticketId) {
+        setSelectedTicket(prev => prev ? { ...prev, status } : null)
+      }
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status.",
+        variant: "destructive"
+      })
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open': return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">Aberto</Badge>
       case 'in_progress': return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">Em Atendimento</Badge>
       case 'closed': return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Resolvido</Badge>
+      case 'resolved': return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Resolvido</Badge>
       default: return <Badge variant="outline">{status}</Badge>
     }
   }
@@ -81,6 +206,7 @@ export default function AdminSupportPage() {
       case 'high': return <span className="flex items-center gap-1 text-red-500 text-xs font-bold uppercase"><AlertCircle className="w-3 h-3" /> Alta</span>
       case 'medium': return <span className="flex items-center gap-1 text-amber-500 text-xs font-bold uppercase"><Clock className="w-3 h-3" /> Média</span>
       case 'low': return <span className="flex items-center gap-1 text-emerald-500 text-xs font-bold uppercase"><CheckCircle2 className="w-3 h-3" /> Baixa</span>
+      case 'critical': return <span className="flex items-center gap-1 text-purple-600 text-xs font-bold uppercase"><AlertCircle className="w-3 h-3" /> Crítica</span>
       default: return <span>{priority}</span>
     }
   }
@@ -186,7 +312,7 @@ export default function AdminSupportPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" className="text-slate-400 hover:text-indigo-600">
+                      <Button variant="ghost" size="icon" className="text-slate-400 hover:text-indigo-600" onClick={() => handleTicketClick(ticket)}>
                         <ExternalLink className="w-4 h-4" />
                       </Button>
                       <DropdownMenu>
@@ -196,13 +322,10 @@ export default function AdminSupportPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuItem className="cursor-pointer">
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => handleTicketClick(ticket)}>
                             <Send className="w-4 h-4 mr-2" /> Responder Ticket
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer">
-                            <User className="w-4 h-4 mr-2" /> Atribuir a Mim
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-emerald-600 focus:text-emerald-600 cursor-pointer">
+                          <DropdownMenuItem className="text-emerald-600 focus:text-emerald-600 cursor-pointer" onClick={() => updateTicketStatus(ticket.id, 'resolved')}>
                             <CheckCircle2 className="w-4 h-4 mr-2" /> Marcar como Resolvido
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -221,6 +344,91 @@ export default function AdminSupportPage() {
           <p className="text-sm text-slate-400">Bom trabalho! Todos os clientes foram atendidos.</p>
         </div>
       </div>
+
+      <Sheet open={!!selectedTicket} onOpenChange={(open) => !open && setSelectedTicket(null)}>
+        <SheetContent className="w-full sm:w-[540px] flex flex-col p-0" side="right">
+          {selectedTicket && (
+            <>
+              <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+                <SheetHeader>
+                  <div className="flex items-center gap-2 mb-2">
+                    {getStatusBadge(selectedTicket.status)}
+                    {getPriorityBadge(selectedTicket.priority)}
+                    <span className="text-xs font-mono text-slate-400">{selectedTicket.id}</span>
+                  </div>
+                  <SheetTitle className="text-xl">{selectedTicket.subject}</SheetTitle>
+                  <SheetDescription>
+                    Criado em {new Date(selectedTicket.created_at).toLocaleString('pt-BR')}
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-4 flex items-center gap-3">
+                  <Avatar className="w-10 h-10 border border-slate-100 dark:border-slate-800">
+                    <AvatarFallback className="bg-slate-100 text-slate-600 font-bold uppercase">
+                      {selectedTicket.user?.email?.substring(0, 2) || 'US'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedTicket.user?.email}</p>
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                      <Building2 className="w-3 h-3" /> {selectedTicket.studio?.name || 'Sem estúdio'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <ScrollArea className="flex-1 p-6 bg-slate-50/50 dark:bg-slate-950/50">
+                <div className="space-y-6">
+                  {messages.map((msg) => {
+                    const isMe = false // In admin view, we are not the user usually, but let's check properly if we had auth user info
+                    // Ideally we compare msg.user_id with current admin id
+                    // For now, let's assume if it's internal it's from admin/support
+                    
+                    return (
+                      <div key={msg.id} className={`flex flex-col gap-2 ${msg.is_internal ? 'items-end' : 'items-start'}`}>
+                         <div className={`flex items-center gap-2 ${msg.is_internal ? 'flex-row-reverse' : ''}`}>
+                          <span className="text-xs font-bold text-slate-500">{msg.user?.email}</span>
+                          <span className="text-[10px] text-slate-400">{new Date(msg.created_at).toLocaleString('pt-BR')}</span>
+                         </div>
+                         <div className={`p-4 rounded-xl max-w-[85%] text-sm ${
+                           msg.is_internal 
+                             ? 'bg-indigo-600 text-white rounded-tr-none' 
+                             : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-tl-none shadow-sm'
+                         }`}>
+                           {msg.message}
+                         </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
+
+              <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+                <form onSubmit={handleSendMessage} className="flex flex-col gap-4">
+                  <Textarea 
+                    placeholder="Digite sua resposta..." 
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="resize-none"
+                    rows={3}
+                  />
+                  <div className="flex justify-between items-center">
+                    <div className="flex gap-2">
+                       {selectedTicket.status !== 'resolved' && (
+                         <Button type="button" variant="outline" size="sm" onClick={() => updateTicketStatus(selectedTicket.id, 'resolved')}>
+                           Resolver
+                         </Button>
+                       )}
+                    </div>
+                    <Button type="submit" disabled={isSending || !newMessage.trim()} className="bg-indigo-600 hover:bg-indigo-700">
+                      {isSending ? 'Enviando...' : 'Enviar Resposta'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

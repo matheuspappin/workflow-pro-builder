@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import logger from '@/lib/logger';
 
 // Cache em memória para evitar processar a mesma mensagem duas vezes seguidas
 // Em produção real, isso seria um Redis, mas para dev local resolve 100%
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existingMsg) {
-      console.log(`⏭️ Ignorando mensagem duplicada (DB): ${messageId}`)
+      logger.info(`⏭️ Ignorando mensagem duplicada (DB): ${messageId}`)
       return NextResponse.json({ success: true })
     }
 
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     
     const userName = body.pushName || adminUser?.name || studentUser?.name || 'Cliente'
 
-    console.log(`📩 [SECRETARIA] Nova mensagem de ${userName}: ${messageContent}`)
+    logger.info(`📩 [SECRETARIA] Nova mensagem de ${userName}: ${messageContent}`)
 
     // 4.1 LÓGICA DE CONFIRMAÇÃO DE AULA (SIM/NAO)
     const normalizedMsg = messageContent.trim().toUpperCase()
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
     if (match && !isAdmin && !isStudent && studioId !== '00000000-0000-0000-0000-000000000000') {
       try {
         const leadData = JSON.parse(match[1]);
-        console.log('🎯 LEAD DETECTADO PELA IA:', leadData);
+        logger.info('🎯 LEAD DETECTADO PELA IA:', leadData);
 
         // Remover o bloco JSON da mensagem que vai para o usuário
         finalMessage = aiResponse.replace(match[0], '').trim();
@@ -196,7 +197,7 @@ export async function POST(request: NextRequest) {
           });
         }
       } catch (e) {
-        console.error('❌ Erro ao processar Lead AI:', e);
+        logger.error('❌ Erro ao processar Lead AI:', e);
         // Se der erro no JSON, apenas limpamos a mensagem para não mostrar código pro usuário
         finalMessage = aiResponse.replace(/\[LEAD_DETECTED:.*?\]/s, '').trim();
       }
@@ -212,13 +213,13 @@ export async function POST(request: NextRequest) {
         message: finalMessage,
         studioId: studioId
       })
-      console.log(`✅ Resposta enviada para ${userName}`)
+      logger.info(`✅ Resposta enviada para ${userName}`)
     }
 
     return NextResponse.json({ success: true })
 
   } catch (error: any) {
-    console.error('💥 Erro Webhook:', error)
+    logger.error('💥 Erro Webhook:', error)
     return NextResponse.json({ success: false })
   }
 }
@@ -249,7 +250,7 @@ async function syncToDb(remoteJid: string, content: string, studioId: string, na
       })
     }
   } catch (e) {
-    console.error('❌ Erro ao sincronizar mensagem no DB:', e)
+    logger.error('❌ Erro ao sincronizar mensagem no DB:', e)
   }
 }
 

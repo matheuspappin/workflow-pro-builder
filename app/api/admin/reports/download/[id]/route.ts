@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import logger from '@/lib/logger';
 
 /**
  * Permite baixar um relatório de contexto da IA pelo ID
@@ -60,7 +61,7 @@ export async function GET(
       .single();
 
     if (error || !report) {
-      console.error('❌ Erro ao buscar relatório ou acesso negado:', error);
+      logger.error('❌ Erro ao buscar relatório ou acesso negado:', error);
       return NextResponse.json({ error: 'Relatório não encontrado ou acesso negado para este estúdio.' }, { status: 404 });
     }
 
@@ -74,7 +75,7 @@ export async function GET(
     });
 
   } catch (error: any) {
-    console.error('💥 Erro ao baixar relatório:', error);
+    logger.error('💥 Erro ao baixar relatório:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

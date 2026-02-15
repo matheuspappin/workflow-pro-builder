@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('💥 Erro ao buscar notificações:', error);
+    logger.error('💥 Erro ao buscar notificações:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('💥 Erro ao atualizar notificação:', error);
+    logger.error('💥 Erro ao atualizar notificação:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

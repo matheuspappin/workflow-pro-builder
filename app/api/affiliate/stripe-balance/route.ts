@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAffiliateStripeBalance } from '@/lib/actions/affiliate';
 import { getAuthenticatedClient } from "@/lib/server-utils";
+import logger from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ balance });
   } catch (error: any) {
-    console.error('Erro ao buscar saldo do Stripe:', error);
+    logger.error('Erro ao buscar saldo do Stripe:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

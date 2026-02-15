@@ -21,10 +21,11 @@ import { pluralize } from "@/lib/pluralize"
 import { MODULE_PRICING } from "@/config/module-pricing"
 import { MODULE_DEFINITIONS, ModuleKey } from "@/config/modules"
 import { supabase } from "@/lib/supabase"
+import logger from "@/lib/logger"
 
-// --- Components ---
+type Language = 'pt' | 'en';
 
-function Navbar() {
+function Navbar({ lang, setLang }: { lang: Language, setLang: (l: Language) => void }) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -33,6 +34,21 @@ function Navbar() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  const navItems = {
+    pt: [
+      { name: "Recursos", href: "#features" },
+      { name: "Soluções", href: "#solutions" },
+      { name: "Preços", href: "#pricing" },
+      { name: "Sua Marca", href: "#whitelabel" },
+    ],
+    en: [
+      { name: "Features", href: "#features" },
+      { name: "Solutions", href: "#solutions" },
+      { name: "Pricing", href: "#pricing" },
+      { name: "Your Brand", href: "#whitelabel" },
+    ]
+  };
 
   return (
     <header className={cn(
@@ -59,12 +75,7 @@ function Navbar() {
         </motion.div>
 
         <nav className="hidden md:flex items-center gap-1">
-          {[
-            { name: "Recursos", href: "#features" },
-            { name: "Soluções", href: "#solutions" },
-            { name: "Preços", href: "#pricing" },
-            { name: "Sua Marca", href: "#whitelabel" },
-          ].map((item) => (
+          {navItems[lang].map((item) => (
             <Link 
               key={item.name} 
               href={item.href} 
@@ -77,14 +88,23 @@ function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="font-bold text-xs px-2 h-8 rounded-lg hover:bg-primary/5 hover:text-primary transition-all border border-white/10"
+            onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
+          >
+            {lang === 'pt' ? '🇺🇸 EN' : '🇧🇷 PT'}
+          </Button>
+
           <Link href="/login" className="hidden sm:block">
             <Button variant="ghost" size="sm" className="font-semibold hover:bg-primary/5 hover:text-primary transition-all">
-              Entrar
+              {lang === 'pt' ? 'Entrar' : 'Login'}
             </Button>
           </Link>
           <Link href="/register">
             <Button size="sm" className="hidden sm:flex rounded-full px-6 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-105 transition-all duration-300 font-bold">
-              Começar Agora
+              {lang === 'pt' ? 'Começar Agora' : 'Get Started'}
             </Button>
           </Link>
           <Button variant="ghost" size="icon" className="md:hidden rounded-full hover:bg-muted" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -103,22 +123,18 @@ function Navbar() {
             className="md:hidden absolute top-full left-0 w-full bg-background/95 backdrop-blur-xl border-b shadow-2xl overflow-hidden"
           >
             <div className="flex flex-col p-6 space-y-4 font-semibold">
-              <Link href="#features" className="flex items-center justify-between group" onClick={() => setMobileMenuOpen(false)}>
-                Recursos <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
-              </Link>
-              <Link href="#solutions" className="flex items-center justify-between group" onClick={() => setMobileMenuOpen(false)}>
-                Soluções <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
-              </Link>
-              <Link href="#whitelabel" className="flex items-center justify-between group" onClick={() => setMobileMenuOpen(false)}>
-                Sua Marca <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
-              </Link>
+              {navItems[lang].map((item) => (
+                <Link key={item.name} href={item.href} className="flex items-center justify-between group" onClick={() => setMobileMenuOpen(false)}>
+                  {item.name} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+                </Link>
+              ))}
               <div className="h-px bg-border/50 my-2" />
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full rounded-xl">Entrar</Button>
+                  <Button variant="outline" className="w-full rounded-xl">{lang === 'pt' ? 'Entrar' : 'Login'}</Button>
                 </Link>
                 <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full rounded-xl">Criar Conta</Button>
+                  <Button className="w-full rounded-xl">{lang === 'pt' ? 'Criar Conta' : 'Register'}</Button>
                 </Link>
               </div>
             </div>
@@ -129,7 +145,104 @@ function Navbar() {
   )
 }
 
-function HeroSection() {
+function HeroSection({ lang }: { lang: Language }) {
+  const TRANSLATIONS = {
+    pt: {
+      badge: "Nova Versão 2.0: IA Generativa & Apps Nativos",
+      title_part1: "A nova era da",
+      title_part2: "gestão inteligente",
+      description: "Transforme seu estúdio com agendamentos automáticos, IA preditiva e um ecossistema completo focado em experiência.",
+      cta: "Começar Agora Grátis",
+      architecture_badge: "Arquitetura Modular",
+      modules_title: "Evolua sua gestão com",
+      modules_span: "módulos especializados",
+      modules_desc: "Escolha apenas o que seu negócio precisa hoje. Expanda conforme você cresce, com integração total e sem complexidade.",
+      social_proof: "Confiado por centenas de empresas em todo o Brasil"
+    },
+    en: {
+      badge: "New Version 2.0: Generative AI & Native Apps",
+      title_part1: "The new era of",
+      title_part2: "intelligent management",
+      description: "Transform your studio with automated scheduling, predictive AI, and a complete ecosystem focused on experience.",
+      cta: "Start Now for Free",
+      architecture_badge: "Modular Architecture",
+      modules_title: "Evolve your management with",
+      modules_span: "specialized modules",
+      modules_desc: "Choose only what your business needs today. Expand as you grow, with total integration and no complexity.",
+      social_proof: "Trusted by hundreds of companies"
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
+
+  const ENGLISH_MODULES: Record<string, { label: string; description: string; benefits: string[] }> = {
+    dashboard: {
+      label: "Dashboard",
+      description: "Main control panel.",
+      benefits: ["Business overview", "Key indicators", "Quick shortcuts"]
+    },
+    students: {
+      label: "Client Management",
+      description: "Complete management of your client base.",
+      benefits: ["Unlimited client registration", "Complete history", "Anamnesis form"]
+    },
+    classes: {
+      label: "Class/Service Management",
+      description: "Organize your schedule and services.",
+      benefits: ["Class/service scheduling", "Attendance control", "Schedule grid"]
+    },
+    financial: {
+      label: "Financial",
+      description: "Have total control of your business finances.",
+      benefits: ["Cash flow control", "Tuition/package management", "Detailed financial reports"]
+    },
+    whatsapp: {
+      label: "WhatsApp Integration",
+      description: "Automate your communication and sell more via WhatsApp.",
+      benefits: ["Automatic reminder sending", "Mass marketing campaigns", "Automated service (Chatbot)"]
+    },
+    ai_chat: {
+      label: "AI Chat",
+      description: "Artificial Intelligence to boost your business.",
+      benefits: ["24/7 Virtual Assistant", "Advanced data analysis", "Smart automatic responses"]
+    },
+    pos: {
+      label: "Point of Sale (POS)",
+      description: "Agile point of sale for the counter.",
+      benefits: ["Fast checkout", "Non-fiscal receipt issuance", "Daily cash control"]
+    },
+    inventory: {
+      label: "Inventory Control",
+      description: "Never lose sales due to lack of product.",
+      benefits: ["Product stock control", "Low stock alert", "Suppliers and purchases"]
+    },
+    gamification: {
+      label: "Gamification",
+      description: "Retain your clients making the experience fun.",
+      benefits: ["Points and rewards system", "Client ranking", "Engagement and retention"]
+    },
+    leads: {
+      label: "Sales Funnel (CRM)",
+      description: "Turn interested parties into paying clients.",
+      benefits: ["Sales funnel (Kanban)", "Opportunity management", "Lead origin and conversion"]
+    },
+    scanner: {
+      label: "Entry Scanner",
+      description: "Speed up entry and exit of your establishment.",
+      benefits: ["QR Code check-in", "Gate access control", "Automatic attendance recording"]
+    },
+    marketplace: {
+      label: "Marketplace",
+      description: "Your online store open 24 hours a day.",
+      benefits: ["Integrated online store", "Online product/service sales", "Secure online payment"]
+    },
+    erp: {
+      label: "ERP Enterprise",
+      description: "Complete solution for large operations.",
+      benefits: ["Multi-unit/franchise management", "Consolidated reports", "Fiscal and accounting control"]
+    }
+  };
+
   return (
     <section className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
       {/* Background Decor */}
@@ -155,7 +268,7 @@ function HeroSection() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            Nova Versão 2.0: IA Generativa & Apps Nativos
+            {t.badge}
           </motion.div>
 
           <motion.h1 
@@ -164,9 +277,9 @@ function HeroSection() {
             transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
             className="text-6xl md:text-8xl lg:text-[110px] font-black tracking-tighter mb-8 leading-[0.85] text-foreground drop-shadow-2xl"
           >
-            A nova era da <br />
+            {t.title_part1} <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-indigo-500 to-purple-600 animate-gradient bg-[length:200%_auto] drop-shadow-[0_0_30px_rgba(var(--primary),0.3)]">
-              gestão inteligente
+              {t.title_part2}
             </span>
           </motion.h1>
 
@@ -176,7 +289,7 @@ function HeroSection() {
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             className="text-xl md:text-2xl text-foreground/70 dark:text-white/70 max-w-2xl mx-auto mb-12 leading-relaxed font-medium drop-shadow-sm"
           >
-            Transforme seu estúdio com agendamentos automáticos, IA preditiva e um ecossistema completo focado em experiência.
+            {t.description}
           </motion.p>
 
           <motion.div 
@@ -187,15 +300,15 @@ function HeroSection() {
           >
             <Link href="/register">
               <Button size="lg" className="h-16 px-10 text-xl rounded-full bg-primary hover:bg-primary/90 shadow-[0_10px_40px_-10px_rgba(var(--primary),0.5)] hover:shadow-[0_15px_50px_-10px_rgba(var(--primary),0.6)] transition-all hover:scale-105 font-bold group">
-                Começar Agora Grátis
+                {t.cta}
                 <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <SaibaMaisModal />
+            <SaibaMaisModal lang={lang} />
           </motion.div>
         </div>
 
-        {/* Módulos e Funcionalidades */}
+        {/* Modules and Features */}
         <div className="mt-24 relative z-10">
           <div className="text-center mb-16">
             <motion.div
@@ -205,11 +318,11 @@ function HeroSection() {
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider mb-6"
             >
               <Code className="w-3 h-3" />
-              Arquitetura Modular
+              {t.architecture_badge}
             </motion.div>
-            <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">Evolua sua gestão com <br /><span className="text-primary">módulos especializados</span></h2>
+            <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">{t.modules_title} <br /><span className="text-primary">{t.modules_span}</span></h2>
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg font-medium">
-              Escolha apenas o que seu negócio precisa hoje. Expanda conforme você cresce, com integração total e sem complexidade.
+              {t.modules_desc}
             </p>
           </div>
 
@@ -231,7 +344,10 @@ function HeroSection() {
                 erp: Shield
               };
               const Icon = iconMap[key] || Zap;
-              const definition = MODULE_DEFINITIONS[key as ModuleKey];
+              
+              const label = lang === 'pt' ? (MODULE_DEFINITIONS[key as ModuleKey]?.label || key) : (ENGLISH_MODULES[key]?.label || key);
+              const description = lang === 'pt' ? info.description : (ENGLISH_MODULES[key]?.description || info.description);
+              const benefits = lang === 'pt' ? info.benefits : (ENGLISH_MODULES[key]?.benefits || info.benefits);
 
               return (
                 <motion.div
@@ -247,13 +363,13 @@ function HeroSection() {
                     <Icon className="w-7 h-7" />
                   </div>
                   <h3 className="text-xl font-black mb-3 tracking-tight group-hover:text-primary transition-colors">
-                    {definition?.label || key}
+                    {label}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-8 font-medium leading-relaxed flex-grow">
-                    {info.description}
+                    {description}
                   </p>
                   <div className="space-y-3 pt-6 border-t border-white/5">
-                    {info.benefits.slice(0, 3).map((benefit, idx) => (
+                    {benefits.slice(0, 3).map((benefit, idx) => (
                       <div key={idx} className="flex items-center gap-2.5 text-[11px] font-bold text-muted-foreground/80">
                         <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 text-primary" />
@@ -280,7 +396,7 @@ function HeroSection() {
           transition={{ duration: 0.8, delay: 0.6 }}
           className="mt-32 text-center"
         >
-          <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em] mb-10">Confiado por centenas de empresas em todo o Brasil</p>
+          <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em] mb-10">{t.social_proof}</p>
           <div className="flex flex-wrap justify-center items-center gap-x-16 gap-y-10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500">
             {/* Simple Logo Placeholders with text to look professional */}
             <div className="flex items-center gap-2 font-black text-2xl tracking-tighter">STUDIO<span className="text-primary">X</span></div>
@@ -295,16 +411,79 @@ function HeroSection() {
   )
 }
 
-function InteractiveDemo() {
+function InteractiveDemo({ lang }: { lang: Language }) {
   const [activeNiche, setActiveNiche] = useState<NicheType>('dance')
-  const baseVocabulary = nicheDictionary[activeNiche]
+  
+  const vocab = nicheDictionary[lang][activeNiche] || nicheDictionary[lang].dance;
+
   const vocabulary = {
-    ...baseVocabulary,
-    clients: pluralize(baseVocabulary.client),
-    providers: pluralize(baseVocabulary.provider),
-    services: pluralize(baseVocabulary.service),
-    establishments: pluralize(baseVocabulary.establishment)
+    ...vocab,
+    clients: pluralize(vocab.client),
+    providers: pluralize(vocab.provider),
+    services: pluralize(vocab.service),
+    establishments: pluralize(vocab.establishment)
   }
+
+  const TRANSLATIONS = {
+    pt: {
+      badge: "Personalização Profunda",
+      title_part1: "O sistema que fala a",
+      title_part2: "língua do seu negócio",
+      description: "Esqueça sistemas genéricos. O Workflow Pro adapta toda a interface e vocabulário para o seu nicho específico, proporcionando familiaridade imediata.",
+      dashboard: "Dashboard",
+      financial: "Financeiro",
+      reports: "Relatórios",
+      plan_status: "Status do Plano",
+      ai_usage: "Uso de IA",
+      welcome: "Bem-vindo,",
+      summary: "Aqui está o resumo do seu",
+      checkin: "Check-in",
+      new: "Novo",
+      ai_title: "Inteligência Artificial",
+      ai_insight: "Detectamos que a retenção dos seus {clients} aumentou {percent} após as novas automações de WhatsApp.",
+      details: "Ver Detalhes",
+      revenue: "Faturamento",
+      goal: "Meta atingida",
+      sessions: "Sessões",
+      today: "Hoje",
+      upcoming: "Próximos",
+      view_all: "Visualizar Agenda Completa",
+      manage: "Gerenciar",
+      niches: Object.fromEntries(
+        Object.entries(nicheDictionary.pt).map(([key, value]) => [key, value.name])
+      )
+    },
+    en: {
+      badge: "Deep Customization",
+      title_part1: "The system that speaks",
+      title_part2: "your business language",
+      description: "Forget generic systems. Workflow Pro adapts the entire interface and vocabulary to your specific niche, providing immediate familiarity.",
+      dashboard: "Dashboard",
+      financial: "Financial",
+      reports: "Reports",
+      plan_status: "Plan Status",
+      ai_usage: "AI Usage",
+      welcome: "Welcome,",
+      summary: "Here is the summary of your",
+      checkin: "Check-in",
+      new: "New",
+      ai_title: "Artificial Intelligence",
+      ai_insight: "We detected that the retention of your {clients} increased {percent} after the new WhatsApp automations.",
+      details: "View Details",
+      revenue: "Revenue",
+      goal: "Goal reached",
+      sessions: "Sessions",
+      today: "Today",
+      upcoming: "Upcoming",
+      view_all: "View Full Schedule",
+      manage: "Manage",
+      niches: Object.fromEntries(
+        Object.entries(nicheDictionary.en).map(([key, value]) => [key, value.name])
+      )
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
   
   return (
     <section id="solutions" className="py-32 bg-slate-50 dark:bg-slate-900/30 relative overflow-hidden">
@@ -321,24 +500,24 @@ function InteractiveDemo() {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider mb-6"
           >
             <Sparkles className="w-3 h-3" />
-            Personalização Profunda
+            {t.badge}
           </motion.div>
-          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">O sistema que fala a <br /><span className="text-primary">língua do seu negócio</span></h2>
+          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">{t.title_part1} <br /><span className="text-primary">{t.title_part2}</span></h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            Esqueça sistemas genéricos. O Workflow Pro adapta toda a interface e vocabulário para o seu nicho específico, proporcionando familiaridade imediata.
+            {t.description}
           </p>
         </div>
 
         <div className="flex justify-center gap-3 mb-16 overflow-x-auto pb-6 px-4 no-scrollbar">
           {[
-            { id: 'dance', label: 'Estúdio de Dança', icon: Users },
-            { id: 'gym', label: 'Academia', icon: ZapIcon },
-            { id: 'dentist', label: 'Clínica Odonto', icon: Shield },
-            { id: 'beauty', label: 'Salão de Beleza', icon: Star },
-            { id: 'barber', label: 'Barbearia', icon: Scissors },
-            { id: 'auto_detail', label: 'Estética Automotiva', icon: Car },
-            { id: 'barista', label: 'Cafeteria', icon: Coffee },
-            { id: 'coworking', label: 'Coworking', icon: Home },
+            { id: 'dance', icon: Users },
+            { id: 'gym', icon: ZapIcon },
+            { id: 'dentist', icon: Shield },
+            { id: 'beauty', icon: Star },
+            { id: 'barber', icon: Scissors },
+            { id: 'auto_detail', icon: Car },
+            { id: 'barista', icon: Coffee },
+            { id: 'coworking', icon: Home },
           ].map((niche) => (
             <motion.button
               key={niche.id}
@@ -353,7 +532,7 @@ function InteractiveDemo() {
               )}
             >
               <niche.icon className={cn("w-5 h-5", activeNiche === niche.id ? "text-white" : "text-primary")} />
-              {niche.label}
+              {t.niches[niche.id as keyof typeof t.niches]}
             </motion.button>
           ))}
         </div>
@@ -374,11 +553,11 @@ function InteractiveDemo() {
               
               <div className="space-y-2">
                 {[
-                  { label: "Dashboard", icon: Layout, active: true },
-                  { label: vocabulary.provider === 'Professor' ? 'Meus Alunos' : vocabulary.clients, icon: Users },
+                  { label: t.dashboard, icon: Layout, active: true },
+                  { label: vocabulary.provider === (lang === 'pt' ? 'Professor' : 'Teacher') ? (lang === 'pt' ? 'Meus Alunos' : 'My Students') : vocabulary.clients, icon: Users },
                   { label: vocabulary.services, icon: Calendar },
-                  { label: "Financeiro", icon: CreditCard },
-                  { label: "Relatórios", icon: BarChart3 },
+                  { label: t.financial, icon: CreditCard },
+                  { label: t.reports, icon: BarChart3 },
                 ].map((item, i) => (
                   <div key={i} className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer group",
@@ -391,9 +570,9 @@ function InteractiveDemo() {
               </div>
               
               <div className="mt-auto bg-gradient-to-br from-primary/10 to-purple-500/10 p-5 rounded-2xl border border-primary/10">
-                <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-3">Status do Plano</div>
+                <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-3">{t.plan_status}</div>
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold">Uso de IA</span>
+                  <span className="text-xs font-bold">{t.ai_usage}</span>
                   <span className="text-xs font-bold text-primary">85%</span>
                 </div>
                 <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
@@ -406,16 +585,16 @@ function InteractiveDemo() {
             <div className="md:col-span-9 p-8 md:p-12">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
                 <div>
-                  <h3 className="text-3xl font-black mb-2 tracking-tight">Bem-vindo, {vocabulary.provider}</h3>
-                  <p className="text-muted-foreground font-medium">Aqui está o resumo do seu {activeNiche === 'dance' ? 'estúdio' : activeNiche === 'dentist' ? 'consultório' : 'negócio'} hoje.</p>
+                  <h3 className="text-3xl font-black mb-2 tracking-tight">{t.welcome} {vocabulary.provider}</h3>
+                  <p className="text-muted-foreground font-medium">{t.summary} {vocabulary.establishment.toLowerCase()} {lang === 'pt' ? 'hoje' : 'today'}.</p>
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" className="rounded-xl font-bold border-2">
                     <QrCode className="w-4 h-4 mr-2" />
-                    Check-in
+                    {t.checkin}
                   </Button>
                   <Button className="rounded-xl font-bold shadow-lg shadow-primary/20">
-                    Novo {vocabulary.service}
+                    {t.new} {vocabulary.service}
                   </Button>
                 </div>
               </div>
@@ -433,25 +612,25 @@ function InteractiveDemo() {
                   </div>
                   <div className="flex-1 text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                      <h4 className="font-black text-indigo-600 dark:text-indigo-400 uppercase text-xs tracking-widest">Inteligência Artificial</h4>
+                      <h4 className="font-black text-indigo-600 dark:text-indigo-400 uppercase text-xs tracking-widest">{t.ai_title}</h4>
                       <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 text-indigo-500">PRO</Badge>
                     </div>
                     <p className="text-slate-700 dark:text-slate-300 font-medium">
-                      Detectamos que a retenção dos seus <span className="font-bold text-indigo-600">{vocabulary.clients}</span> aumentou <span className="font-bold text-emerald-500">14%</span> após as novas automações de WhatsApp.
+                      {t.ai_insight.replace('{clients}', vocabulary.clients.toLowerCase()).replace('{percent}', '14%')}
                     </p>
                   </div>
                   <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-6 font-bold shrink-0">
-                    Ver Detalhes
+                    {t.details}
                   </Button>
                 </div>
               </motion.div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
                 {[
-                  { label: vocabulary.clients, value: "1.234", trend: "+12%", icon: Users, color: "text-blue-500" },
-                  { label: "Faturamento", value: "R$ 45k", trend: "+8%", icon: DollarSign, color: "text-emerald-500" },
-                  { label: "Check-ins", value: "85%", trend: "Meta atingida", icon: Check, color: "text-purple-500" },
-                  { label: "Sessões", value: "42", trend: "Hoje", icon: Calendar, color: "text-orange-500" },
+                  { label: vocabulary.clients, value: lang === 'pt' ? "1.234" : "1,234", trend: "+12%", icon: Users, color: "text-blue-500" },
+                  { label: t.revenue, value: lang === 'pt' ? "R$ 45k" : "$45k", trend: "+8%", icon: DollarSign, color: "text-emerald-500" },
+                  { label: "Check-ins", value: "85%", trend: t.goal, icon: Check, color: "text-purple-500" },
+                  { label: t.sessions, value: "42", trend: t.today, icon: Calendar, color: "text-orange-500" },
                 ].map((stat, i) => (
                   <div key={i} className="bg-slate-50 dark:bg-slate-900/30 rounded-2xl p-5 border border-transparent hover:border-primary/10 transition-all hover:shadow-md group">
                     <div className={cn("w-10 h-10 rounded-xl bg-background flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform", stat.color)}>
@@ -466,22 +645,22 @@ function InteractiveDemo() {
 
               <div className="bg-slate-50 dark:bg-slate-900/30 rounded-3xl p-8 border border-dashed border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-8">
-                  <h4 className="font-black tracking-tight">Próximos {vocabulary.services}</h4>
-                  <span className="text-xs font-bold text-primary cursor-pointer hover:underline">Visualizar Agenda Completa</span>
+                  <h4 className="font-black tracking-tight">{t.upcoming} {vocabulary.services}</h4>
+                  <span className="text-xs font-bold text-primary cursor-pointer hover:underline">{t.view_all}</span>
                 </div>
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-6 p-4 bg-background rounded-2xl border border-white/5 shadow-sm hover:shadow-md transition-all cursor-pointer group">
                       <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center font-black shrink-0 border group-hover:border-primary/30 transition-colors">
-                        <span className="text-[10px] text-muted-foreground uppercase leading-none mb-1">DEZ</span>
+                        <span className="text-[10px] text-muted-foreground uppercase leading-none mb-1">{lang === 'pt' ? 'DEZ' : 'DEC'}</span>
                         <span className="text-xl leading-none">1{i}</span>
                       </div>
                       <div className="flex-1">
-                        <div className="font-bold text-lg leading-tight mb-1 group-hover:text-primary transition-colors">{vocabulary.service} de {activeNiche === 'dance' ? 'Ballet' : activeNiche === 'gym' ? 'Crossfit' : 'Performance'}</div>
+                        <div className="font-bold text-lg leading-tight mb-1 group-hover:text-primary transition-colors">{vocabulary.service} - {activeNiche === 'dance' ? 'Ballet' : activeNiche === 'gym' ? 'Crossfit' : 'Performance'}</div>
                         <div className="text-sm text-muted-foreground font-medium flex items-center gap-3">
                           <span className="flex items-center gap-1"><Users className="w-3 h-3" /> 12 {vocabulary.clients}</span>
                           <span className="w-1 h-1 rounded-full bg-slate-300" />
-                          <span className="flex items-center gap-1"><Layout className="w-3 h-3" /> Sala 02</span>
+                          <span className="flex items-center gap-1"><Layout className="w-3 h-3" /> {lang === 'pt' ? 'Sala' : 'Room'} 02</span>
                         </div>
                       </div>
                       <div className="hidden sm:flex items-center gap-2">
@@ -492,7 +671,7 @@ function InteractiveDemo() {
                            <div className="w-8 h-8 rounded-full border-2 border-background bg-primary text-[10px] flex items-center justify-center text-white font-bold">+9</div>
                          </div>
                          <Button size="sm" variant="ghost" className="rounded-xl font-bold hover:bg-primary/10 hover:text-primary">
-                           Gerenciar
+                           {t.manage}
                          </Button>
                       </div>
                     </div>
@@ -507,46 +686,96 @@ function InteractiveDemo() {
   )
 }
 
-function FeatureGrid() {
-  const features = [
-    {
-      title: "Scanner & Check-in",
-      description: "App nativo para controle de acesso via QR Code. Elimine burocracia na recepção e gerencie créditos de forma automática.",
-      icon: QrCode,
-      color: "from-blue-500 to-cyan-400",
-      colSpan: "md:col-span-1"
+function FeatureGrid({ lang }: { lang: Language }) {
+  const TRANSLATIONS = {
+    pt: {
+      title_part1: "Tecnologia de elite",
+      title_part2: "para quem busca o topo",
+      description: "Não somos apenas mais um software de gestão. Somos o parceiro tecnológico que faltava para você focar no que realmente importa: seus clientes.",
+      performance_title: "Performance Incomparável",
+      performance_desc: "Sistema 100% cloud com 99.9% de uptime garantido.",
+      explore: "EXPLORAR RECURSO",
+      features: [
+        {
+          title: "Scanner & Check-in",
+          description: "App nativo para controle de acesso via QR Code. Elimine burocracia na recepção e gerencie créditos de forma automática.",
+          icon: QrCode,
+          color: "from-blue-500 to-cyan-400",
+          colSpan: "md:col-span-1"
+        },
+        {
+          title: "Ecossistema Financeiro",
+          description: "Cobrança recorrente, antecipação de recebíveis, split de pagamentos e loja integrada. Tudo o que seu financeiro precisa para escalar.",
+          icon: CreditCard,
+          color: "from-violet-600 to-indigo-500",
+          colSpan: "md:col-span-2"
+        },
+        {
+          title: "Cérebro de IA",
+          description: "Nossa IA analisa padrões de comportamento e avisa quais clientes estão prestes a cancelar, sugerindo ações de recuperação automáticas.",
+          icon: Bot,
+          color: "from-emerald-500 to-teal-400",
+          colSpan: "md:col-span-2"
+        },
+        {
+          title: "Marca Própria",
+          description: "Tenha seu próprio app nas lojas. Sua identidade visual em um produto robusto e testado por milhares de usuários.",
+          icon: Smartphone,
+          color: "from-orange-500 to-amber-400",
+          colSpan: "md:col-span-1"
+        }
+      ]
     },
-    {
-      title: "Ecossistema Financeiro",
-      description: "Cobrança recorrente, antecipação de recebíveis, split de pagamentos e loja integrada. Tudo o que seu financeiro precisa para escalar.",
-      icon: CreditCard,
-      color: "from-violet-600 to-indigo-500",
-      colSpan: "md:col-span-2"
-    },
-    {
-      title: "Cérebro de IA",
-      description: "Nossa IA analisa padrões de comportamento e avisa quais clientes estão prestes a cancelar, sugerindo ações de recuperação automáticas.",
-      icon: Bot,
-      color: "from-emerald-500 to-teal-400",
-      colSpan: "md:col-span-2"
-    },
-    {
-      title: "Marca Própria",
-      description: "Tenha seu próprio app nas lojas. Sua identidade visual em um product robusto e testado por milhares de usuários.",
-      icon: Smartphone,
-      color: "from-orange-500 to-amber-400",
-      colSpan: "md:col-span-1"
+    en: {
+      title_part1: "Elite technology",
+      title_part2: "for those seeking the top",
+      description: "We are not just another management software. We are the technological partner you were missing to focus on what really matters: your clients.",
+      performance_title: "Incomparable Performance",
+      performance_desc: "100% cloud system with 99.9% guaranteed uptime.",
+      explore: "EXPLORE FEATURE",
+      features: [
+        {
+          title: "Scanner & Check-in",
+          description: "Native app for access control via QR Code. Eliminate bureaucracy at the reception and manage credits automatically.",
+          icon: QrCode,
+          color: "from-blue-500 to-cyan-400",
+          colSpan: "md:col-span-1"
+        },
+        {
+          title: "Financial Ecosystem",
+          description: "Recurring billing, receivables anticipation, payment splits, and integrated store. Everything your financial department needs to scale.",
+          icon: CreditCard,
+          color: "from-violet-600 to-indigo-500",
+          colSpan: "md:col-span-2"
+        },
+        {
+          title: "AI Brain",
+          description: "Our AI analyzes behavior patterns and warns you which clients are about to cancel, suggesting automatic recovery actions.",
+          icon: Bot,
+          color: "from-emerald-500 to-teal-400",
+          colSpan: "md:col-span-2"
+        },
+        {
+          title: "Own Brand",
+          description: "Have your own app in the stores. Your visual identity in a robust product tested by thousands of users.",
+          icon: Smartphone,
+          color: "from-orange-500 to-amber-400",
+          colSpan: "md:col-span-1"
+        }
+      ]
     }
-  ]
+  };
+
+  const t = TRANSLATIONS[lang];
 
   return (
     <section id="features" className="py-32 relative">
       <div className="container mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-20 items-end mb-24">
           <div>
-            <h2 className="text-4xl md:text-6xl font-black mb-8 tracking-tight">Tecnologia de elite <br /><span className="text-primary">para quem busca o topo</span></h2>
+            <h2 className="text-4xl md:text-6xl font-black mb-8 tracking-tight">{t.title_part1} <br /><span className="text-primary">{t.title_part2}</span></h2>
             <p className="text-xl text-muted-foreground leading-relaxed font-medium">
-              Não somos apenas mais um software de gestão. Somos o parceiro tecnológico que faltava para você focar no que realmente importa: seus clientes.
+              {t.description}
             </p>
           </div>
           <div className="flex flex-col gap-6">
@@ -555,15 +784,15 @@ function FeatureGrid() {
                 <Zap className="w-8 h-8 fill-current" />
               </div>
               <div>
-                <h4 className="font-black text-lg tracking-tight">Performance Incomparável</h4>
-                <p className="text-muted-foreground text-sm font-medium">Sistema 100% cloud com 99.9% de uptime garantido.</p>
+                <h4 className="font-black text-lg tracking-tight">{t.performance_title}</h4>
+                <p className="text-muted-foreground text-sm font-medium">{t.performance_desc}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {features.map((feature, i) => (
+          {t.features.map((feature, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 30 }}
@@ -588,7 +817,7 @@ function FeatureGrid() {
                 </p>
 
                 <div className="mt-auto flex items-center gap-2 font-black text-sm text-primary group-hover:translate-x-2 transition-transform">
-                  EXPLORAR RECURSO <ArrowRight className="w-4 h-4" />
+                  {t.explore} <ArrowRight className="w-4 h-4" />
                 </div>
               </div>
             </motion.div>
@@ -599,43 +828,53 @@ function FeatureGrid() {
   )
 }
 
-const plans = [
-  {
-    id: 'gratuito',
-    name: 'Gratuito',
-    price: 0,
-    description: 'Ideal para começar sua jornada',
-    features: ['Até 10 alunos', '1 Profissional', 'Gestão básica'],
-    isPopular: false,
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 297,
-    description: 'Tudo o que você precisa para crescer',
-    features: ['Até 100 alunos', '5 Profissionais', 'WhatsApp Business', 'Gestão Financeira'],
-    isPopular: true,
-  },
-  {
-    id: 'pro-plus',
-    name: 'Pro+',
-    price: 197,
-    description: 'O melhor custo-benefício para estúdios médios',
-    features: ['Clientes ilimitados', 'Profissionais ilimitados', 'WhatsApp + IA', 'Financeiro Avançado'],
-    isPopular: false,
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 0,
-    description: 'Escalabilidade e suporte total',
-    features: ['Tudo ilimitado', 'Multi-unidades', 'Suporte VIP', 'IA Customizada'],
-    isPopular: false,
-  },
-];
+function PricingSection({ lang }: { lang: Language }) {
+  const defaultPlans = {
+    pt: [
+      { id: 'free', name: 'Gratuito', price: 0, description: 'Ideal para começar sua jornada', features: ['Até 10 alunos', '1 Profissional', 'Gestão básica'], isPopular: false },
+      { id: 'pro', name: 'Pro', price: 297, description: 'Tudo o que você precisa para crescer', features: ['Até 100 alunos', '5 Profissionais', 'WhatsApp Business', 'Gestão Financeira'], isPopular: true },
+      { id: 'pro-plus', name: 'Pro+', price: 197, description: 'O melhor custo-benefício para estúdios médios', features: ['Clientes ilimitados', 'Profissionais ilimitados', 'WhatsApp + IA', 'Financeiro Avançado'], isPopular: false },
+      { id: 'enterprise', name: 'Enterprise', price: 0, description: 'Escalabilidade e suporte total', features: ['Tudo ilimitado', 'Multi-unidades', 'Suporte VIP', 'IA Customizada'], isPopular: false },
+    ],
+    en: [
+      { id: 'free', name: 'Free', price: 0, description: 'Ideal to start your journey', features: ['Up to 10 clients', '1 Professional', 'Basic management'], isPopular: false },
+      { id: 'pro', name: 'Pro', price: 49, description: 'Everything you need to grow', features: ['Up to 100 clients', '5 Professionals', 'WhatsApp Business', 'Financial Management'], isPopular: true },
+      { id: 'pro-plus', name: 'Pro+', price: 99, description: 'Best value for medium studios', features: ['Unlimited clients', 'Unlimited professionals', 'WhatsApp + AI', 'Advanced Financial'], isPopular: false },
+      { id: 'enterprise', name: 'Enterprise', price: 0, description: 'Scalability and total support', features: ['Everything unlimited', 'Multi-unit', 'VIP Support', 'Custom AI'], isPopular: false },
+    ]
+  };
 
-function PricingSection() {
-  const [systemPlans, setSystemPlans] = useState<any[]>(plans)
+  const TRANSLATIONS = {
+    pt: {
+      badge: "Preços Transparentes",
+      title_part1: "Investimento que se",
+      title_part2: "paga sozinho",
+      description: "Escolha o plano ideal para a fase do seu negócio. Sem fidelidade, sem letras miúdas.",
+      recommended: "Recomendado",
+      contact: "Sob Consulta",
+      exclusive: "Negociação Exclusiva",
+      month: "/mês",
+      start: "Começar Agora",
+      talk: "Falar com Consultor",
+      trial: "Testar Grátis"
+    },
+    en: {
+      badge: "Transparent Pricing",
+      title_part1: "Investment that",
+      title_part2: "pays for itself",
+      description: "Choose the ideal plan for your business stage. No loyalty contracts, no fine print.",
+      recommended: "Recommended",
+      contact: "Contact Us",
+      exclusive: "Exclusive Negotiation",
+      month: "/month",
+      start: "Start Now",
+      talk: "Talk to Consultant",
+      trial: "Try for Free"
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
+  const [systemPlans, setSystemPlans] = useState<any[]>(defaultPlans[lang])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -649,7 +888,6 @@ function PricingSection() {
         
         if (error) throw error
         if (data && data.length > 0) {
-          // Mapear campos do banco para o formato do componente
           const mappedPlans = data.map(p => ({
             id: p.id,
             name: p.name,
@@ -659,15 +897,18 @@ function PricingSection() {
             isPopular: p.is_popular
           }))
           setSystemPlans(mappedPlans)
+        } else {
+          setSystemPlans(defaultPlans[lang])
         }
       } catch (err) {
-        console.error('Erro ao carregar planos:', err)
+        logger.error('Error loading plans:', err)
+        setSystemPlans(defaultPlans[lang])
       } finally {
         setLoading(false)
       }
     }
     loadPlans()
-  }, [])
+  }, [lang])
 
   return (
     <TooltipProvider>
@@ -683,11 +924,11 @@ function PricingSection() {
               whileInView={{ opacity: 1, y: 0 }}
               className="inline-block px-4 py-1 rounded-full bg-white/10 text-white/80 text-xs font-black uppercase tracking-[0.2em] mb-6 border border-white/5"
             >
-              Preços Transparentes
+              {t.badge}
             </motion.div>
-            <h2 className="text-4xl md:text-6xl font-black mb-8 tracking-tight">Investimento que se <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">paga sozinho</span></h2>
+            <h2 className="text-4xl md:text-6xl font-black mb-8 tracking-tight">{t.title_part1} <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{t.title_part2}</span></h2>
             <p className="text-xl text-slate-400 font-medium">
-              Escolha o plano ideal para a fase do seu negócio. Sem fidelidade, sem letras miúdas.
+              {t.description}
             </p>
           </div>
 
@@ -706,7 +947,7 @@ function PricingSection() {
               >
                 {plan.isPopular && (
                   <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl">
-                    Recomendado
+                    {t.recommended}
                   </div>
                 )}
                 
@@ -718,14 +959,14 @@ function PricingSection() {
                 <div className="mb-10 text-center md:text-left">
                   {plan.id === 'enterprise' ? (
                     <div className="flex flex-col justify-center md:justify-start">
-                      <span className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Sob Consulta</span>
-                      <span className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Negociação Exclusiva</span>
+                      <span className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{t.contact}</span>
+                      <span className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">{t.exclusive}</span>
                     </div>
                   ) : (
                     <div className="flex items-baseline gap-1 justify-center md:justify-start">
-                      <span className="text-lg font-bold text-slate-400">R$</span>
+                      <span className="text-lg font-bold text-slate-400">{lang === 'pt' ? 'R$' : '$'}</span>
                       <span className="text-6xl font-black tracking-tighter">{plan.price}</span>
-                      <span className="text-slate-400 font-bold">/mês</span>
+                      <span className="text-slate-400 font-bold">{t.month}</span>
                     </div>
                   )}
                 </div>
@@ -739,11 +980,11 @@ function PricingSection() {
                       : "border-2 border-white/20 hover:bg-white hover:text-black hover:border-white"
                   )}
                 >
-                  {plan.id === 'gratuito' ? 'Começar Agora' : plan.id === 'enterprise' ? 'Falar com Consultor' : 'Testar Grátis'}
+                  {plan.id === 'free' ? t.start : plan.id === 'enterprise' ? t.talk : t.trial}
                 </Button>
 
                 <ul className="space-y-5 flex-1">
-                  {plan.features.map((feature, idx) => (
+                  {plan.features.map((feature: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-3 group/item">
                       <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5 group-hover/item:scale-110 transition-transform">
                         <Check className="w-3 h-3 text-primary" />
@@ -761,35 +1002,71 @@ function PricingSection() {
   );
 }
 
-function TestimonialsSection() {
+function TestimonialsSection({ lang }: { lang: Language }) {
+  const TRANSLATIONS = {
+    pt: {
+      title_part1: "O que dizem nossos",
+      title_part2: "parceiros de sucesso",
+      description: "Histórias reais de quem transformou a gestão do seu negócio com nossa tecnologia.",
+      testimonials: [
+        {
+          text: "A automação de cobrança salvou meu estúdio. Reduzi a inadimplência a zero em apenas 2 meses de uso. O retorno sobre o investimento foi imediato.",
+          author: "Carla Mendes",
+          role: "Dona de Estúdio de Yoga",
+          avatar: "CM"
+        },
+        {
+          text: "Meus alunos amam o aplicativo nativo. Ficou extremamente profissional e aumentou drasticamente a percepção de valor dos meus serviços.",
+          author: "Ricardo Silva",
+          role: "Personal Trainer",
+          avatar: "RS"
+        },
+        {
+          text: "O modelo White-Label é genial. Me permitiu criar minha própria agência de software sem escrever uma linha de código. Suporte impecável.",
+          author: "Lucas Tech",
+          role: "Empreendedor SaaS",
+          avatar: "LT"
+        }
+      ]
+    },
+    en: {
+      title_part1: "What our",
+      title_part2: "success partners",
+      description: "Real stories from those who transformed their business management with our technology.",
+      testimonials: [
+        {
+          text: "Billing automation saved my studio. I reduced delinquency to zero in just 2 months of use. The return on investment was immediate.",
+          author: "Carla Mendes",
+          role: "Yoga Studio Owner",
+          avatar: "CM"
+        },
+        {
+          text: "My students love the native app. It looks extremely professional and has drastically increased the perceived value of my services.",
+          author: "Ricardo Silva",
+          role: "Personal Trainer",
+          avatar: "RS"
+        },
+        {
+          text: "The White-Label model is genius. It allowed me to create my own software agency without writing a single line of code. Impeccable support.",
+          author: "Lucas Tech",
+          role: "SaaS Entrepreneur",
+          avatar: "LT"
+        }
+      ]
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
+
   return (
     <section className="py-32 bg-slate-50 dark:bg-slate-900/30">
       <div className="container mx-auto px-6">
         <div className="text-center mb-20">
-          <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">O que dizem nossos <span className="text-primary">parceiros de sucesso</span></h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">Histórias reais de quem transformou a gestão do seu negócio com nossa tecnologia.</p>
+          <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">{t.title_part1} <span className="text-primary">{t.title_part2}</span></h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">{t.description}</p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
-          {[
-            {
-              text: "A automação de cobrança salvou meu estúdio. Reduzi a inadimplência a zero em apenas 2 meses de uso. O retorno sobre o investimento foi imediato.",
-              author: "Carla Mendes",
-              role: "Dona de Estúdio de Yoga",
-              avatar: "CM"
-            },
-            {
-              text: "Meus alunos amam o aplicativo nativo. Ficou extremamente profissional e aumentou drasticamente a percepção de valor dos meus serviços.",
-              author: "Ricardo Silva",
-              role: "Personal Trainer",
-              avatar: "RS"
-            },
-            {
-              text: "O modelo White-Label é genial. Me permitiu criar minha própria agência de software sem escrever uma linha de código. Suporte impecável.",
-              author: "Lucas Tech",
-              role: "Empreendedor SaaS",
-              avatar: "LT"
-            }
-          ].map((t, i) => (
+          {t.testimonials.map((testimonial, i) => (
             <motion.div 
               key={i}
               initial={{ opacity: 0, y: 20 }}
@@ -801,14 +1078,14 @@ function TestimonialsSection() {
               <div className="flex gap-1 mb-8">
                 {[1,2,3,4,5].map(s => <Star key={s} className="w-5 h-5 fill-amber-400 text-amber-400" />)}
               </div>
-              <p className="text-muted-foreground mb-10 leading-relaxed text-lg font-medium italic">"{t.text}"</p>
+              <p className="text-muted-foreground mb-10 leading-relaxed text-lg font-medium italic">"{testimonial.text}"</p>
               <div className="flex items-center gap-4 border-t pt-8 border-white/5">
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center font-black text-primary text-lg shadow-inner group-hover:scale-110 transition-transform">
-                  {t.avatar}
+                  {testimonial.avatar}
                 </div>
                 <div>
-                  <div className="font-black text-lg tracking-tight">{t.author}</div>
-                  <div className="text-sm text-muted-foreground font-bold uppercase tracking-widest">{t.role}</div>
+                  <div className="font-black text-lg tracking-tight">{testimonial.author}</div>
+                  <div className="text-sm text-muted-foreground font-bold uppercase tracking-widest">{testimonial.role}</div>
                 </div>
               </div>
             </motion.div>
@@ -819,7 +1096,56 @@ function TestimonialsSection() {
   )
 }
 
-function FAQSection() {
+function FAQSection({ lang }: { lang: Language }) {
+  const TRANSLATIONS = {
+    pt: {
+      title: "Dúvidas Frequentes",
+      description: "Tudo o que você precisa saber para começar a escalar sua operação hoje.",
+      faqs: [
+        {
+          q: "Como funciona o período de teste?",
+          a: "Você tem 14 dias para testar todas as funcionalidades premium gratuitamente. Não solicitamos dados de cartão de crédito para começar. Basta criar sua conta e explorar o ecossistema."
+        },
+        {
+          q: "Posso usar meu próprio domínio e marca?",
+          a: "Sim! Nos planos Pro e Scale, ou através do nosso modelo White-Label, você pode conectar seu domínio personalizado (ex: app.suaempresa.com.br) e remover todas as referências ao nosso sistema."
+        },
+        {
+          q: "O sistema cobra comissões sobre minhas vendas?",
+          a: "Nós não cobramos comissões sobre suas vendas. Você mantém 100% do seu faturamento, pagando apenas as taxas padrão do gateway de pagamento (Stripe ou Asaas) que escolher conectar."
+        },
+        {
+          q: "Como funciona o suporte técnico?",
+          a: "Oferecemos suporte humano via chat em tempo real dentro da plataforma e via e-mail. Clientes do plano Scale possuem acesso direto a um gerente de sucesso exclusivo através do WhatsApp."
+        }
+      ]
+    },
+    en: {
+      title: "Frequently Asked Questions",
+      description: "Everything you need to know to start scaling your operation today.",
+      faqs: [
+        {
+          q: "How does the trial period work?",
+          a: "You have 14 days to test all premium features for free. We do not ask for credit card details to start. Just create your account and explore the ecosystem."
+        },
+        {
+          q: "Can I use my own domain and brand?",
+          a: "Yes! In the Pro and Scale plans, or through our White-Label model, you can connect your custom domain (e.g., app.yourcompany.com) and remove all references to our system."
+        },
+        {
+          q: "Does the system charge commissions on my sales?",
+          a: "We do not charge commissions on your sales. You keep 100% of your revenue, paying only the standard fees of the payment gateway (Stripe or Asaas) you choose to connect."
+        },
+        {
+          q: "How does technical support work?",
+          a: "We offer human support via real-time chat within the platform and via email. Scale plan customers have direct access to an exclusive success manager through WhatsApp."
+        }
+      ]
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
+
   return (
     <section className="py-32 relative overflow-hidden">
        {/* Background Decor */}
@@ -828,29 +1154,12 @@ function FAQSection() {
 
       <div className="container mx-auto px-6 max-w-4xl">
         <div className="text-center mb-20">
-          <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">Dúvidas Frequentes</h2>
-          <p className="text-muted-foreground text-lg font-medium">Tudo o que você precisa saber para começar a escalar sua operação hoje.</p>
+          <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">{t.title}</h2>
+          <p className="text-muted-foreground text-lg font-medium">{t.description}</p>
         </div>
         
         <Accordion type="single" collapsible className="w-full space-y-4">
-          {[
-            {
-              q: "Como funciona o período de teste?",
-              a: "Você tem 14 dias para testar todas as funcionalidades premium gratuitamente. Não solicitamos dados de cartão de crédito para começar. Basta criar sua conta e explorar o ecossistema."
-            },
-            {
-              q: "Posso usar meu próprio domínio e marca?",
-              a: "Sim! Nos planos Pro e Scale, ou através do nosso modelo White-Label, você pode conectar seu domínio personalizado (ex: app.suaempresa.com.br) e remover todas as referências ao nosso sistema."
-            },
-            {
-              q: "O sistema cobra comissões sobre minhas vendas?",
-              a: "Nós não cobramos comissões sobre suas vendas. Você mantém 100% do seu faturamento, pagando apenas as taxas padrão do gateway de pagamento (Stripe ou Asaas) que escolher conectar."
-            },
-            {
-              q: "Como funciona o suporte técnico?",
-              a: "Oferecemos suporte humano via chat em tempo real dentro da plataforma e via e-mail. Clientes do plano Scale possuem acesso direto a um gerente de sucesso exclusivo através do WhatsApp."
-            }
-          ].map((faq, i) => (
+          {t.faqs.map((faq, i) => (
             <AccordionItem key={i} value={`item-${i}`} className="border rounded-2xl px-6 bg-slate-50/30 dark:bg-slate-900/10 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-all border-white/5">
               <AccordionTrigger className="text-lg font-bold hover:no-underline py-6 tracking-tight text-left">
                 {faq.q}
@@ -866,11 +1175,42 @@ function FAQSection() {
   )
 }
 
-function AffiliateSection() {
+function AffiliateSection({ lang }: { lang: Language }) {
   const [earnings, setEarnings] = useState(10)
   const commissionRate = 0.30
-  const ticketPrice = 197
+  const ticketPrice = lang === 'pt' ? 197 : 49
   const monthlyIncome = earnings * ticketPrice * commissionRate
+
+  const TRANSLATIONS = {
+    pt: {
+      badge: "Programa de Parceiros",
+      title_part1: "Lucre indicando a",
+      title_part2: "revolução do SaaS",
+      description: "Receba 30% de comissão recorrente por toda a vida do cliente. Dashboard exclusivo, materiais de marketing e pagamentos automáticos.",
+      features: ['Comissão Vitalícia', 'Cookies de 90 dias', 'Saque Automático', 'Suporte Prioritário'],
+      cta: "Tornar-se um Parceiro",
+      simulator: "Simulador de Ganhos",
+      referred: "Clientes Indicados",
+      drag: "Arraste para simular sua receita",
+      income: "Sua Renda Mensal Recorrente",
+      disclaimer: "*Cálculo baseado no ticket médio do plano Pro"
+    },
+    en: {
+      badge: "Partners Program",
+      title_part1: "Profit by referring the",
+      title_part2: "SaaS revolution",
+      description: "Receive 30% recurring commission for the lifetime of the client. Exclusive dashboard, marketing materials, and automatic payments.",
+      features: ['Lifetime Commission', '90-day Cookies', 'Automatic Withdrawal', 'Priority Support'],
+      cta: "Become a Partner",
+      simulator: "Earnings Simulator",
+      referred: "Referred Clients",
+      drag: "Drag to simulate your revenue",
+      income: "Your Monthly Recurring Revenue",
+      disclaimer: "*Calculation based on the average ticket of the Pro plan"
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
 
   return (
     <section id="affiliates" className="py-32 relative bg-slate-950 text-white overflow-hidden">
@@ -883,20 +1223,24 @@ function AffiliateSection() {
       <div className="container mx-auto px-6 relative z-10">
         <div className="grid lg:grid-cols-2 gap-20 items-center">
           <div>
-            <Badge className="bg-primary hover:bg-primary/90 mb-8 border-none px-6 py-2 text-xs font-black uppercase tracking-widest">Programa de Parceiros</Badge>
+            <Badge className="bg-primary hover:bg-primary/90 mb-8 border-none px-6 py-2 text-xs font-black uppercase tracking-widest">{t.badge}</Badge>
             <h2 className="text-5xl md:text-7xl font-black mb-8 leading-[0.9] tracking-tighter">
-              Lucre indicando a <br/>
+              {t.title_part1} <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400">
-                revolução do SaaS
+                {t.title_part2}
               </span>
             </h2>
             <p className="text-xl text-slate-400 mb-10 leading-relaxed font-medium">
-              Receba <strong className="text-white">30% de comissão recorrente</strong> por toda a vida do cliente. 
-              Dashboard exclusivo, materiais de marketing e pagamentos automáticos.
+              {t.description.split('30% de comissão recorrente').map((part, i, arr) => (
+                <span key={i}>
+                  {part}
+                  {i < arr.length - 1 && <strong className="text-white">{lang === 'pt' ? '30% de comissão recorrente' : '30% recurring commission'}</strong>}
+                </span>
+              ))}
             </p>
             
             <div className="grid sm:grid-cols-2 gap-6 mb-12">
-              {['Comissão Vitalícia', 'Cookies de 90 dias', 'Saque Automático', 'Suporte Prioritário'].map((item, i) => (
+              {t.features.map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
                     <Check className="w-4 h-4" />
@@ -908,7 +1252,7 @@ function AffiliateSection() {
 
             <Link href="/portal/affiliate/login">
               <Button size="lg" className="h-16 px-10 text-xl bg-white text-slate-950 hover:bg-slate-200 rounded-full font-black shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:shadow-[0_0_50px_rgba(255,255,255,0.4)] transition-all group">
-                Tornar-se um Parceiro
+                {t.cta}
                 <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
@@ -916,12 +1260,12 @@ function AffiliateSection() {
 
           <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[3rem] p-10 md:p-16 shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl" />
-            <h3 className="text-2xl font-black mb-12 text-center tracking-tight">Simulador de Ganhos</h3>
+            <h3 className="text-2xl font-black mb-12 text-center tracking-tight">{t.simulator}</h3>
             
             <div className="space-y-16">
               <div className="space-y-6">
                 <div className="flex justify-between items-end">
-                  <span className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Clientes Indicados</span>
+                  <span className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">{t.referred}</span>
                   <span className="text-5xl font-black text-white tracking-tighter">{earnings}</span>
                 </div>
                 <Slider 
@@ -931,16 +1275,16 @@ function AffiliateSection() {
                   step={1} 
                   className="py-4 cursor-pointer"
                 />
-                <p className="text-[10px] text-slate-500 text-center font-bold uppercase tracking-widest">Arraste para simular sua receita</p>
+                <p className="text-[10px] text-slate-500 text-center font-bold uppercase tracking-widest">{t.drag}</p>
               </div>
 
               <div className="bg-gradient-to-br from-primary to-purple-600 rounded-[2rem] p-10 text-center shadow-2xl transform transition-transform group-hover:scale-[1.02] duration-500 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
-                <p className="text-white/80 font-bold uppercase text-xs tracking-widest mb-4">Sua Renda Mensal Recorrente</p>
+                <p className="text-white/80 font-bold uppercase text-xs tracking-widest mb-4">{t.income}</p>
                 <div className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-2">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyIncome)}
+                  {new Intl.NumberFormat(lang === 'pt' ? 'pt-BR' : 'en-US', { style: 'currency', currency: lang === 'pt' ? 'BRL' : 'USD' }).format(monthlyIncome)}
                 </div>
-                <p className="text-[10px] text-white/60 font-medium">*Cálculo baseado no ticket médio do plano Pro</p>
+                <p className="text-[10px] text-white/60 font-medium">{t.disclaimer}</p>
               </div>
             </div>
           </div>
@@ -950,7 +1294,54 @@ function AffiliateSection() {
   )
 }
 
-function WhiteLabelSection() {
+function WhiteLabelSection({ lang }: { lang: Language }) {
+  const TRANSLATIONS = {
+    pt: {
+      badge: "Para Agências & Empreendedores",
+      title_part1: "Sua própria tech",
+      title_part2: "em 24 horas.",
+      description: "Não gaste meses e fortunas desenvolvendo. Use nossa infraestrutura com a Sua Marca, seu domínio e seus preços. Nós cuidamos do código, você foca no mercado.",
+      cta: "Licenciar Plataforma",
+      settings_title: "Configurações Whitelabel",
+      active: "Ativo",
+      platform_name_label: "Nome da Sua Plataforma",
+      platform_name: "Minha Agência SaaS",
+      visual_label: "Identidade Visual",
+      upload: "Upload Logo",
+      primary: "Primária",
+      secondary: "Secundária",
+      sparkles_note: "O sistema removerá automaticamente todas as menções ao Workflow Pro e aplicará suas cores em toda a experiência do cliente.",
+      features: [
+        { title: "Domínio 100% Seu", desc: "app.suaempresa.com.br", icon: Globe },
+        { title: "Margens de Lucro Reais", desc: "Você define o preço final para seu cliente", icon: DollarSign },
+        { title: "Invisibilidade Total", desc: "Nenhuma menção ao Workflow Pro no sistema", icon: Shield }
+      ]
+    },
+    en: {
+      badge: "For Agencies & Entrepreneurs",
+      title_part1: "Your own tech",
+      title_part2: "in 24 hours.",
+      description: "Don't spend months and fortunes developing. Use our infrastructure with Your Brand, your domain, and your prices. We take care of the code, you focus on the market.",
+      cta: "License Platform",
+      settings_title: "Whitelabel Settings",
+      active: "Active",
+      platform_name_label: "Platform Name",
+      platform_name: "My SaaS Agency",
+      visual_label: "Visual Identity",
+      upload: "Upload Logo",
+      primary: "Primary",
+      secondary: "Secondary",
+      sparkles_note: "The system will automatically remove all mentions of Workflow Pro and apply your colors throughout the customer experience.",
+      features: [
+        { title: "100% Your Domain", desc: "app.yourcompany.com", icon: Globe },
+        { title: "Real Profit Margins", desc: "You define the final price for your client", icon: DollarSign },
+        { title: "Total Invisibility", desc: "No mention of Workflow Pro in the system", icon: Shield }
+      ]
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
+
   return (
     <section id="whitelabel" className="py-32 bg-background relative overflow-hidden">
       <div className="container mx-auto px-6">
@@ -960,21 +1351,22 @@ function WhiteLabelSection() {
           <div className="relative z-10 grid lg:grid-cols-2 gap-20 items-center">
             <div>
               <Badge variant="outline" className="mb-8 border-primary/20 text-primary px-6 py-2 rounded-full font-black uppercase text-[10px] tracking-widest bg-primary/5">
-                Para Agências & Empreendedores
+                {t.badge}
               </Badge>
               <h2 className="text-5xl md:text-7xl font-black mb-8 leading-[0.9] tracking-tighter">
-                Sua própria tech <br /><span className="text-primary">em 24 horas.</span>
+                {t.title_part1} <br /><span className="text-primary">{t.title_part2}</span>
               </h2>
               <p className="text-xl text-muted-foreground mb-12 leading-relaxed font-medium">
-                Não gaste meses e fortunas desenvolvendo. Use nossa infraestrutura com a <strong>Sua Marca</strong>, seu domínio e seus preços. Nós cuidamos do código, você foca no mercado.
+                {t.description.split('Sua Marca').map((part, i, arr) => (
+                  <span key={i}>
+                    {part}
+                    {i < arr.length - 1 && <strong>{lang === 'pt' ? 'Sua Marca' : 'Your Brand'}</strong>}
+                  </span>
+                ))}
               </p>
               
               <div className="space-y-8 mb-14">
-                {[
-                  { title: "Domínio 100% Seu", desc: "app.suaempresa.com.br", icon: Globe },
-                  { title: "Margens de Lucro Reais", desc: "Você define o preço final para seu cliente", icon: DollarSign },
-                  { title: "Invisibilidade Total", desc: "Nenhuma menção ao Workflow Pro no sistema", icon: Shield }
-                ].map((item, i) => (
+                {t.features.map((item, i) => (
                   <div key={i} className="flex gap-6 group">
                     <div className="w-14 h-14 rounded-2xl bg-background shadow-sm border border-white/10 flex items-center justify-center shrink-0 text-primary group-hover:scale-110 transition-transform duration-300">
                       <item.icon className="w-7 h-7" />
@@ -988,7 +1380,7 @@ function WhiteLabelSection() {
               </div>
 
               <Button size="lg" className="h-16 px-10 text-xl rounded-full font-black bg-foreground text-background hover:opacity-90 transition-all shadow-xl">
-                Licenciar Plataforma
+                {t.cta}
               </Button>
             </div>
 
@@ -997,36 +1389,36 @@ function WhiteLabelSection() {
               <div className="bg-background border border-white/10 rounded-[3rem] shadow-2xl p-10 md:p-16 relative rotate-3 group-hover:rotate-0 transition-all duration-700">
                 {/* Brand Config Mockup */}
                 <div className="flex items-center justify-between mb-12 border-b border-white/5 pb-6">
-                  <div className="font-black tracking-tight text-lg">Configurações Whitelabel</div>
+                  <div className="font-black tracking-tight text-lg">{t.settings_title}</div>
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Ativo
+                    {t.active}
                   </div>
                 </div>
                 
                 <div className="space-y-8">
                   <div className="space-y-3">
-                    <div className="text-xs font-black text-muted-foreground uppercase tracking-widest">Nome da Sua Plataforma</div>
+                    <div className="text-xs font-black text-muted-foreground uppercase tracking-widest">{t.platform_name_label}</div>
                     <div className="h-14 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-white/5 px-6 flex items-center text-sm font-bold">
-                      Minha Agência SaaS
+                      {t.platform_name}
                     </div>
                   </div>
                   
                   <div className="space-y-4">
-                    <div className="text-xs font-black text-muted-foreground uppercase tracking-widest">Identidade Visual</div>
+                    <div className="text-xs font-black text-muted-foreground uppercase tracking-widest">{t.visual_label}</div>
                     <div className="flex gap-6">
                       <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-primary/30 flex items-center justify-center text-primary text-[10px] font-black text-center p-4 cursor-pointer hover:bg-primary/5 transition-colors">
-                        Upload Logo
+                        {t.upload}
                       </div>
                       <div className="flex-1 space-y-4 pt-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-primary shadow-lg" />
-                            <span className="text-xs font-bold text-muted-foreground">Primária</span>
+                            <span className="text-xs font-bold text-muted-foreground">{t.primary}</span>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-white shadow-lg" />
-                            <span className="text-xs font-bold text-muted-foreground">Secundária</span>
+                            <span className="text-xs font-bold text-muted-foreground">{t.secondary}</span>
                           </div>
                         </div>
                         <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -1041,7 +1433,12 @@ function WhiteLabelSection() {
                       <Sparkles className="w-5 h-5" />
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                      O sistema removerá automaticamente todas as menções ao <span className="font-bold text-primary">Workflow Pro</span> e aplicará suas cores em toda a experiência do cliente.
+                      {t.sparkles_note.split('Workflow Pro').map((part, i, arr) => (
+                        <span key={i}>
+                          {part}
+                          {i < arr.length - 1 && <span className="font-bold text-primary">Workflow Pro</span>}
+                        </span>
+                      ))}
                     </p>
                   </div>
                 </div>
@@ -1054,7 +1451,44 @@ function WhiteLabelSection() {
   )
 }
 
-function Footer() {
+function Footer({ lang }: { lang: Language }) {
+  const TRANSLATIONS = {
+    pt: {
+      description: "A infraestrutura definitiva para quem deseja transformar a gestão de negócios em uma experiência de classe mundial.",
+      ecosystem: "Ecossistema",
+      company: "Empresa",
+      newsletter: "Newsletter",
+      newsletter_desc: "Receba insights sobre gestão e IA.",
+      subscribe: "Assinar",
+      placeholder: "Seu melhor e-mail",
+      privacy: "Privacidade",
+      terms: "Termos",
+      security: "Segurança",
+      links: {
+        ecosystem: ["Funcionalidades", "App Whitelabel", "IA Generativa", "Marketplace"],
+        company: ["Sobre Nós", "Carreiras", "Afiliados", "Contato"]
+      }
+    },
+    en: {
+      description: "The ultimate infrastructure for those who want to transform business management into a world-class experience.",
+      ecosystem: "Ecosystem",
+      company: "Company",
+      newsletter: "Newsletter",
+      newsletter_desc: "Receive insights on management and AI.",
+      subscribe: "Subscribe",
+      placeholder: "Your best email",
+      privacy: "Privacy",
+      terms: "Terms",
+      security: "Security",
+      links: {
+        ecosystem: ["Features", "Whitelabel App", "Generative AI", "Marketplace"],
+        company: ["About Us", "Careers", "Affiliates", "Contact"]
+      }
+    }
+  };
+
+  const t = TRANSLATIONS[lang];
+
   return (
     <footer className="bg-slate-950 text-slate-400 py-32 border-t border-white/5 relative overflow-hidden">
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_50%_120%,_#3b82f610_0%,_transparent_50%)] pointer-events-none" />
@@ -1069,7 +1503,7 @@ function Footer() {
               Workflow <span className="text-primary">Pro</span>
             </div>
             <p className="text-lg leading-relaxed mb-10 max-w-md">
-              A infraestrutura definitiva para quem deseja transformar a gestão de negócios em uma experiência de classe mundial.
+              {t.description}
             </p>
             <div className="flex gap-4">
               {[Globe, MessageSquare, Smartphone, Instagram].map((Icon, i) => (
@@ -1081,36 +1515,34 @@ function Footer() {
           </div>
           
           <div className="md:col-span-2">
-            <h4 className="text-white font-black uppercase text-xs tracking-[0.2em] mb-8">Ecossistema</h4>
+            <h4 className="text-white font-black uppercase text-xs tracking-[0.2em] mb-8">{t.ecosystem}</h4>
             <ul className="space-y-4 font-medium">
-              <li><Link href="#" className="hover:text-primary transition-colors">Funcionalidades</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">App Whitelabel</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">IA Generativa</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Marketplace</Link></li>
+              {t.links.ecosystem.map(link => (
+                <li key={link}><Link href="#" className="hover:text-primary transition-colors">{link}</Link></li>
+              ))}
             </ul>
           </div>
 
           <div className="md:col-span-2">
-            <h4 className="text-white font-black uppercase text-xs tracking-[0.2em] mb-8">Empresa</h4>
+            <h4 className="text-white font-black uppercase text-xs tracking-[0.2em] mb-8">{t.company}</h4>
             <ul className="space-y-4 font-medium">
-              <li><Link href="#" className="hover:text-primary transition-colors">Sobre Nós</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Carreiras</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Afiliados</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Contato</Link></li>
+              {t.links.company.map(link => (
+                <li key={link}><Link href="#" className="hover:text-primary transition-colors">{link}</Link></li>
+              ))}
             </ul>
           </div>
 
           <div className="md:col-span-3">
-            <h4 className="text-white font-black uppercase text-xs tracking-[0.2em] mb-8">Newsletter</h4>
-            <p className="text-sm mb-6 font-medium">Receba insights sobre gestão e IA.</p>
+            <h4 className="text-white font-black uppercase text-xs tracking-[0.2em] mb-8">{t.newsletter}</h4>
+            <p className="text-sm mb-6 font-medium">{t.newsletter_desc}</p>
             <div className="relative">
               <input 
                 type="email" 
-                placeholder="Seu melhor e-mail" 
+                placeholder={t.placeholder} 
                 className="w-full bg-white/5 border border-white/10 rounded-2xl h-14 px-6 text-sm focus:outline-none focus:border-primary transition-colors"
               />
               <button className="absolute right-2 top-2 h-10 px-4 bg-primary text-white rounded-xl font-bold text-xs hover:bg-primary/90 transition-colors">
-                Assinar
+                {t.subscribe}
               </button>
             </div>
           </div>
@@ -1119,9 +1551,9 @@ function Footer() {
         <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 text-sm font-bold uppercase tracking-widest">
           <p className="text-slate-500">© 2026 Workflow Pro Builder. <span className="text-slate-700">Code with Excellence.</span></p>
           <div className="flex gap-8">
-            <Link href="#" className="hover:text-white transition-colors">Privacidade</Link>
-            <Link href="#" className="hover:text-white transition-colors">Termos</Link>
-            <Link href="#" className="hover:text-white transition-colors">Segurança</Link>
+            <Link href="#" className="hover:text-white transition-colors">{t.privacy}</Link>
+            <Link href="#" className="hover:text-white transition-colors">{t.terms}</Link>
+            <Link href="#" className="hover:text-white transition-colors">{t.security}</Link>
           </div>
         </div>
       </div>
@@ -1132,18 +1564,20 @@ function Footer() {
 // --- Main Page Component ---
 
 export default function LandingPage() {
+  const [lang, setLang] = useState<Language>('pt')
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 overflow-x-hidden">
-      <Navbar />
-      <HeroSection />
-      <InteractiveDemo />
-      <FeatureGrid />
-      <PricingSection />
-      <TestimonialsSection />
-      <FAQSection />
-      <AffiliateSection />
-      <WhiteLabelSection />
-      <Footer />
+      <Navbar lang={lang} setLang={setLang} />
+      <HeroSection lang={lang} />
+      <InteractiveDemo lang={lang} />
+      <FeatureGrid lang={lang} />
+      <PricingSection lang={lang} />
+      <TestimonialsSection lang={lang} />
+      <FAQSection lang={lang} />
+      <AffiliateSection lang={lang} />
+      <WhiteLabelSection lang={lang} />
+      <Footer lang={lang} />
     </div>
   )
 }

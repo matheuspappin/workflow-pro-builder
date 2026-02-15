@@ -313,7 +313,7 @@ export default function ShopPage() {
             <div className="col-span-1 md:col-span-2">
                 <h2 className="text-2xl font-black tracking-tighter uppercase mb-4">{store.store_name}</h2>
                 <p className="text-gray-400 text-sm max-w-md">
-                    Parte da rede DanceFlow AI. Trazendo os melhores produtos do mercado diretamente do seu estúdio favorito para sua casa.
+                    Parte da rede Workflow AI. Trazendo os melhores produtos do mercado diretamente do seu estúdio favorito para sua casa.
                 </p>
             </div>
             <div>
@@ -336,7 +336,7 @@ export default function ShopPage() {
         </div>
         <div className="container mx-auto px-6 mt-12 pt-8 border-t border-gray-800 text-xs text-gray-500 flex justify-between">
             <p>&copy; 2026 {store.store_name}. Todos os direitos reservados.</p>
-            <p>Powered by DanceFlow AI</p>
+            <p>Powered by Workflow AI</p>
         </div>
       </footer>
 

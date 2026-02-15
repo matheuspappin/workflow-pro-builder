@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import logger from '@/lib/logger';
 
 export async function GET(
   request: Request,
@@ -44,7 +45,7 @@ export async function GET(
     .single()
 
   if (error) {
-    console.error('Error fetching tenant:', error)
+    logger.error('Error fetching tenant:', error)
     return NextResponse.json({ error: 'Failed to fetch tenant data' }, { status: 500 })
   }
 

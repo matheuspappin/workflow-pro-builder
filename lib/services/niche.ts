@@ -57,7 +57,7 @@ export class NicheService {
    */
   static translate(niche: string, term: 'client' | 'provider' | 'service' | 'establishment') {
     // @ts-ignore
-    return nicheDictionary[niche]?.[term] || nicheDictionary.dance[term];
+    return nicheDictionary.pt[niche]?.[term] || nicheDictionary.pt.dance[term];
   }
 
   /**

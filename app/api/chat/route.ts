@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStudentsData, getTeachersData, getFinancialData, getClassesData } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import logger from '@/lib/logger';
 import { detectIntent, executeIntent, generateConfirmationMessage } from '@/lib/intent-detection'
 
 export async function POST(request: NextRequest) {
@@ -70,12 +72,12 @@ DADOS ATUAIS DO ESTÚDIO:
 - Receita: R$ ${financialData.monthlyRevenue} | Atrasados: R$ ${financialData.overduePayments}
         `;
       } catch (error) {
-        console.warn('Erro ao buscar dados do Supabase:', error)
+        logger.warn('Erro ao buscar dados do Supabase:', error)
       }
     }
 
-    // Contexto do sistema para o DanceFlow com dados reais
-    const systemPrompt = `Você é um assistente IA especializado em gestão de estúdios de dança chamado DanceFlow.
+    // Contexto do sistema para o Workflow AI com dados reais
+    const systemPrompt = `Você é um assistente IA especializado em gestão de estúdios de dança chamado Workflow AI.
 
 FONTE DA VERDADE (USE ESTES DADOS E NÃO INVENTE NADA):
 ${contextContent}
@@ -121,7 +123,7 @@ DIRETRIZES:
 
     if (!response.ok) {
       const errorData = await response.json()
-      console.error('Erro na API do OpenAI:', errorData)
+      logger.error('Erro na API do OpenAI:', errorData)
       return NextResponse.json(
         { error: 'Erro ao processar a resposta da IA' },
         { status: 500 }
@@ -198,7 +200,7 @@ DIRETRIZES:
     })
 
   } catch (error) {
-    console.error('Erro no servidor:', error)
+    logger.error('Erro no servidor:', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

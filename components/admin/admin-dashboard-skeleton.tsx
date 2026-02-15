@@ -8,7 +8,16 @@ export function AdminDashboardSkeleton() {
         <Skeleton className="h-6 w-48" />
       </header>
       <div className="p-8 space-y-8 max-w-[1600px] mx-auto w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <Card className="bg-transparent border-slate-200 dark:border-slate-800">
+            <CardHeader>
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-8 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
           <Card className="bg-transparent border-slate-200 dark:border-slate-800">
             <CardHeader>
               <Skeleton className="h-8 w-8 rounded-lg" />

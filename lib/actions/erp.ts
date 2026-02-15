@@ -1,8 +1,9 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { guardModule } from '@/lib/modules-server'
+import logger from '@/lib/logger'
 
 // --- Tipos ---
 export type BusinessType = 'dance_school' | 'tattoo_studio' | 'gym' | 'clinic' | 'generic'
@@ -59,6 +60,7 @@ export interface PurchaseOrder {
 
 export async function getOrganizationSettings(studioId: string) {
   await guardModule('erp')
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('organization_settings')
     .select('*')
@@ -66,14 +68,14 @@ export async function getOrganizationSettings(studioId: string) {
     .single()
 
   if (error && error.code !== 'PGRST116') { // PGRST116 é "not found"
-    console.error('Erro ao buscar configs:', error)
+    logger.error('Erro ao buscar configs:', error)
   }
 
-  // Se não existir, retorna default (DanceFlow padrão)
+  // Se não existir, retorna default (Workflow AI padrão)
   if (!data) {
     return {
-      business_type: 'dance_school',
-      nomenclature: { client: "Aluno", service: "Aula", professional: "Professor" }
+      business_type: 'generic',
+      nomenclature: { client: "Cliente", service: "Serviço", professional: "Profissional" }
     }
   }
 
@@ -82,6 +84,7 @@ export async function getOrganizationSettings(studioId: string) {
 
 export async function updateBusinessType(studioId: string, type: BusinessType) {
   await guardModule('erp')
+  const supabase = await createClient()
   // Definições de nomenclatura por tipo
   const nomenclatureMap: Record<BusinessType, any> = {
     dance_school: { client: "Aluno", service: "Aula", professional: "Professor" },
@@ -105,6 +108,7 @@ export async function updateBusinessType(studioId: string, type: BusinessType) {
 
 export async function getStudioPlan(studioId: string) {
   await guardModule('erp') // ou outro módulo que dependa do plano, como 'financial'
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('studios')
     .select('plan')
@@ -112,7 +116,7 @@ export async function getStudioPlan(studioId: string) {
     .single()
   
   if (error) {
-    console.error('Erro ao buscar plano do estúdio:', error)
+    logger.error('Erro ao buscar plano do estúdio:', error)
     return 'gratuito'
   }
   return data?.plan || 'gratuito'
@@ -122,6 +126,7 @@ export async function getStudioPlan(studioId: string) {
 
 export async function getChannels(studioId: string) {
   await guardModule('erp')
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('integration_channels')
     .select('*')
@@ -133,6 +138,7 @@ export async function getChannels(studioId: string) {
 
 export async function connectChannel(studioId: string, platform: string, name: string, apiKey: string) {
   await guardModule('erp')
+  const supabase = await createClient()
   // Simula conexão com API externa
   const { error } = await supabase.from('integration_channels').insert({
     studio_id: studioId,
@@ -151,6 +157,7 @@ export async function connectChannel(studioId: string, platform: string, name: s
 
 export async function getERPCatalog(studioId: string) {
   await guardModule('erp')
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -172,6 +179,7 @@ export async function getERPCatalog(studioId: string) {
 
 export async function getERPOrders(studioId: string) {
   await guardModule('erp')
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('erp_orders')
     .select('*, integration_channels(name)')
@@ -183,9 +191,44 @@ export async function getERPOrders(studioId: string) {
 }
 
 export async function createPublicERPOrder(studioId: string, orderData: { customer_name: string, total_amount: number, items: any[] }) {
-  // ATENÇÃO: Esta função é pública e não verifica autenticação do usuário.
-  // Deve ser usada APENAS pelo sistema de checkout/loja online.
-  
+  // Validação de entrada rigorosa para a função pública
+  if (!studioId || typeof studioId !== 'string' || studioId.trim() === '') {
+    throw new Error('ID do estúdio inválido.');
+  }
+
+  if (!orderData || typeof orderData !== 'object') {
+    throw new Error('Dados do pedido inválidos.');
+  }
+
+  if (!orderData.customer_name || typeof orderData.customer_name !== 'string' || orderData.customer_name.trim() === '') {
+    throw new Error('Nome do cliente inválido.');
+  }
+
+  if (typeof orderData.total_amount !== 'number' || orderData.total_amount <= 0) {
+    throw new Error('Valor total do pedido inválido.');
+  }
+
+  if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+    throw new Error('Itens do pedido inválidos ou vazios.');
+  }
+
+  for (const item of orderData.items) {
+    if (!item || typeof item !== 'object') {
+      throw new Error('Item do pedido inválido.');
+    }
+    if (!item.product_id || typeof item.product_id !== 'string' || item.product_id.trim() === '') {
+      throw new Error('ID do produto do item inválido.');
+    }
+    if (typeof item.qty !== 'number' || !Number.isInteger(item.qty) || item.qty <= 0) {
+      throw new Error('Quantidade do item inválida.');
+    }
+    if (typeof item.price !== 'number' || item.price < 0) {
+      throw new Error('Preço do item inválido.');
+    }
+  }
+
+  const supabase = await createClient()
+
   // 1. Cria o Pedido ERP
   const { data: order, error: orderError } = await supabase
     .from('erp_orders')
@@ -202,33 +245,22 @@ export async function createPublicERPOrder(studioId: string, orderData: { custom
 
   if (orderError) throw orderError
 
-  // 2. Atualiza Estoque
-  for (const item of orderData.items) {
-    if (item.product_id) {
-       // Busca produto atual
-       const { data: product } = await supabase
-         .from('products')
-         .select('quantity, studio_id')
-         .eq('id', item.product_id)
-         .single()
-       
-       if (product && product.studio_id === studioId) {
-         await supabase
-           .from('products')
-           .update({ quantity: product.quantity - item.qty })
-           .eq('id', item.product_id)
-         
-         await supabase
-           .from('inventory_transactions')
-           .insert({
-             studio_id: studioId,
-             product_id: item.product_id,
-             type: 'sale',
-             quantity: item.qty,
-             total_value: item.price * item.qty,
-             reason: `Venda Online #${order.external_id}`
-           })
-       }
+  // 2. Atualiza Estoque e Cria Log via RPC (Atômico)
+  // Filtra itens que têm product_id
+  const itemsToProcess = orderData.items.filter(item => item.product_id)
+  
+  if (itemsToProcess.length > 0) {
+    const { error: rpcError } = await supabase.rpc('process_sale_transaction', {
+        p_studio_id: studioId,
+        p_items: itemsToProcess,
+        p_reason: `Venda Online #${order.external_id}`,
+        p_user_id: null // Público
+    })
+
+    if (rpcError) {
+        logger.error('Erro ao processar estoque (RPC):', rpcError)
+        // Não revertemos o pedido pois ele já foi criado, mas logamos o erro.
+        // Em um sistema ideal, o pedido ficaria com status "error" ou similar.
     }
   }
 
@@ -237,6 +269,9 @@ export async function createPublicERPOrder(studioId: string, orderData: { custom
 
 export async function createERPOrder(studioId: string, orderData: { customer_name: string, total_amount: number, items: any[] }) {
   await guardModule('erp')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   // 1. Cria o Pedido ERP
   const { data: order, error: orderError } = await supabase
     .from('erp_orders')
@@ -253,26 +288,20 @@ export async function createERPOrder(studioId: string, orderData: { customer_nam
 
   if (orderError) throw orderError
 
-  // 2. Atualiza Estoque (cria transação de saída)
-  for (const item of orderData.items) {
-    if (item.product_id) {
-       // Busca produto atual
-       const { data: product } = await supabase.from('products').select('quantity').eq('id', item.product_id).single()
-       
-       if (product) {
-         // Atualiza qtd
-         await supabase.from('products').update({ quantity: product.quantity - item.qty }).eq('id', item.product_id)
-         
-         // Registra transação
-         await supabase.from('inventory_transactions').insert({
-           studio_id: studioId,
-           product_id: item.product_id,
-           type: 'sale',
-           quantity: item.qty,
-           total_value: item.price * item.qty,
-           reason: `Venda ERP #${order.external_id}`
-         })
-       }
+  // 2. Atualiza Estoque e Cria Log via RPC (Atômico)
+  const itemsToProcess = orderData.items.filter(item => item.product_id)
+  
+  if (itemsToProcess.length > 0) {
+    const { error: rpcError } = await supabase.rpc('process_sale_transaction', {
+        p_studio_id: studioId,
+        p_items: itemsToProcess,
+        p_reason: `Venda ERP #${order.external_id}`,
+        p_user_id: user?.id || null
+    })
+
+    if (rpcError) {
+        logger.error('Erro ao processar estoque (RPC):', rpcError)
+        throw rpcError
     }
   }
 
@@ -282,6 +311,7 @@ export async function createERPOrder(studioId: string, orderData: { customer_nam
 
 export async function updateERPOrderStatus(studioId: string, orderId: string, newStatus: string) {
   await guardModule('erp')
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('erp_orders')
     .update({ status: newStatus })
@@ -298,6 +328,7 @@ export async function updateERPOrderStatus(studioId: string, orderId: string, ne
 // --- Logística ---
 export async function updateOrderShipping(studioId: string, orderId: string, shippingInfo: { tracking_code: string, carrier: string }) {
     await guardModule('erp')
+    const supabase = await createClient()
     const { data, error } = await supabase
         .from('erp_orders')
         .update({ 
@@ -322,6 +353,7 @@ export async function updateOrderShipping(studioId: string, orderId: string, shi
 
 export async function getSuppliers(studioId: string) {
     await guardModule('erp')
+    const supabase = await createClient()
     const { data, error } = await supabase
         .from('suppliers')
         .select('*')
@@ -334,6 +366,7 @@ export async function getSuppliers(studioId: string) {
 
 export async function createSupplier(studioId: string, supplier: Partial<Supplier>) {
     await guardModule('erp')
+    const supabase = await createClient()
     const { error } = await supabase
         .from('suppliers')
         .insert({ ...supplier, studio_id: studioId })
@@ -344,6 +377,7 @@ export async function createSupplier(studioId: string, supplier: Partial<Supplie
 
 export async function getPurchaseOrders(studioId: string) {
     await guardModule('erp')
+    const supabase = await createClient()
     const { data, error } = await supabase
         .from('purchase_orders')
         .select('*, suppliers(name)')
@@ -361,6 +395,7 @@ export async function getPurchaseOrders(studioId: string) {
 
 export async function createPurchaseOrder(studioId: string, po: { supplier_id: string, total_amount: number, items: any[], expected_date: string }) {
     await guardModule('erp')
+    const supabase = await createClient()
     const { error } = await supabase
         .from('purchase_orders')
         .insert({
@@ -380,6 +415,7 @@ export async function createPurchaseOrder(studioId: string, po: { supplier_id: s
 
 export async function getPendingInvoices(studioId: string) {
     await guardModule('erp')
+    const supabase = await createClient()
     // Busca pedidos pagos ou enviados que ainda não foram finalizados (sem nota emitida)
     const { data, error } = await supabase
         .from('erp_orders')
@@ -394,29 +430,56 @@ export async function getPendingInvoices(studioId: string) {
 
 export async function emitInvoicesBatch(studioId: string, orderIds: string[]) {
     await guardModule('erp')
+    const supabase = await createClient()
     const results = []
     
     for (const orderId of orderIds) {
-        // Simula a emissão na SEFAZ
+        // 1. Busca o pedido
         const { data: order, error: fetchError } = await supabase
             .from('erp_orders')
             .select('*')
             .eq('id', orderId)
+            .eq('studio_id', studioId)
             .single()
             
-        if (fetchError) continue
+        if (fetchError || !order) continue
 
-        // Atualiza o pedido para 'finished'
+        // 2. Simula a emissão na SEFAZ (Aqui entraria integração com FocusNFe, PlugNotas, etc)
+        const invoiceNumber = `NFe-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`
+        const accessKey = Array.from({length: 44}, () => Math.floor(Math.random() * 10)).join('')
+
+        // 3. Persiste a nota no banco de dados (Real)
+        const { data: invoice, error: invoiceError } = await supabase
+            .from('invoices')
+            .insert({
+                studio_id: studioId,
+                order_id: orderId,
+                invoice_number: invoiceNumber,
+                access_key: accessKey,
+                amount: order.total_amount,
+                status: 'emitted',
+                customer_data: { name: order.customer_name }
+            })
+            .select()
+            .single()
+
+        if (invoiceError) {
+            logger.error(`Erro ao salvar nota fiscal para pedido ${orderId}:`, invoiceError)
+            continue
+        }
+
+        // 4. Atualiza o pedido para 'finished'
         const { error: updateError } = await supabase
             .from('erp_orders')
             .update({ status: 'finished' })
             .eq('id', orderId)
+            .eq('studio_id', studioId)
             
         if (!updateError) {
             results.push({
                 order_id: order.external_id,
                 status: 'success',
-                invoice_number: `NFe-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`
+                invoice_number: invoiceNumber
             })
         }
     }
@@ -427,31 +490,37 @@ export async function emitInvoicesBatch(studioId: string, orderIds: string[]) {
 
 export async function getInvoices(studioId: string) {
     await guardModule('erp')
-    // Busca pedidos que já foram finalizados para simular histórico de notas
+    const supabase = await createClient()
+    // Busca na tabela real de notas fiscais
     const { data, error } = await supabase
-        .from('erp_orders')
-        .select('*, integration_channels(name)')
+        .from('invoices')
+        .select(`
+            *,
+            order:erp_orders(external_id, customer_name)
+        `)
         .eq('studio_id', studioId)
-        .eq('status', 'finished')
         .order('created_at', { ascending: false })
     
-    if (error) throw error
+    if (error) {
+        logger.error('Erro ao buscar notas fiscais:', error)
+        throw error
+    }
     
-    return data.map(o => ({
-        id: o.id,
-        number: `NFe-${o.created_at.slice(0,4)}-${o.id.slice(0,6).toUpperCase()}`,
-        order_id: o.external_id,
-        customer: o.customer_name,
-        amount: o.total_amount,
-        date: o.created_at,
-        status: 'emitted'
+    return data.map(i => ({
+        id: i.id,
+        number: i.invoice_number,
+        order_id: (i.order as any)?.external_id,
+        customer: (i.order as any)?.customer_name,
+        amount: i.amount,
+        date: i.created_at,
+        status: i.status
     }))
 }
 
 export async function downloadInvoicePDF(invoiceId: string) {
     await guardModule('erp')
     // Simula geração de PDF
-    console.log(`Gerando PDF para nota ${invoiceId}...`)
+    logger.debug(`Gerando PDF para nota ${invoiceId}...`)
     return {
         url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', // PDF de exemplo
         filename: `NFe-${invoiceId.slice(0,8)}.pdf`
@@ -461,6 +530,7 @@ export async function downloadInvoicePDF(invoiceId: string) {
 
 export async function getERPDashboardStats(studioId: string) {
   await guardModule('erp')
+  const supabase = await createClient()
   // 1. Receita Omnichannel (Total de pedidos finalizados + vendas do PDV)
   const { data: revenueData } = await supabase
     .from('erp_orders')

@@ -1,4 +1,4 @@
--- DanceFlow Database Schema (Multi-Tenant Version)
+-- Workflow AI Database Schema (Multi-Tenant Version)
 -- Execute este arquivo no SQL Editor do Supabase para criar todas as tabelas com suporte a Multi-Empresas
 
 -- 1. Tabela de Estúdios (Tenants)
@@ -476,7 +476,10 @@ ALTER TABLE studio_invites ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de Isolamento por Estúdio
 CREATE POLICY "studio_isolation_policy_students" ON students FOR ALL USING (studio_id IS NOT NULL);
-CREATE POLICY "studio_isolation_policy_users" ON users_internal FOR ALL USING (studio_id IS NOT NULL);
+CREATE POLICY "users_admin_access" ON users_internal FOR ALL
+  USING (auth.uid() = id OR (SELECT role FROM users_internal WHERE id = auth.uid()) = 'super_admin');
+CREATE POLICY "users_studio_isolation" ON users_internal FOR SELECT
+  USING (studio_id = (SELECT studio_id FROM users_internal WHERE id = auth.uid()));
 CREATE POLICY "studio_isolation_policy_professionals" ON professionals FOR ALL USING (studio_id IS NOT NULL);
 CREATE POLICY "studio_isolation_policy_classes" ON classes FOR ALL USING (studio_id IS NOT NULL);
 CREATE POLICY "studio_isolation_policy_sessions" ON sessions FOR ALL USING (studio_id IS NOT NULL);

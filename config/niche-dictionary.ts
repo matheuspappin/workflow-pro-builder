@@ -1,367 +1,1003 @@
 export const nicheDictionary = {
-  dance: {
-    name: 'Dança',
-    client: 'Aluno',
-    provider: 'Professor',
-    service: 'Aula',
-    establishment: 'Estúdio',
-    category: 'Modalidade'
+  pt: {
+    dance: {
+      name: 'Dança',
+      client: 'Aluno',
+      provider: 'Professor',
+      service: 'Aula',
+      establishment: 'Estúdio',
+      category: 'Modalidade'
+    },
+    dentist: {
+      name: 'Odontologia',
+      client: 'Paciente',
+      provider: 'Doutor',
+      service: 'Consulta',
+      establishment: 'Consultório',
+      category: 'Especialidade'
+    },
+    gym: {
+      name: 'Fitness/Academia',
+      client: 'Membro',
+      provider: 'Instrutor',
+      service: 'Treino',
+      establishment: 'Academia',
+      category: 'Modalidade'
+    },
+    clinic: {
+      name: 'Clínica Médica',
+      client: 'Paciente',
+      provider: 'Médico',
+      service: 'Exame',
+      establishment: 'Clínica',
+      category: 'Especialidade'
+    },
+    beauty: {
+      name: 'Beleza e Estética',
+      client: 'Cliente',
+      provider: 'Profissional',
+      service: 'Procedimento',
+      establishment: 'Salão',
+      category: 'Serviço'
+    },
+    aesthetics: {
+      name: 'Estética',
+      client: 'Cliente',
+      provider: 'Esteticista',
+      service: 'Sessão',
+      establishment: 'Clínica',
+      category: 'Procedimento'
+    },
+    pilates: {
+      name: 'Pilates',
+      client: 'Aluno',
+      provider: 'Instrutor',
+      service: 'Aula',
+      establishment: 'Studio',
+      category: 'Nível'
+    },
+    yoga: {
+      name: 'Yoga',
+      client: 'Aluno',
+      provider: 'Instrutor',
+      service: 'Prática',
+      establishment: 'Studio',
+      category: 'Estilo'
+    },
+    barber: {
+      name: 'Barbearia',
+      client: 'Cliente',
+      provider: 'Barbeiro',
+      service: 'Corte',
+      establishment: 'Barbearia',
+      category: 'Serviço'
+    },
+    spa: {
+      name: 'Spa',
+      client: 'Cliente',
+      provider: 'Terapeuta',
+      service: 'Massagem',
+      establishment: 'Spa',
+      category: 'Tratamento'
+    },
+    physio: {
+      name: 'Fisioterapia',
+      client: 'Paciente',
+      provider: 'Fisioterapeuta',
+      service: 'Sessão',
+      establishment: 'Clínica',
+      category: 'Tratamento'
+    },
+    nutrition: {
+      name: 'Nutrição',
+      client: 'Paciente',
+      provider: 'Nutricionista',
+      service: 'Consulta',
+      establishment: 'Consultório',
+      category: 'Plano'
+    },
+    podiatry: {
+      name: 'Podologia',
+      client: 'Paciente',
+      provider: 'Podólogo',
+      service: 'Atendimento',
+      establishment: 'Consultório',
+      category: 'Serviço'
+    },
+    tanning: {
+      name: 'Bronzeamento',
+      client: 'Cliente',
+      provider: 'Atendente',
+      service: 'Sessão',
+      establishment: 'Studio',
+      category: 'Tipo'
+    },
+    pet_shop: {
+      name: 'Pet Shop',
+      client: 'Tutor',
+      provider: 'Tosador',
+      service: 'Banho/Tosa',
+      establishment: 'Pet Shop',
+      category: 'Serviço'
+    },
+    vet: {
+      name: 'Veterinária',
+      client: 'Tutor',
+      provider: 'Veterinário',
+      service: 'Consulta',
+      establishment: 'Clínica',
+      category: 'Especialidade'
+    },
+    dog_daycare: {
+      name: 'Creche Canina',
+      client: 'Tutor',
+      provider: 'Monitor',
+      service: 'Diária',
+      establishment: 'Creche',
+      category: 'Atividade'
+    },
+    dog_trainer: {
+      name: 'Adestramento',
+      client: 'Aluno',
+      provider: 'Adestrador',
+      service: 'Aula',
+      establishment: 'Centro',
+      category: 'Nível'
+    },
+    pet_hotel: {
+      name: 'Hotel Pet',
+      client: 'Hóspede',
+      provider: 'Cuidador',
+      service: 'Hospedagem',
+      establishment: 'Hotel',
+      category: 'Acomodação'
+    },
+    martial_arts: {
+      name: 'Artes Marciais',
+      client: 'Aluno',
+      provider: 'Sensei',
+      service: 'Treino',
+      establishment: 'Dojo',
+      category: 'Modalidade'
+    },
+    crossfit: {
+      name: 'Crossfit',
+      client: 'Atleta',
+      provider: 'Coach',
+      service: 'WOD',
+      establishment: 'Box',
+      category: 'Tipo'
+    },
+    swim_school: {
+      name: 'Natação',
+      client: 'Aluno',
+      provider: 'Instrutor',
+      service: 'Aula',
+      establishment: 'Escola',
+      category: 'Nível'
+    },
+    personal: {
+      name: 'Personal Trainer',
+      client: 'Aluno',
+      provider: 'Personal',
+      service: 'Treino',
+      establishment: 'Consultoria',
+      category: 'Foco'
+    },
+    beach_tennis: {
+      name: 'Beach Tennis',
+      client: 'Jogador',
+      provider: 'Professor',
+      service: 'Aula',
+      establishment: 'Arena',
+      category: 'Nível'
+    },
+    music_school: {
+      name: 'Escola de Música',
+      client: 'Aluno',
+      provider: 'Professor',
+      service: 'Aula',
+      establishment: 'Escola',
+      category: 'Instrumento'
+    },
+    language_school: {
+      name: 'Escola de Idiomas',
+      client: 'Aluno',
+      provider: 'Teacher',
+      service: 'Aula',
+      establishment: 'Escola',
+      category: 'Idioma'
+    },
+    art_studio: {
+      name: 'Ateliê de Arte',
+      client: 'Aluno',
+      provider: 'Instrutor',
+      service: 'Workshop',
+      establishment: 'Ateliê',
+      category: 'Técnica'
+    },
+    cooking_school: {
+      name: 'Gastronomia',
+      client: 'Aluno',
+      provider: 'Chef',
+      service: 'Aula',
+      establishment: 'Escola',
+      category: 'Culinária'
+    },
+    photography: {
+      name: 'Fotografia (Escola)',
+      client: 'Aluno',
+      provider: 'Fotógrafo',
+      service: 'Curso',
+      establishment: 'Escola',
+      category: 'Estilo'
+    },
+    auto_detail: {
+      name: 'Estética Automotiva',
+      client: 'Cliente',
+      provider: 'Profissional',
+      service: 'Serviço',
+      establishment: 'Estética Automotiva',
+      category: 'Tipo'
+    },
+    mechanic: {
+      name: 'Oficina Mecânica',
+      client: 'Cliente',
+      provider: 'Mecânico',
+      service: 'Reparo',
+      establishment: 'Oficina',
+      category: 'Serviço'
+    },
+    car_wash: {
+      name: 'Lava-jato',
+      client: 'Assinante',
+      provider: 'Lavador',
+      service: 'Lavagem',
+      establishment: 'Lava-jato',
+      category: 'Tipo'
+    },
+    cleaning: {
+      name: 'Serviços de Limpeza',
+      client: 'Cliente',
+      provider: 'Profissional',
+      service: 'Limpeza',
+      establishment: 'Empresa',
+      category: 'Tipo'
+    },
+    interior_design: {
+      name: 'Design de Interiores',
+      client: 'Cliente',
+      provider: 'Designer',
+      service: 'Projeto',
+      establishment: 'Escritório',
+      category: 'Estilo'
+    },
+    party_venue: {
+      name: 'Espaço de Eventos',
+      client: 'Contratante',
+      provider: 'Organizador',
+      service: 'Evento',
+      establishment: 'Espaço',
+      category: 'Tipo'
+    },
+    photographer: {
+      name: 'Fotógrafo (Studio)',
+      client: 'Cliente',
+      provider: 'Fotógrafo',
+      service: 'Ensaio',
+      establishment: 'Estúdio',
+      category: 'Estilo'
+    },
+    coworking: {
+      name: 'Coworking',
+      client: 'Coworker',
+      provider: 'Gestor',
+      service: 'Reserva',
+      establishment: 'Coworking',
+      category: 'Espaço'
+    },
+    tattoo: {
+      name: 'Tattoo & Piercing',
+      client: 'Cliente',
+      provider: 'Tatuador',
+      service: 'Sessão',
+      establishment: 'Estúdio',
+      category: 'Estilo'
+    },
+    tech_repair: {
+      name: 'Assistência Técnica',
+      client: 'Cliente',
+      provider: 'Técnico',
+      service: 'Reparo',
+      establishment: 'Assistência',
+      category: 'Aparelho'
+    },
+    law: {
+      name: 'Advocacia',
+      client: 'Cliente',
+      provider: 'Advogado',
+      service: 'Processo',
+      establishment: 'Escritório',
+      category: 'Área'
+    },
+    psychology: {
+      name: 'Psicologia',
+      client: 'Paciente',
+      provider: 'Psicólogo',
+      service: 'Sessão',
+      establishment: 'Consultório',
+      category: 'Abordagem'
+    },
+    wine_club: {
+      name: 'Clube do Vinho',
+      client: 'Sócio',
+      provider: 'Sommelier',
+      service: 'Degustação',
+      establishment: 'Clube',
+      category: 'Tipo'
+    },
+    brewery: {
+      name: 'Cervejaria',
+      client: 'Cliente',
+      provider: 'Mestre',
+      service: 'Degustação',
+      establishment: 'Cervejaria',
+      category: 'Estilo'
+    },
+    barista: {
+      name: 'Cafeteria/Barista',
+      client: 'Aluno',
+      provider: 'Barista',
+      service: 'Curso',
+      establishment: 'Cafeteria',
+      category: 'Grão'
+    },
+    confectionery: {
+      name: 'Confeitaria',
+      client: 'Cliente',
+      provider: 'Confeiteiro',
+      service: 'Encomenda',
+      establishment: 'Confeitaria',
+      category: 'Produto'
+    },
+    real_estate: {
+      name: 'Imobiliária',
+      client: 'Cliente',
+      provider: 'Corretor',
+      service: 'Visita',
+      establishment: 'Imobiliária',
+      category: 'Imóvel'
+    },
+    consulting: {
+      name: 'Consultoria',
+      client: 'Cliente',
+      provider: 'Consultor',
+      service: 'Reunião',
+      establishment: 'Empresa',
+      category: 'Projeto'
+    },
+    marketing_agency: {
+      name: 'Agência de Marketing',
+      client: 'Cliente',
+      provider: 'Analista',
+      service: 'Campanha',
+      establishment: 'Agência',
+      category: 'Canal'
+    },
+    dev_studio: {
+      name: 'Desenvolvimento',
+      client: 'Cliente',
+      provider: 'Dev',
+      service: 'Sprint',
+      establishment: 'Studio',
+      category: 'Tech'
+    },
+    event_planning: {
+      name: 'Organização de Eventos',
+      client: 'Cliente',
+      provider: 'Organizador',
+      service: 'Evento',
+      establishment: 'Agência',
+      category: 'Tipo'
+    },
+    travel_agency: {
+      name: 'Agência de Viagens',
+      client: 'Viajante',
+      provider: 'Agente',
+      service: 'Roteiro',
+      establishment: 'Agência',
+      category: 'Destino'
+    },
+    insurance: {
+      name: 'Corretora de Seguros',
+      client: 'Segurado',
+      provider: 'Corretor',
+      service: 'Apólice',
+      establishment: 'Corretora',
+      category: 'Ramo'
+    },
+    landscaping: {
+      name: 'Paisagismo',
+      client: 'Cliente',
+      provider: 'Paisagista',
+      service: 'Manutenção',
+      establishment: 'Empresa',
+      category: 'Área'
+    },
+    plumbing: {
+      name: 'Encanador',
+      client: 'Cliente',
+      provider: 'Encanador',
+      service: 'Reparo',
+      establishment: 'Empresa',
+      category: 'Serviço'
+    },
+    electrician: {
+      name: 'Eletricista',
+      client: 'Cliente',
+      provider: 'Eletricista',
+      service: 'Instalação',
+      establishment: 'Empresa',
+      category: 'Serviço'
+    },
+    construction: {
+      name: 'Construção Civil',
+      client: 'Cliente',
+      provider: 'Engenheiro',
+      service: 'Obra',
+      establishment: 'Construtora',
+      category: 'Etapa'
+    },
+    logistics: {
+      name: 'Logística',
+      client: 'Cliente',
+      provider: 'Entregador',
+      service: 'Entrega',
+      establishment: 'Transportadora',
+      category: 'Rota'
+    },
+    tailoring: {
+      name: 'Alfaiataria/Costura',
+      client: 'Cliente',
+      provider: 'Costureiro(a)',
+      service: 'Ajuste',
+      establishment: 'Ateliê',
+      category: 'Peça'
+    },
+    tutoring: {
+      name: 'Aulas Particulares',
+      client: 'Aluno',
+      provider: 'Tutor',
+      service: 'Aula',
+      establishment: 'Local',
+      category: 'Matéria'
+    },
+    daycare: {
+      name: 'Creche Infantil',
+      client: 'Responsável',
+      provider: 'Cuidador',
+      service: 'Diária',
+      establishment: 'Creche',
+      category: 'Turma'
+    },
+    elderly_care: {
+      name: 'Casa de Repouso',
+      client: 'Residente',
+      provider: 'Cuidador',
+      service: 'Estadia',
+      establishment: 'Casa',
+      category: 'Cuidados'
+    },
+    driving_school: {
+      name: 'Auto Escola',
+      client: 'Aluno',
+      provider: 'Instrutor',
+      service: 'Aula Prática',
+      establishment: 'CFC',
+      category: 'Categoria'
+    }
   },
-  dentist: {
-    name: 'Odontologia',
-    client: 'Paciente',
-    provider: 'Doutor',
-    service: 'Consulta',
-    establishment: 'Consultório',
-    category: 'Especialidade'
-  },
-  gym: {
-    name: 'Fitness/Academia',
-    client: 'Membro',
-    provider: 'Instrutor',
-    service: 'Treino',
-    establishment: 'Academia',
-    category: 'Modalidade'
-  },
-  clinic: {
-    name: 'Clínica Médica',
-    client: 'Paciente',
-    provider: 'Médico',
-    service: 'Exame',
-    establishment: 'Clínica',
-    category: 'Especialidade'
-  },
-  beauty: {
-    name: 'Beleza e Estética',
-    client: 'Cliente',
-    provider: 'Profissional',
-    service: 'Procedimento',
-    establishment: 'Salão',
-    category: 'Serviço'
-  },
-  aesthetics: {
-    name: 'Estética',
-    client: 'Cliente',
-    provider: 'Esteticista',
-    service: 'Sessão',
-    establishment: 'Clínica',
-    category: 'Procedimento'
-  },
-  pilates: {
-    name: 'Pilates',
-    client: 'Aluno',
-    provider: 'Instrutor',
-    service: 'Aula',
-    establishment: 'Studio',
-    category: 'Nível'
-  },
-  yoga: {
-    name: 'Yoga',
-    client: 'Aluno',
-    provider: 'Instrutor',
-    service: 'Prática',
-    establishment: 'Studio',
-    category: 'Estilo'
-  },
-  barber: {
-    name: 'Barbearia',
-    client: 'Cliente',
-    provider: 'Barbeiro',
-    service: 'Corte',
-    establishment: 'Barbearia',
-    category: 'Serviço'
-  },
-  spa: {
-    name: 'Spa',
-    client: 'Cliente',
-    provider: 'Terapeuta',
-    service: 'Massagem',
-    establishment: 'Spa',
-    category: 'Tratamento'
-  },
-  physio: {
-    name: 'Fisioterapia',
-    client: 'Paciente',
-    provider: 'Fisioterapeuta',
-    service: 'Sessão',
-    establishment: 'Clínica',
-    category: 'Tratamento'
-  },
-  nutrition: {
-    name: 'Nutrição',
-    client: 'Paciente',
-    provider: 'Nutricionista',
-    service: 'Consulta',
-    establishment: 'Consultório',
-    category: 'Plano'
-  },
-  podiatry: {
-    name: 'Podologia',
-    client: 'Paciente',
-    provider: 'Podólogo',
-    service: 'Atendimento',
-    establishment: 'Consultório',
-    category: 'Serviço'
-  },
-  tanning: {
-    name: 'Bronzeamento',
-    client: 'Cliente',
-    provider: 'Atendente',
-    service: 'Sessão',
-    establishment: 'Studio',
-    category: 'Tipo'
-  },
-  pet_shop: {
-    name: 'Pet Shop',
-    client: 'Tutor',
-    provider: 'Tosador',
-    service: 'Banho/Tosa',
-    establishment: 'Pet Shop',
-    category: 'Serviço'
-  },
-  vet: {
-    name: 'Veterinária',
-    client: 'Tutor',
-    provider: 'Veterinário',
-    service: 'Consulta',
-    establishment: 'Clínica',
-    category: 'Especialidade'
-  },
-  dog_daycare: {
-    name: 'Creche Canina',
-    client: 'Tutor',
-    provider: 'Monitor',
-    service: 'Diária',
-    establishment: 'Creche',
-    category: 'Atividade'
-  },
-  dog_trainer: {
-    name: 'Adestramento',
-    client: 'Aluno',
-    provider: 'Adestrador',
-    service: 'Aula',
-    establishment: 'Centro',
-    category: 'Nível'
-  },
-  pet_hotel: {
-    name: 'Hotel Pet',
-    client: 'Hóspede',
-    provider: 'Cuidador',
-    service: 'Hospedagem',
-    establishment: 'Hotel',
-    category: 'Acomodação'
-  },
-  martial_arts: {
-    name: 'Artes Marciais',
-    client: 'Aluno',
-    provider: 'Sensei',
-    service: 'Treino',
-    establishment: 'Dojo',
-    category: 'Modalidade'
-  },
-  crossfit: {
-    name: 'Crossfit',
-    client: 'Atleta',
-    provider: 'Coach',
-    service: 'WOD',
-    establishment: 'Box',
-    category: 'Tipo'
-  },
-  swim_school: {
-    name: 'Natação',
-    client: 'Aluno',
-    provider: 'Instrutor',
-    service: 'Aula',
-    establishment: 'Escola',
-    category: 'Nível'
-  },
-  personal: {
-    name: 'Personal Trainer',
-    client: 'Aluno',
-    provider: 'Personal',
-    service: 'Treino',
-    establishment: 'Consultoria',
-    category: 'Foco'
-  },
-  beach_tennis: {
-    name: 'Beach Tennis',
-    client: 'Jogador',
-    provider: 'Professor',
-    service: 'Aula',
-    establishment: 'Arena',
-    category: 'Nível'
-  },
-  music_school: {
-    name: 'Escola de Música',
-    client: 'Aluno',
-    provider: 'Professor',
-    service: 'Aula',
-    establishment: 'Escola',
-    category: 'Instrumento'
-  },
-  language_school: {
-    name: 'Escola de Idiomas',
-    client: 'Aluno',
-    provider: 'Teacher',
-    service: 'Aula',
-    establishment: 'Escola',
-    category: 'Idioma'
-  },
-  art_studio: {
-    name: 'Ateliê de Arte',
-    client: 'Aluno',
-    provider: 'Instrutor',
-    service: 'Workshop',
-    establishment: 'Ateliê',
-    category: 'Técnica'
-  },
-  cooking_school: {
-    name: 'Gastronomia',
-    client: 'Aluno',
-    provider: 'Chef',
-    service: 'Aula',
-    establishment: 'Escola',
-    category: 'Culinária'
-  },
-  photography: {
-    name: 'Fotografia (Escola)',
-    client: 'Aluno',
-    provider: 'Fotógrafo',
-    service: 'Curso',
-    establishment: 'Escola',
-    category: 'Estilo'
-  },
-  auto_detail: {
-    name: 'Estética Automotiva',
-    client: 'Cliente',
-    provider: 'Profissional',
-    service: 'Serviço',
-    establishment: 'Estética Automotiva',
-    category: 'Tipo'
-  },
-  mechanic: {
-    name: 'Oficina Mecânica',
-    client: 'Cliente',
-    provider: 'Mecânico',
-    service: 'Reparo',
-    establishment: 'Oficina',
-    category: 'Serviço'
-  },
-  car_wash: {
-    name: 'Lava-jato',
-    client: 'Assinante',
-    provider: 'Lavador',
-    service: 'Lavagem',
-    establishment: 'Lava-jato',
-    category: 'Tipo'
-  },
-  cleaning: {
-    name: 'Serviços de Limpeza',
-    client: 'Cliente',
-    provider: 'Profissional',
-    service: 'Limpeza',
-    establishment: 'Empresa',
-    category: 'Tipo'
-  },
-  interior_design: {
-    name: 'Design de Interiores',
-    client: 'Cliente',
-    provider: 'Designer',
-    service: 'Projeto',
-    establishment: 'Escritório',
-    category: 'Estilo'
-  },
-  party_venue: {
-    name: 'Espaço de Eventos',
-    client: 'Contratante',
-    provider: 'Organizador',
-    service: 'Evento',
-    establishment: 'Espaço',
-    category: 'Tipo'
-  },
-  photographer: {
-    name: 'Fotógrafo (Studio)',
-    client: 'Cliente',
-    provider: 'Fotógrafo',
-    service: 'Ensaio',
-    establishment: 'Estúdio',
-    category: 'Estilo'
-  },
-  coworking: {
-    name: 'Coworking',
-    client: 'Coworker',
-    provider: 'Gestor',
-    service: 'Reserva',
-    establishment: 'Coworking',
-    category: 'Espaço'
-  },
-  tattoo: {
-    name: 'Tattoo & Piercing',
-    client: 'Cliente',
-    provider: 'Tatuador',
-    service: 'Sessão',
-    establishment: 'Estúdio',
-    category: 'Estilo'
-  },
-  tech_repair: {
-    name: 'Assistência Técnica',
-    client: 'Cliente',
-    provider: 'Técnico',
-    service: 'Reparo',
-    establishment: 'Assistência',
-    category: 'Aparelho'
-  },
-  law: {
-    name: 'Advocacia',
-    client: 'Cliente',
-    provider: 'Advogado',
-    service: 'Processo',
-    establishment: 'Escritório',
-    category: 'Área'
-  },
-  psychology: {
-    name: 'Psicologia',
-    client: 'Paciente',
-    provider: 'Psicólogo',
-    service: 'Sessão',
-    establishment: 'Consultório',
-    category: 'Abordagem'
-  },
-  wine_club: {
-    name: 'Clube do Vinho',
-    client: 'Sócio',
-    provider: 'Sommelier',
-    service: 'Degustação',
-    establishment: 'Clube',
-    category: 'Tipo'
-  },
-  brewery: {
-    name: 'Cervejaria',
-    client: 'Cliente',
-    provider: 'Mestre',
-    service: 'Degustação',
-    establishment: 'Cervejaria',
-    category: 'Estilo'
-  },
-  barista: {
-    name: 'Cafeteria/Barista',
-    client: 'Aluno',
-    provider: 'Barista',
-    service: 'Curso',
-    establishment: 'Cafeteria',
-    category: 'Grão'
-  },
-  confectionery: {
-    name: 'Confeitaria',
-    client: 'Cliente',
-    provider: 'Confeiteiro',
-    service: 'Encomenda',
-    establishment: 'Confeitaria',
-    category: 'Produto'
+  en: {
+    dance: {
+      name: 'Dance',
+      client: 'Student',
+      provider: 'Teacher',
+      service: 'Class',
+      establishment: 'Studio',
+      category: 'Modality'
+    },
+    dentist: {
+      name: 'Dentistry',
+      client: 'Patient',
+      provider: 'Doctor',
+      service: 'Appointment',
+      establishment: 'Clinic',
+      category: 'Specialty'
+    },
+    gym: {
+      name: 'Fitness/Gym',
+      client: 'Member',
+      provider: 'Instructor',
+      service: 'Workout',
+      establishment: 'Gym',
+      category: 'Modality'
+    },
+    clinic: {
+      name: 'Medical Clinic',
+      client: 'Patient',
+      provider: 'Doctor',
+      service: 'Exam',
+      establishment: 'Clinic',
+      category: 'Specialty'
+    },
+    beauty: {
+      name: 'Beauty & Aesthetics',
+      client: 'Client',
+      provider: 'Professional',
+      service: 'Procedure',
+      establishment: 'Salon',
+      category: 'Service'
+    },
+    aesthetics: {
+      name: 'Aesthetics',
+      client: 'Client',
+      provider: 'Aesthetician',
+      service: 'Session',
+      establishment: 'Clinic',
+      category: 'Procedure'
+    },
+    pilates: {
+      name: 'Pilates',
+      client: 'Student',
+      provider: 'Instructor',
+      service: 'Class',
+      establishment: 'Studio',
+      category: 'Level'
+    },
+    yoga: {
+      name: 'Yoga',
+      client: 'Student',
+      provider: 'Instructor',
+      service: 'Practice',
+      establishment: 'Studio',
+      category: 'Style'
+    },
+    barber: {
+      name: 'Barbershop',
+      client: 'Client',
+      provider: 'Barber',
+      service: 'Cut',
+      establishment: 'Barbershop',
+      category: 'Service'
+    },
+    spa: {
+      name: 'Spa',
+      client: 'Client',
+      provider: 'Therapist',
+      service: 'Massage',
+      establishment: 'Spa',
+      category: 'Treatment'
+    },
+    physio: {
+      name: 'Physiotherapy',
+      client: 'Patient',
+      provider: 'Physiotherapist',
+      service: 'Session',
+      establishment: 'Clinic',
+      category: 'Treatment'
+    },
+    nutrition: {
+      name: 'Nutrition',
+      client: 'Patient',
+      provider: 'Nutritionist',
+      service: 'Appointment',
+      establishment: 'Office',
+      category: 'Plan'
+    },
+    podiatry: {
+      name: 'Podiatry',
+      client: 'Patient',
+      provider: 'Podiatrist',
+      service: 'Service',
+      establishment: 'Office',
+      category: 'Service'
+    },
+    tanning: {
+      name: 'Tanning',
+      client: 'Client',
+      provider: 'Attendant',
+      service: 'Session',
+      establishment: 'Studio',
+      category: 'Type'
+    },
+    pet_shop: {
+      name: 'Pet Shop',
+      client: 'Owner',
+      provider: 'Groomer',
+      service: 'Grooming',
+      establishment: 'Pet Shop',
+      category: 'Service'
+    },
+    vet: {
+      name: 'Veterinary',
+      client: 'Owner',
+      provider: 'Veterinarian',
+      service: 'Appointment',
+      establishment: 'Clinic',
+      category: 'Specialty'
+    },
+    dog_daycare: {
+      name: 'Dog Daycare',
+      client: 'Owner',
+      provider: 'Staff',
+      service: 'Daily',
+      establishment: 'Daycare',
+      category: 'Activity'
+    },
+    dog_trainer: {
+      name: 'Dog Training',
+      client: 'Student',
+      provider: 'Trainer',
+      service: 'Class',
+      establishment: 'Center',
+      category: 'Level'
+    },
+    pet_hotel: {
+      name: 'Pet Hotel',
+      client: 'Guest',
+      provider: 'Caretaker',
+      service: 'Lodging',
+      establishment: 'Hotel',
+      category: 'Accommodation'
+    },
+    martial_arts: {
+      name: 'Martial Arts',
+      client: 'Student',
+      provider: 'Sensei',
+      service: 'Workout',
+      establishment: 'Dojo',
+      category: 'Modality'
+    },
+    crossfit: {
+      name: 'Crossfit',
+      client: 'Athlete',
+      provider: 'Coach',
+      service: 'WOD',
+      establishment: 'Box',
+      category: 'Type'
+    },
+    swim_school: {
+      name: 'Swimming',
+      client: 'Student',
+      provider: 'Instructor',
+      service: 'Class',
+      establishment: 'School',
+      category: 'Level'
+    },
+    personal: {
+      name: 'Personal Trainer',
+      client: 'Student',
+      provider: 'Personal',
+      service: 'Workout',
+      establishment: 'Consulting',
+      category: 'Focus'
+    },
+    beach_tennis: {
+      name: 'Beach Tennis',
+      client: 'Player',
+      provider: 'Teacher',
+      service: 'Class',
+      establishment: 'Arena',
+      category: 'Level'
+    },
+    music_school: {
+      name: 'Music School',
+      client: 'Student',
+      provider: 'Teacher',
+      service: 'Class',
+      establishment: 'School',
+      category: 'Instrument'
+    },
+    language_school: {
+      name: 'Language School',
+      client: 'Student',
+      provider: 'Teacher',
+      service: 'Class',
+      establishment: 'School',
+      category: 'Language'
+    },
+    art_studio: {
+      name: 'Art Studio',
+      client: 'Student',
+      provider: 'Instructor',
+      service: 'Workshop',
+      establishment: 'Studio',
+      category: 'Technique'
+    },
+    cooking_school: {
+      name: 'Gastronomy',
+      client: 'Student',
+      provider: 'Chef',
+      service: 'Class',
+      establishment: 'School',
+      category: 'Cuisine'
+    },
+    photography: {
+      name: 'Photography (School)',
+      client: 'Student',
+      provider: 'Photographer',
+      service: 'Course',
+      establishment: 'School',
+      category: 'Style'
+    },
+    auto_detail: {
+      name: 'Auto Detailing',
+      client: 'Client',
+      provider: 'Professional',
+      service: 'Service',
+      establishment: 'Auto Detailing Shop',
+      category: 'Type'
+    },
+    mechanic: {
+      name: 'Mechanic Shop',
+      client: 'Client',
+      provider: 'Mechanic',
+      service: 'Repair',
+      establishment: 'Workshop',
+      category: 'Service'
+    },
+    car_wash: {
+      name: 'Car Wash',
+      client: 'Subscriber',
+      provider: 'Washer',
+      service: 'Wash',
+      establishment: 'Car Wash',
+      category: 'Type'
+    },
+    cleaning: {
+      name: 'Cleaning Services',
+      client: 'Client',
+      provider: 'Professional',
+      service: 'Cleaning',
+      establishment: 'Company',
+      category: 'Type'
+    },
+    interior_design: {
+      name: 'Interior Design',
+      client: 'Client',
+      provider: 'Designer',
+      service: 'Project',
+      establishment: 'Office',
+      category: 'Style'
+    },
+    party_venue: {
+      name: 'Event Space',
+      client: 'Client',
+      provider: 'Organizer',
+      service: 'Event',
+      establishment: 'Space',
+      category: 'Type'
+    },
+    photographer: {
+      name: 'Photographer (Studio)',
+      client: 'Client',
+      provider: 'Photographer',
+      service: 'Photoshoot',
+      establishment: 'Studio',
+      category: 'Style'
+    },
+    coworking: {
+      name: 'Coworking',
+      client: 'Coworker',
+      provider: 'Manager',
+      service: 'Booking',
+      establishment: 'Coworking',
+      category: 'Space'
+    },
+    tattoo: {
+      name: 'Tattoo & Piercing',
+      client: 'Client',
+      provider: 'Tattoo Artist',
+      service: 'Session',
+      establishment: 'Studio',
+      category: 'Style'
+    },
+    tech_repair: {
+      name: 'Tech Repair',
+      client: 'Client',
+      provider: 'Technician',
+      service: 'Repair',
+      establishment: 'Repair Shop',
+      category: 'Device'
+    },
+    law: {
+      name: 'Law',
+      client: 'Client',
+      provider: 'Lawyer',
+      service: 'Case',
+      establishment: 'Office',
+      category: 'Area'
+    },
+    psychology: {
+      name: 'Psychology',
+      client: 'Patient',
+      provider: 'Psychologist',
+      service: 'Session',
+      establishment: 'Office',
+      category: 'Approach'
+    },
+    wine_club: {
+      name: 'Wine Club',
+      client: 'Member',
+      provider: 'Sommelier',
+      service: 'Tasting',
+      establishment: 'Club',
+      category: 'Type'
+    },
+    brewery: {
+      name: 'Brewery',
+      client: 'Client',
+      provider: 'Master',
+      service: 'Tasting',
+      establishment: 'Brewery',
+      category: 'Style'
+    },
+    barista: {
+      name: 'Coffee Shop/Barista',
+      client: 'Student',
+      provider: 'Barista',
+      service: 'Course',
+      establishment: 'Coffee Shop',
+      category: 'Bean'
+    },
+    confectionery: {
+      name: 'Confectionery',
+      client: 'Client',
+      provider: 'Pastry Chef',
+      service: 'Order',
+      establishment: 'Confectionery',
+      category: 'Product'
+    },
+    real_estate: {
+      name: 'Real Estate',
+      client: 'Client',
+      provider: 'Realtor',
+      service: 'Visit',
+      establishment: 'Real Estate Agency',
+      category: 'Property'
+    },
+    consulting: {
+      name: 'Consulting',
+      client: 'Client',
+      provider: 'Consultant',
+      service: 'Meeting',
+      establishment: 'Company',
+      category: 'Project'
+    },
+    marketing_agency: {
+      name: 'Marketing Agency',
+      client: 'Client',
+      provider: 'Analyst',
+      service: 'Campaign',
+      establishment: 'Agency',
+      category: 'Channel'
+    },
+    dev_studio: {
+      name: 'Development',
+      client: 'Client',
+      provider: 'Developer',
+      service: 'Sprint',
+      establishment: 'Studio',
+      category: 'Tech'
+    },
+    event_planning: {
+      name: 'Event Planning',
+      client: 'Client',
+      provider: 'Organizer',
+      service: 'Event',
+      establishment: 'Agency',
+      category: 'Type'
+    },
+    travel_agency: {
+      name: 'Travel Agency',
+      client: 'Traveler',
+      provider: 'Agent',
+      service: 'Itinerary',
+      establishment: 'Agency',
+      category: 'Destination'
+    },
+    insurance: {
+      name: 'Insurance Brokerage',
+      client: 'Insured',
+      provider: 'Broker',
+      service: 'Policy',
+      establishment: 'Brokerage',
+      category: 'Type'
+    },
+    landscaping: {
+      name: 'Landscaping',
+      client: 'Client',
+      provider: 'Landscaper',
+      service: 'Maintenance',
+      establishment: 'Company',
+      category: 'Area'
+    },
+    plumbing: {
+      name: 'Plumbing',
+      client: 'Client',
+      provider: 'Plumber',
+      service: 'Repair',
+      establishment: 'Company',
+      category: 'Service'
+    },
+    electrician: {
+      name: 'Electrician',
+      client: 'Client',
+      provider: 'Electrician',
+      service: 'Installation',
+      establishment: 'Company',
+      category: 'Service'
+    },
+    construction: {
+      name: 'Construction',
+      client: 'Client',
+      provider: 'Engineer',
+      service: 'Work',
+      establishment: 'Construction Company',
+      category: 'Stage'
+    },
+    logistics: {
+      name: 'Logistics',
+      client: 'Client',
+      provider: 'Delivery Person',
+      service: 'Delivery',
+      establishment: 'Carrier',
+      category: 'Route'
+    },
+    tailoring: {
+      name: 'Tailoring/Sewing',
+      client: 'Client',
+      provider: 'Tailor',
+      service: 'Adjustment',
+      establishment: 'Studio',
+      category: 'Garment'
+    },
+    tutoring: {
+      name: 'Private Tutoring',
+      client: 'Student',
+      provider: 'Tutor',
+      service: 'Class',
+      establishment: 'Location',
+      category: 'Subject'
+    },
+    daycare: {
+      name: 'Child Daycare',
+      client: 'Guardian',
+      provider: 'Caretaker',
+      service: 'Daily',
+      establishment: 'Daycare',
+      category: 'Group'
+    },
+    elderly_care: {
+      name: 'Nursing Home',
+      client: 'Resident',
+      provider: 'Caretaker',
+      service: 'Stay',
+      establishment: 'Home',
+      category: 'Care'
+    },
+    driving_school: {
+      name: 'Driving School',
+      client: 'Student',
+      provider: 'Instructor',
+      service: 'Driving Lesson',
+      establishment: 'Driving School',
+      category: 'Category'
+    }
   }
 } as const;
 
-export type NicheType = keyof typeof nicheDictionary;
+export type NicheType = keyof typeof nicheDictionary.pt;
 export type VocabularyType = {
   name: string;
   client: string;

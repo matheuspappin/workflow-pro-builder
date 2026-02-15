@@ -19,7 +19,6 @@ import {
   FlaskConical,
   X,
   Handshake,
-  User
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -34,7 +33,6 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Visão Geral", href: "/admin" },
   { icon: Building2, label: "Tenants (Empresas)", href: "/admin/studios" },
   { icon: Handshake, label: "Afiliados", href: "/admin/affiliates" },
-  { icon: User, label: "Meu Perfil", href: "/portal/affiliate/profile" },
   { icon: PlusCircle, label: "Novo Ecossistema", href: "/admin/ecosystems/new" },
   { icon: Users, label: "Usuários Globais", href: "/admin/users" },
   { icon: CreditCard, label: "Planos & Assinaturas", href: "/admin/plans" },

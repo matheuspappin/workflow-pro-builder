@@ -377,7 +377,7 @@ export default function StudentDashboard() {
         <div className="w-20 h-20 rounded-3xl bg-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-200 mb-6">
           <Sparkles className="w-10 h-10 text-white" />
         </div>
-        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Bem-vindo ao DanceFlow!</h1>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Bem-vindo ao Workflow AI!</h1>
         <p className="text-slate-500 max-w-xs mb-8 text-sm">
           Você ainda não está vinculado a nenhum estúdio de dança. <br/><br/>
           Peça o <b>link de convite</b> para seu professor para começar a agendar suas aulas!

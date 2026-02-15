@@ -141,6 +141,7 @@ const initialTeachers: Teacher[] = [
 const allSpecialties = ["Ballet", "Jazz", "Hip Hop", "Contemporaneo", "Salsa"]
 
 function TeachersContent() {
+  const { vocabulary } = useVocabulary()
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const [teachers, setTeachers] = useState<Teacher[]>([])

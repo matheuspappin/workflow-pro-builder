@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { nicheDictionary } from '@/config/niche-dictionary'
 import { getAdminClient } from '@/lib/server-utils'
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -24,13 +25,13 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Erro ao buscar configurações do nicho:', error)
+      logger.error('Erro ao buscar configurações do nicho:', error)
       return NextResponse.json({ error: 'Configurações do nicho não encontradas' }, { status: 404 })
     }
 
     // Retorna o nicho, o vocabulário correspondente do dicionário ou o do banco de dados, e os módulos habilitados.
-    const currentNiche = settings.niche as keyof typeof nicheDictionary || 'dance'
-    const vocabulary = settings.vocabulary || nicheDictionary[currentNiche]
+    const currentNiche = settings.niche as keyof typeof nicheDictionary.pt || 'dance'
+    const vocabulary = settings.vocabulary || nicheDictionary.pt[currentNiche]
 
     return NextResponse.json({
       niche: currentNiche,
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       schemas: {} // Placeholder por enquanto
     })
   } catch (error) {
-    console.error('Erro inesperado na API de nicho:', error)
+    logger.error('Erro inesperado na API de nicho:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

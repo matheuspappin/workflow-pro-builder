@@ -1,4 +1,4 @@
-# 🗄️ Configuração do Banco de Dados - DanceFlow AI
+# 🗄️ Configuração do Banco de Dados - Workflow AI
 
 ## 📋 Pré-requisitos
 
@@ -201,7 +201,7 @@ O Supabase inclui RLS por padrão. Configure policies para:
 
 ## 🎯 **Resultado Final**
 
-Seu **DanceFlow AI** agora tem:
+Seu **Workflow AI** agora tem:
 
 - ✅ **Banco PostgreSQL robusto** no Supabase
 - ✅ **Dados persistentes** e seguros
