@@ -42,30 +42,7 @@ interface Message {
   timestamp: Date
 }
 
-const suggestedQuestions = [
-  {
-    icon: TrendingUp,
-    question: "Como posso aumentar a taxa de retencao de alunos?",
-    category: "Retencao",
-  },
-  {
-    icon: Users,
-    question: "Quais alunos estao em risco de evasao?",
-    category: "Evasao",
-  },
-  {
-    icon: Calendar,
-    question: "Qual o melhor horario para abrir novas turmas?",
-    category: "Planejamento",
-  },
-  {
-    icon: AlertTriangle,
-    question: "Quais sao os principais problemas financeiros do estudio?",
-    category: "Financeiro",
-  },
-]
-
-async function getAIResponse(message: string, history: Message[], provider: "chatgpt" | "gemini", selectedModel?: string, currentPendingAction?: any): Promise<any> {
+async function getAIResponse(message: string, history: Message[], provider: "chatgpt" | "gemini", t: any, selectedModel?: string, currentPendingAction?: any): Promise<any> {
   try {
     // Timeout para evitar requests muito longos
     const controller = new AbortController()
@@ -112,11 +89,11 @@ async function getAIResponse(message: string, history: Message[], provider: "cha
       let errorMessage = `Erro na API ${providerName}: ${response.status}`
 
       if (response.status === 429) {
-        errorMessage = `Limite de requisições excedido para ${providerName}. Tente novamente em alguns minutos.`
+        errorMessage = t.ai_chat.errors.limit.replace('{provider}', providerName)
       } else if (response.status === 401) {
-        errorMessage = `Chave da API do ${providerName} inválida. Verifique as configurações.`
+        errorMessage = t.ai_chat.errors.invalidKey.replace('{provider}', providerName)
       } else if (response.status === 500) {
-        errorMessage = `Erro interno do ${providerName}. Tente novamente em alguns instantes.`
+        errorMessage = t.ai_chat.errors.internal.replace('{provider}', providerName)
       }
 
       throw new Error(errorMessage)
@@ -127,7 +104,7 @@ async function getAIResponse(message: string, history: Message[], provider: "cha
 
     // Verificar se a resposta não está vazia
     if (!data || (!data.response && !data.content && typeof data !== 'string')) {
-      throw new Error('Resposta vazia ou inválida da API')
+      throw new Error(t.ai_chat.errors.empty)
     }
 
     return data
@@ -136,16 +113,16 @@ async function getAIResponse(message: string, history: Message[], provider: "cha
     console.error('💥 Erro ao obter resposta da IA:', error)
 
     const providerName = provider === "chatgpt" ? "ChatGPT" : "Gemini"
-    let errorMessage = `Desculpe, ocorreu um erro ao processar sua solicitação com ${providerName}.`
+    let errorMessage = t.ai_chat.errors.generic.replace('{provider}', providerName)
 
     if (error.name === 'AbortError') {
-      errorMessage = `Desculpe, a solicitação para ${providerName} demorou muito para responder. Tente novamente com uma pergunta mais simples.`
+      errorMessage = t.ai_chat.errors.timeout.replace('{provider}', providerName)
     } else if (error.message) {
-      errorMessage += ` Detalhes: ${error.message}`
+      errorMessage = error.message // Use the specific error message if available (already translated above)
     }
 
     return {
-      response: errorMessage + '\n\n💡 Dicas:\n• Verifique se a chave da API está configurada\n• Tente novamente em alguns instantes\n• Use perguntas mais específicas',
+      response: errorMessage,
       intent: 'error',
       confidence: 0,
       actionExecuted: false
@@ -154,7 +131,7 @@ async function getAIResponse(message: string, history: Message[], provider: "cha
 }
 
 export default function ChatPage() {
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, t, language } = useVocabulary()
   // Carregar estado do chat do localStorage
   const loadChatState = () => {
     try {
@@ -180,44 +157,59 @@ export default function ChatPage() {
   const suggestedQuestions = [
     {
       icon: TrendingUp,
-      question: `Como posso aumentar a taxa de retencao de ${vocabulary.clients.toLowerCase()}?`,
-      category: "Retencao",
+      question: t.ai_chat.questions.retention.replace('{clients}', vocabulary.clients.toLowerCase()),
+      category: t.ai_chat.categories.retention,
     },
     {
       icon: Users,
-      question: `Quais ${vocabulary.clients.toLowerCase()} estao em risco de evasao?`,
-      category: "Evasao",
+      question: t.ai_chat.questions.churn.replace('{clients}', vocabulary.clients.toLowerCase()),
+      category: t.ai_chat.categories.churn,
     },
     {
       icon: Calendar,
-      question: `Qual o melhor horario para abrir novas ${vocabulary.services.toLowerCase()}?`,
-      category: "Planejamento",
+      question: t.ai_chat.questions.planning.replace('{services}', vocabulary.services.toLowerCase()),
+      category: t.ai_chat.categories.planning,
     },
     {
       icon: AlertTriangle,
-      question: `Quais sao os principais problemas financeiros do ${vocabulary.establishment.toLowerCase()}?`,
-      category: "Financeiro",
+      question: t.ai_chat.questions.financial.replace('{establishment}', vocabulary.establishment.toLowerCase()),
+      category: t.ai_chat.categories.financial,
     },
   ]
 
-  const initialState = loadChatState()
   const defaultMessages = [
     {
       id: Date.now().toString(),
       role: "assistant",
-      content: `Ola! Sou o seu assistente IA. 💾 Seu contexto de conversa é automaticamente salvo e mantido entre sessões. Posso ajudar a analisar os dados do seu ${vocabulary.establishment.toLowerCase()} e fornecer insights valiosos. Como posso ajudar hoje?`,
+      content: t.ai_chat.welcome.replace('{establishment}', vocabulary.establishment.toLowerCase()),
       timestamp: new Date(),
     },
   ]
 
-  const [messages, setMessages] = useState<Message[]>(initialState?.messages || defaultMessages)
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [aiProvider, setAiProvider] = useState<"chatgpt" | "gemini">(initialState?.aiProvider || "chatgpt")
-  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>(initialState?.selectedGeminiModel || "gemini-2.0-flash")
-  const [pendingAction, setPendingAction] = useState<any>(initialState?.pendingAction || null)
+  const [aiProvider, setAiProvider] = useState<"chatgpt" | "gemini">("chatgpt")
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>("gemini-2.0-flash")
+  const [pendingAction, setPendingAction] = useState<any>(null)
   const [lastRequestTime, setLastRequestTime] = useState<number>(0)
   const [responseCache, setResponseCache] = useState<Map<string, any>>(new Map())
+  const [mounted, setMounted] = useState(false)
+
+  // Carregar estado inicial apenas após montar para evitar Hydration Mismatch
+  useEffect(() => {
+    const initialState = loadChatState()
+    if (initialState) {
+      if (initialState.messages?.length > 0) setMessages(initialState.messages)
+      else setMessages(defaultMessages)
+      setAiProvider(initialState.aiProvider || "chatgpt")
+      setSelectedGeminiModel(initialState.selectedGeminiModel || "gemini-2.0-flash")
+      setPendingAction(initialState.pendingAction || null)
+    } else {
+      setMessages(defaultMessages)
+    }
+    setMounted(true)
+  }, [])
   const [dashboardData, setDashboardData] = useState<any>({
     activeStudents: 0,
     activeTeachers: 0,
@@ -315,7 +307,7 @@ export default function ChatPage() {
 
   const handleDeleteSession = async (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation()
-    if (confirm('Tem certeza que deseja excluir esta conversa?')) {
+    if (confirm(t.ai_chat.deleteConfirm)) {
       try {
         await deleteChatSession(sessionId)
         setChatSessions(prev => prev.filter(s => s.id !== sessionId))
@@ -368,20 +360,20 @@ export default function ChatPage() {
     const trimmed = content.trim()
 
     if (!trimmed) {
-      return { valid: false, error: "Mensagem vazia" }
+      return { valid: false, error: t.ai_chat.errors.emptyMessage }
     }
 
     if (trimmed.length < 2) {
-      return { valid: false, error: "Mensagem muito curta" }
+      return { valid: false, error: t.ai_chat.errors.shortMessage }
     }
 
     if (trimmed.length > 2000) {
-      return { valid: false, error: "Mensagem muito longa (máximo 2000 caracteres)" }
+      return { valid: false, error: t.ai_chat.errors.longMessage }
     }
 
     // Verificar se é uma mensagem duplicada recente
     if (isMessageDuplicate(trimmed, "user")) {
-      return { valid: false, error: "Mensagem duplicada - já enviada recentemente" }
+      return { valid: false, error: t.ai_chat.errors.duplicateMessage }
     }
 
     return { valid: true }
@@ -448,7 +440,7 @@ export default function ChatPage() {
     setLastRequestTime(Date.now())
 
     // Obter resposta da IA via API (Cache desativado para evitar repetição)
-    const response = await getAIResponse(userMessage.content, messages, aiProvider, selectedGeminiModel, pendingAction)
+    const response = await getAIResponse(userMessage.content, messages, aiProvider, t, selectedGeminiModel, pendingAction)
 
     // Extrair dados da resposta (assumindo que getAIResponse retorna um objeto)
     const aiResponseContent = typeof response === 'string' ? response : response.response || response
@@ -483,7 +475,7 @@ export default function ChatPage() {
       {
         id: Date.now().toString(),
         role: "assistant",
-        content: `Ola! Sou o seu assistente IA. Estou aqui para ajudar a analisar os dados do seu ${vocabulary.establishment.toLowerCase()} e fornecer insights valiosos. Como posso ajudar hoje?`,
+        content: t.ai_chat.welcome.replace('{establishment}', vocabulary.establishment.toLowerCase()),
         timestamp: new Date(),
       },
     ]
@@ -500,7 +492,7 @@ export default function ChatPage() {
   return (
     <ModuleGuard module="ai_chat" showFullError>
       <div className="min-h-screen bg-background">
-        <Header title="Chat IA" />
+        <Header title={t.ai_chat.title} />
 
         <div className="p-6 h-[calc(100vh-4rem)]">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
@@ -510,13 +502,13 @@ export default function ChatPage() {
                 <CardHeader className="pb-3 flex-shrink-0">
                   <CardTitle className="text-card-foreground flex items-center gap-2">
                     <MessageSquare className="w-5 h-5 text-primary" />
-                    Minhas Conversas
+                    {t.ai_chat.myConversations}
                   </CardTitle>
-                  <CardDescription>Histórico de 15 dias</CardDescription>
+                  <CardDescription>{t.ai_chat.history15Days}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto p-2 pt-0 space-y-1 custom-scrollbar">
                   {chatSessions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground p-2 text-center">Nenhuma conversa salva.</p>
+                    <p className="text-xs text-muted-foreground p-2 text-center">{t.ai_chat.noConversations}</p>
                   ) : (
                     chatSessions.map((session) => (
                       <div
@@ -530,10 +522,10 @@ export default function ChatPage() {
                       >
                         <div className="flex flex-col flex-1 min-w-0 pr-2">
                           <span className="text-sm font-medium truncate">
-                            {session.title || 'Sem título'}
+                            {session.title || t.common.untitled}
                           </span>
                           <span className="text-[10px] opacity-70">
-                            {new Date(session.updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            {new Date(session.updated_at).toLocaleDateString(language === 'en' ? 'en-US' : 'pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                         <Button
@@ -554,9 +546,9 @@ export default function ChatPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-card-foreground flex items-center gap-2">
                     <Lightbulb className="w-5 h-5 text-primary" />
-                    Sugestoes
+                    {t.ai_chat.suggestions}
                   </CardTitle>
-                  <CardDescription>Perguntas frequentes</CardDescription>
+                  <CardDescription>{t.ai_chat.faq}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {suggestedQuestions.map((item, index) => (
@@ -581,7 +573,7 @@ export default function ChatPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-card-foreground text-sm flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-primary" />
-                    Dados Analisados
+                    {t.ai_chat.analyzedData}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -611,9 +603,9 @@ export default function ChatPage() {
                   </div>
                   <div className="flex items-center justify-between text-sm pt-2 border-t border-border/50">
                     <span className="text-muted-foreground flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5" /> Periodo
+                      <Clock className="w-3.5 h-3.5" /> {t.ai_chat.period}
                     </span>
-                    <span className="font-medium text-foreground">12 meses</span>
+                    <span className="font-medium text-foreground">{t.ai_chat.twelveMonths}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -629,14 +621,14 @@ export default function ChatPage() {
                     </div>
                     <div>
                       <CardTitle className="text-card-foreground flex items-center gap-2">
-                        Assistente IA
+                        {t.ai_chat.assistant}
                         <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                          💾 Contexto salvo
+                          💾 {t.ai_chat.contextSaved}
                         </span>
                       </CardTitle>
                       <CardDescription className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                        Online - Pronto para ajudar
+                        {t.ai_chat.onlineReady}
                       </CardDescription>
                     </div>
                   </div>
@@ -669,7 +661,7 @@ export default function ChatPage() {
                       className="gap-2 text-xs h-8 bg-background hover:bg-accent"
                     >
                       <MessageSquarePlus className="w-3.5 h-3.5" />
-                      Nova Conversa
+                      {t.ai_chat.newConversation}
                     </Button>
                   </div>
                 </div>
@@ -699,7 +691,7 @@ export default function ChatPage() {
                         <div className={`text-xs mt-2 ${
                           message.role === "user" ? "text-primary-foreground/70" : "text-muted-foreground"
                         }`}>
-                          {message.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          {message.timestamp.toLocaleTimeString(language === 'en' ? 'en-US' : 'pt-BR', { hour: "2-digit", minute: "2-digit" })}
                         </div>
                       </div>
                       {message.role === "user" && (
@@ -717,7 +709,7 @@ export default function ChatPage() {
                       <div className="bg-secondary text-secondary-foreground rounded-2xl rounded-bl-md px-4 py-3">
                         <div className="flex items-center gap-2 text-sm">
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Analisando dados...
+                          {t.ai_chat.analyzing}
                         </div>
                       </div>
                     </div>
@@ -739,7 +731,7 @@ export default function ChatPage() {
                     ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Digite sua pergunta..."
+                    placeholder={t.ai_chat.placeholder}
                     className="flex-1 bg-background"
                     disabled={isLoading}
                   />
@@ -756,7 +748,7 @@ export default function ChatPage() {
                   </Button>
                 </form>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  A IA analisa dados reais do seu {vocabulary.establishment.toLowerCase()} para fornecer recomendacoes personalizadas.
+                  {t.ai_chat.disclaimer.replace('{establishment}', vocabulary.establishment.toLowerCase())}
                 </p>
               </div>
             </Card>

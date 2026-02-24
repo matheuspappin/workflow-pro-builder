@@ -6,12 +6,13 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Check, ArrowRight, Zap, Shield, Smartphone, Globe, Code, CreditCard, Users, Bot, QrCode, Star, Coffee, Scissors, Car, Home } from "lucide-react"
+import { Check, ArrowRight, Zap, Shield, Smartphone, Globe, Code, CreditCard, Users, Bot, QrCode, Star, Coffee, Scissors, Car, Home, DollarSign } from "lucide-react"
 import { nicheDictionary, NicheType } from "@/config/niche-dictionary"
+import { cn } from "@/lib/utils"
 
 export default function WhiteLabelPage() {
   const [selectedNiche, setSelectedNiche] = useState<NicheType>('dance')
-  const vocabulary = nicheDictionary[selectedNiche]
+  const vocabulary = nicheDictionary.pt[selectedNiche]
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">

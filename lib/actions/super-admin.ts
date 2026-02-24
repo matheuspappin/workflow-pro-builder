@@ -19,7 +19,7 @@ interface AdminCheckResult {
 /**
  * Verifica se o usuário atual é Super Admin de forma robusta
  */
-async function checkSuperAdminDetailed(accessToken?: string): Promise<AdminCheckResult> {
+export async function checkSuperAdminDetailed(accessToken?: string): Promise<AdminCheckResult> {
   try {
     let user = null;
     const authClient = await getAuthenticatedClient()
@@ -202,8 +202,11 @@ export async function getTenantsList(page = 1, limit = 10, accessToken?: string)
       name, 
       created_at, 
       slug,
-      organization_settings ( niche, vocabulary ),
-      studio_settings ( setting_key, setting_value )
+      plan,
+      owner_id,
+      organization_settings ( niche, vocabulary, enabled_modules ),
+      studio_settings ( setting_key, setting_value ),
+      users_internal ( id, email, name, role )
     `, { count: 'exact' })
     .range(from, to)
     .order('created_at', { ascending: false })

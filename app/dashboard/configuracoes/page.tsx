@@ -2,8 +2,9 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
+import { cn } from "@/lib/utils"
 import { Header } from "@/components/dashboard/header"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -51,6 +52,9 @@ import {
   Download,
   FileText,
   Clock,
+  Trophy,
+  Layers,
+  Plus,
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
@@ -63,6 +67,7 @@ import { PLAN_LIMITS } from "@/lib/plan-limits"
 import { supabase } from "@/lib/supabase"
 
 import { EcosystemSettings } from "@/components/dashboard/settings/ecosystem-settings"
+import { GamificationSettings } from "@/components/dashboard/settings/gamification-settings"
 
 interface StudioSettings {
   id?: string
@@ -89,9 +94,12 @@ interface NotificationSettings {
 
 function SettingsContent() {
   const { toast } = useToast()
-  const { vocabulary } = useVocabulary()
-  const { language } = useOrganization()
-  
+  const { vocabulary, language } = useVocabulary()
+  const { t: globalT, enabledModules, studioId, studios, switchStudio } = useOrganization()
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get("tab") || "perfil"
+  const [activeTab, setActiveTab] = useState(initialTab)
+
   const TRANSLATIONS = {
     pt: {
       profile: "Perfil",
@@ -130,6 +138,23 @@ function SettingsContent() {
       dark: "Escuro",
       light: "Claro",
       system: "Sistema",
+      settings: {
+        creditsSessions: "Créditos / Sessões",
+        units: "Unidades",
+        saveSuccess: "Configurações do {establishment} salvas com sucesso!",
+        studioSettingsSaved: "Configurações do estúdio salvas.",
+        studioData: "Dados do Estúdio",
+        classReminders: "Lembretes de Aulas",
+        classRemindersDescription: "Envie lembretes automáticos para seus alunos sobre {service}.",
+        supabaseDatabase: "Banco de Dados Supabase",
+        otherIntegrations: "Outras Integrações",
+        otherIntegrationsDescription: "Conecte-se com outras ferramentas para expandir seu negócio.",
+        upgradeToPro: "Upgrade para Pro",
+        changePlan: "Alterar Plano",
+        chooseNewPlan: "Escolha seu Novo Plano",
+        planSelectionDescription: "Selecione o plano ideal para o seu {establishment}.",
+        currentPlan: "Plano Atual"
+      }
     },
     en: {
       profile: "Profile",
@@ -168,15 +193,29 @@ function SettingsContent() {
       dark: "Dark",
       light: "Light",
       system: "System",
+      settings: {
+        creditsSessions: "Credits / Sessions",
+        units: "Units",
+        saveSuccess: "{establishment} settings saved successfully!",
+        studioSettingsSaved: "Studio settings saved.",
+        studioData: "Studio Data",
+        classReminders: "Class Reminders",
+        classRemindersDescription: "Send automatic reminders to your students about {service}.",
+        supabaseDatabase: "Supabase Database",
+        otherIntegrations: "Other Integrations",
+        otherIntegrationsDescription: "Connect with other tools to expand your business.",
+        upgradeToPro: "Upgrade to Pro",
+        changePlan: "Change Plan",
+        chooseNewPlan: "Choose your New Plan",
+        planSelectionDescription: "Select the ideal plan for your {establishment}.",
+        currentPlan: "Current Plan"
+      }
     }
   }
 
-  const t = TRANSLATIONS[language as 'pt' | 'en'] || TRANSLATIONS.pt
+  const t = { ...globalT, ...(TRANSLATIONS[language as 'pt' | 'en'] || TRANSLATIONS.pt) }
 
-  const searchParams = useSearchParams()
-  const initialTab = searchParams.get("tab") || "perfil"
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState(initialTab)
 
   const [userSettings, setUserSettings] = useState<UserSettings>({
     name: "",
@@ -275,7 +314,6 @@ function SettingsContent() {
   const [reports, setReports] = useState<any[]>([])
   const [loadingReports, setLoadingReports] = useState(false)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
-  const [studioId, setStudioId] = useState<string>("")
 
   useEffect(() => {
     loadSystemPlans()
@@ -283,7 +321,6 @@ function SettingsContent() {
     if (userData) {
       const user = JSON.parse(userData)
       const sId = user.studio_id || user.studioId
-      setStudioId(sId)
       
       setUserSettings({
         name: user.name || "",
@@ -312,6 +349,11 @@ function SettingsContent() {
     const sessionId = searchParams.get("session_id")
     if (success === "true" && sessionId) {
       verifyPayment(sessionId)
+    }
+
+    const tab = searchParams.get("tab")
+    if (tab) {
+      setActiveTab(tab)
     }
 
     // Load API keys using the utility function
@@ -451,7 +493,7 @@ function SettingsContent() {
           }, { onConflict: 'studio_id, setting_key' })
       ))
 
-      toast({ title: "Sucesso!", description: `Configurações do ${vocabulary.establishment.toLowerCase()} salvas.` })
+      toast({ title: t.common.success, description: t.settings.saveSuccess.replace('{establishment}', vocabulary.establishment.toLowerCase()) })
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" })
     } finally {
@@ -610,7 +652,14 @@ function SettingsContent() {
       has_whatsapp: false,
       has_ai: false,
       has_finance: true,
-      has_multi_unit: false
+      has_multi_unit: false,
+      has_pos: false,
+      has_inventory: false,
+      has_gamification: false,
+      has_leads: false,
+      has_scanner: false,
+      has_marketplace: false,
+      has_erp: false
     }
   }
 
@@ -952,7 +1001,7 @@ function SettingsContent() {
         throw new Error(`${failures.length} configurações falharam ao salvar no banco.`)
       }
       
-      console.log('✅ Configurações do estúdio salvas no Supabase')
+      console.log(t.settings.studioSettingsSaved)
     } catch (dbError: any) {
       console.error('❌ Detalhes do erro de salvamento:', {
         message: dbError.message,
@@ -977,7 +1026,7 @@ function SettingsContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header title={language === 'pt' ? "Configurações" : "Settings"} />
+      <Header title={t.sidebar.settings} />
 
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1004,20 +1053,32 @@ function SettingsContent() {
             </TabsTrigger>
             <TabsTrigger value="seguranca" className="gap-2">
               <Shield className="w-4 h-4" />
-              {language === 'pt' ? "Segurança" : "Security"}
+              {t.sidebar.security}
             </TabsTrigger>
             <TabsTrigger value="plano" className="gap-2">
               <CreditCard className="w-4 h-4" />
-              {language === 'pt' ? "Plano" : "Plan"}
+              {t.sidebar.plan}
             </TabsTrigger>
             <TabsTrigger value="creditos" className="gap-2">
               <Sparkles className="w-4 h-4" />
-              {language === 'pt' ? "Créditos / Sessões" : "Credits / Sessions"}
+              {t.settings.creditsSessions}
             </TabsTrigger>
             <TabsTrigger value="relatorios" className="gap-2">
               <FileText className="w-4 h-4" />
               {t.reports}
             </TabsTrigger>
+            {enabledModules.gamification && (
+              <TabsTrigger value="gamificacao" className="gap-2">
+                <Trophy className="w-4 h-4" />
+                Gamificação
+              </TabsTrigger>
+            )}
+            {enabledModules.multi_unit && (
+              <TabsTrigger value="unidades" className="gap-2">
+                <Layers className="w-4 h-4" />
+                {t.settings.units}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Perfil Tab */}
@@ -1083,7 +1144,7 @@ function SettingsContent() {
           <TabsContent value="estudio" className="space-y-6">
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">{language === 'pt' ? "Dados do Estúdio" : "Studio Data"}</CardTitle>
+                <CardTitle className="text-card-foreground">{t.settings.studioData}</CardTitle>
                 <CardDescription>{t.studioInfoDesc}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1201,8 +1262,8 @@ function SettingsContent() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-foreground">Lembretes de Aulas</p>
-                    <p className="text-sm text-muted-foreground">Notificações sobre {vocabulary.service.toLowerCase()}s próximas</p>
+                    <p className="font-medium text-foreground">{t.settings.classReminders}</p>
+                    <p className="text-sm text-muted-foreground">{t.settings.classRemindersDescription.replace('{service}', vocabulary.service.toLowerCase())}</p>
                   </div>
                   <Switch
                     checked={notificationSettings.classReminders}
@@ -1469,7 +1530,7 @@ function SettingsContent() {
             {/* Banco de Dados Supabase */}
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">Banco de Dados Supabase</CardTitle>
+                <CardTitle className="text-card-foreground">{t.settings.supabaseDatabase}</CardTitle>
                 <CardDescription>Configure a conexão com o banco de dados para dados reais no chat IA</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1584,8 +1645,8 @@ function SettingsContent() {
             {/* Outras Integrações */}
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">Outras Integracoes</CardTitle>
-                <CardDescription>Conecte servicos externos ao sistema</CardDescription>
+                <CardTitle className="text-card-foreground">{t.settings.otherIntegrations}</CardTitle>
+                <CardDescription>{t.settings.otherIntegrationsDescription}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4 p-4 border border-border rounded-lg">
@@ -2050,7 +2111,7 @@ function SettingsContent() {
                     }}
                   >
                     <Zap className="w-4 h-4 mr-2" /> 
-                    {usage.plan === 'gratuito' ? 'Fazer Upgrade para Pro' : 'Trocar Plano'}
+                    {usage.plan === 'gratuito' ? t.settings.upgradeToPro : t.settings.changePlan}
                   </Button>
                   <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/10 bg-transparent">
                     Cancelar Assinatura
@@ -2188,6 +2249,12 @@ function SettingsContent() {
               </CardContent>
             </Card>
           </TabsContent>
+          {enabledModules.gamification && (
+            <TabsContent value="gamificacao" className="space-y-6">
+              <GamificationSettings studioId={studioId} />
+            </TabsContent>
+          )}
+
           {/* Relatorios Tab */}
           <TabsContent value="relatorios" className="space-y-6">
             <Card className="bg-card border-border">
@@ -2330,6 +2397,59 @@ function SettingsContent() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {enabledModules.multi_unit && (
+            <TabsContent value="unidades" className="space-y-6">
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-card-foreground">Gestão de Unidades</CardTitle>
+                      <CardDescription>Gerencie suas filiais e alterne entre elas</CardDescription>
+                    </div>
+                    <Button 
+                      variant="outline"
+                      onClick={() => window.location.href = '/admin/ecosystems/new'}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Unidade
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {studios.map((studio) => (
+                      <Card key={studio.id} className={cn(
+                        "relative overflow-hidden transition-all hover:shadow-md",
+                        studio.id === studioId ? "border-primary ring-1 ring-primary" : "border-border"
+                      )}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <Building className="w-5 h-5 text-muted-foreground" />
+                            {studio.id === studioId && (
+                              <Badge className="bg-primary text-primary-foreground">Ativa</Badge>
+                            )}
+                          </div>
+                          <CardTitle className="text-lg mt-2">{studio.name}</CardTitle>
+                          <CardDescription className="text-xs truncate">{studio.slug}.workflowpro.com.br</CardDescription>
+                        </CardHeader>
+                        <CardFooter className="pt-2">
+                          <Button 
+                            variant={studio.id === studioId ? "secondary" : "default"}
+                            className="w-full"
+                            disabled={studio.id === studioId}
+                            onClick={() => switchStudio(studio.id)}
+                          >
+                            {studio.id === studioId ? "Unidade Atual" : "Acessar Unidade"}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Save Button */}
@@ -2358,8 +2478,9 @@ function SettingsContent() {
       <Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center">Escolha seu novo plano</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-center">{t.settings.chooseNewPlan}</DialogTitle>
             <DialogDescription className="text-center">
+              {t.settings.planSelectionDescription.replace('{establishment}', vocabulary.establishment.toLowerCase())}
               Selecione a melhor opção para o crescimento do seu negócio. 
               Você poderá revisar antes da cobrança.
             </DialogDescription>
@@ -2446,7 +2567,7 @@ function SettingsContent() {
                   </ul>
 
                   {usage.plan === plan.id ? (
-                    <Badge variant="secondary" className="mt-4 w-full justify-center py-1">Plano Atual</Badge>
+                    <Badge variant="secondary" className="mt-4 w-full justify-center py-1">{t.settings.currentPlan}</Badge>
                   ) : (
                     <Button 
                       variant={selectedNewPlan === plan.id ? "default" : "outline"} 

@@ -266,11 +266,11 @@ export default function AdminUsersPage() {
       case 'manager':
         return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 gap-1">Gerente</Badge>
       case 'teacher':
-        return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 gap-1">Professor</Badge>
+        return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 gap-1">Profissional</Badge>
       case 'receptionist':
         return <Badge className="bg-slate-500/10 text-slate-500 border-slate-500/20 gap-1">Recepcionista</Badge>
       case 'student':
-        return <Badge className="bg-violet-500/10 text-violet-500 border-violet-500/20 gap-1">Aluno</Badge>
+        return <Badge className="bg-violet-500/10 text-violet-500 border-violet-500/20 gap-1">Cliente</Badge>
       default:
         return <Badge variant="outline">{role}</Badge>
     }
@@ -331,8 +331,8 @@ export default function AdminUsersPage() {
                    filterRole === 'owner' ? 'Proprietário' :
                    filterRole === 'admin' ? 'Administrador' :
                    filterRole === 'manager' ? 'Gerente' :
-                   filterRole === 'teacher' ? 'Professor' :
-                   filterRole === 'receptionist' ? 'Recepcionista' : 'Aluno'}
+                   filterRole === 'teacher' ? 'Profissional' :
+                   filterRole === 'receptionist' ? 'Recepcionista' : 'Cliente'}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -341,9 +341,9 @@ export default function AdminUsersPage() {
                 <DropdownMenuItem onClick={() => setFilterRole('owner')}>Proprietário</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setFilterRole('admin')}>Administrador</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setFilterRole('manager')}>Gerente</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterRole('teacher')}>Professor</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilterRole('teacher')}>Profissional</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setFilterRole('receptionist')}>Recepcionista</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterRole('student')}>Aluno</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilterRole('student')}>Cliente</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -434,9 +434,9 @@ export default function AdminUsersPage() {
                         <SelectItem value="owner">Proprietário (Admin Master)</SelectItem>
                         <SelectItem value="admin">Administrador (Admin)</SelectItem>
                         <SelectItem value="manager">Gerente (Staff)</SelectItem>
-                        <SelectItem value="professional">Professor / Profissional</SelectItem>
+                        <SelectItem value="professional">Profissional</SelectItem>
                         <SelectItem value="receptionist">Recepcionista</SelectItem>
-                        <SelectItem value="student">Aluno (Apenas Visualização)</SelectItem>
+                        <SelectItem value="student">Cliente (Apenas Visualização)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

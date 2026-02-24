@@ -1,39 +1,58 @@
+"use client"
+
 import { OSList } from '@/components/service-orders/os-list'
-import { getAuthenticatedClient } from '@/lib/server-utils'
-import { redirect } from 'next/navigation'
+import { OSCalendar } from '@/components/service-orders/os-calendar'
+import { ServicesList } from '@/components/service-orders/services-list'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Header } from '@/components/dashboard/header'
+import { useVocabulary } from '@/hooks/use-vocabulary'
+import { useOrganization } from '@/components/providers/organization-provider'
+import { ModuleGuard } from '@/components/providers/module-guard'
+import { Calendar, List, Wrench } from 'lucide-react'
 
-export default async function OSPage() {
-  const supabase = await getAuthenticatedClient()
-  if (!supabase) redirect('/login')
+export default function OSPage() {
+  const { t } = useVocabulary()
+  const { studioId } = useOrganization()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  // Buscar studio_id do usuário logado
-  const { data: profile } = await supabase
-    .from('users_internal')
-    .select('studio_id')
-    .eq('id', user.id)
-    .single()
-
-  let studioId = profile?.studio_id;
-
-  if (!studioId) {
-    // Tentar professionals se não for admin
-    const { data: prof } = await supabase
-      .from('professionals')
-      .select('studio_id')
-      .eq('user_id', user.id)
-      .single();
-    
-    studioId = prof?.studio_id;
-  }
-
-  if (!studioId) redirect('/dashboard');
+  if (!studioId) return null
 
   return (
-    <div className="p-6">
-      <OSList studioId={studioId} />
-    </div>
+    <ModuleGuard module="service_orders" showFullError>
+      <div className="flex flex-col min-h-screen">
+        <Header title={t.service_orders.title} />
+        <div className="p-6">
+          <Tabs defaultValue="list" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="list" className="gap-2">
+                  <List className="w-4 h-4" />
+                  {t.service_orders.title}
+                </TabsTrigger>
+                <TabsTrigger value="calendar" className="gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Calendário
+                </TabsTrigger>
+                <TabsTrigger value="catalog" className="gap-2">
+                  <Wrench className="w-4 h-4" />
+                  {t.service_orders.catalog}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="list" className="space-y-6">
+              <OSList studioId={studioId} />
+            </TabsContent>
+
+            <TabsContent value="calendar" className="space-y-6">
+              <OSCalendar studioId={studioId} />
+            </TabsContent>
+
+            <TabsContent value="catalog" className="space-y-6">
+              <ServicesList studioId={studioId} />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </ModuleGuard>
   );
 }

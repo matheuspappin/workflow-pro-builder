@@ -2,14 +2,16 @@ export const nicheDictionary = {
   pt: {
     dance: {
       name: 'Dança',
+      businessModel: 'CREDIT',
       client: 'Aluno',
       provider: 'Professor',
       service: 'Aula',
-      establishment: 'Estúdio',
+      establishment: 'Escola',
       category: 'Modalidade'
     },
     dentist: {
       name: 'Odontologia',
+      businessModel: 'MONETARY',
       client: 'Paciente',
       provider: 'Doutor',
       service: 'Consulta',
@@ -18,6 +20,7 @@ export const nicheDictionary = {
     },
     gym: {
       name: 'Fitness/Academia',
+      businessModel: 'CREDIT',
       client: 'Membro',
       provider: 'Instrutor',
       service: 'Treino',
@@ -26,6 +29,7 @@ export const nicheDictionary = {
     },
     clinic: {
       name: 'Clínica Médica',
+      businessModel: 'MONETARY',
       client: 'Paciente',
       provider: 'Médico',
       service: 'Exame',
@@ -34,6 +38,7 @@ export const nicheDictionary = {
     },
     beauty: {
       name: 'Beleza e Estética',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Profissional',
       service: 'Procedimento',
@@ -42,6 +47,7 @@ export const nicheDictionary = {
     },
     aesthetics: {
       name: 'Estética',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Esteticista',
       service: 'Sessão',
@@ -50,22 +56,25 @@ export const nicheDictionary = {
     },
     pilates: {
       name: 'Pilates',
-      client: 'Aluno',
-      provider: 'Instrutor',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula',
       establishment: 'Studio',
       category: 'Nível'
     },
     yoga: {
       name: 'Yoga',
-      client: 'Aluno',
-      provider: 'Instrutor',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Prática',
       establishment: 'Studio',
       category: 'Estilo'
     },
     barber: {
       name: 'Barbearia',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Barbeiro',
       service: 'Corte',
@@ -74,6 +83,7 @@ export const nicheDictionary = {
     },
     spa: {
       name: 'Spa',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Terapeuta',
       service: 'Massagem',
@@ -82,6 +92,7 @@ export const nicheDictionary = {
     },
     physio: {
       name: 'Fisioterapia',
+      businessModel: 'MONETARY',
       client: 'Paciente',
       provider: 'Fisioterapeuta',
       service: 'Sessão',
@@ -90,6 +101,7 @@ export const nicheDictionary = {
     },
     nutrition: {
       name: 'Nutrição',
+      businessModel: 'MONETARY',
       client: 'Paciente',
       provider: 'Nutricionista',
       service: 'Consulta',
@@ -98,6 +110,7 @@ export const nicheDictionary = {
     },
     podiatry: {
       name: 'Podologia',
+      businessModel: 'MONETARY',
       client: 'Paciente',
       provider: 'Podólogo',
       service: 'Atendimento',
@@ -106,6 +119,7 @@ export const nicheDictionary = {
     },
     tanning: {
       name: 'Bronzeamento',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Atendente',
       service: 'Sessão',
@@ -114,6 +128,7 @@ export const nicheDictionary = {
     },
     pet_shop: {
       name: 'Pet Shop',
+      businessModel: 'MONETARY',
       client: 'Tutor',
       provider: 'Tosador',
       service: 'Banho/Tosa',
@@ -122,6 +137,7 @@ export const nicheDictionary = {
     },
     vet: {
       name: 'Veterinária',
+      businessModel: 'MONETARY',
       client: 'Tutor',
       provider: 'Veterinário',
       service: 'Consulta',
@@ -130,6 +146,7 @@ export const nicheDictionary = {
     },
     dog_daycare: {
       name: 'Creche Canina',
+      businessModel: 'CREDIT',
       client: 'Tutor',
       provider: 'Monitor',
       service: 'Diária',
@@ -138,14 +155,16 @@ export const nicheDictionary = {
     },
     dog_trainer: {
       name: 'Adestramento',
-      client: 'Aluno',
-      provider: 'Adestrador',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula',
       establishment: 'Centro',
       category: 'Nível'
     },
     pet_hotel: {
       name: 'Hotel Pet',
+      businessModel: 'MONETARY',
       client: 'Hóspede',
       provider: 'Cuidador',
       service: 'Hospedagem',
@@ -154,14 +173,16 @@ export const nicheDictionary = {
     },
     martial_arts: {
       name: 'Artes Marciais',
-      client: 'Aluno',
-      provider: 'Sensei',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Treino',
       establishment: 'Dojo',
       category: 'Modalidade'
     },
     crossfit: {
       name: 'Crossfit',
+      businessModel: 'CREDIT',
       client: 'Atleta',
       provider: 'Coach',
       service: 'WOD',
@@ -170,22 +191,25 @@ export const nicheDictionary = {
     },
     swim_school: {
       name: 'Natação',
-      client: 'Aluno',
-      provider: 'Instrutor',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula',
       establishment: 'Escola',
       category: 'Nível'
     },
     personal: {
       name: 'Personal Trainer',
-      client: 'Aluno',
-      provider: 'Personal',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Treino',
       establishment: 'Consultoria',
       category: 'Foco'
     },
     beach_tennis: {
       name: 'Beach Tennis',
+      businessModel: 'CREDIT',
       client: 'Jogador',
       provider: 'Professor',
       service: 'Aula',
@@ -194,46 +218,52 @@ export const nicheDictionary = {
     },
     music_school: {
       name: 'Escola de Música',
-      client: 'Aluno',
-      provider: 'Professor',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula',
       establishment: 'Escola',
       category: 'Instrumento'
     },
     language_school: {
       name: 'Escola de Idiomas',
-      client: 'Aluno',
-      provider: 'Teacher',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula',
       establishment: 'Escola',
       category: 'Idioma'
     },
     art_studio: {
       name: 'Ateliê de Arte',
-      client: 'Aluno',
-      provider: 'Instrutor',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Workshop',
       establishment: 'Ateliê',
       category: 'Técnica'
     },
     cooking_school: {
       name: 'Gastronomia',
-      client: 'Aluno',
-      provider: 'Chef',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula',
       establishment: 'Escola',
       category: 'Culinária'
     },
     photography: {
       name: 'Fotografia (Escola)',
-      client: 'Aluno',
-      provider: 'Fotógrafo',
+      businessModel: 'CREDIT',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Curso',
       establishment: 'Escola',
       category: 'Estilo'
     },
     auto_detail: {
       name: 'Estética Automotiva',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Profissional',
       service: 'Serviço',
@@ -242,6 +272,7 @@ export const nicheDictionary = {
     },
     mechanic: {
       name: 'Oficina Mecânica',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Mecânico',
       service: 'Reparo',
@@ -250,6 +281,7 @@ export const nicheDictionary = {
     },
     car_wash: {
       name: 'Lava-jato',
+      businessModel: 'MONETARY',
       client: 'Assinante',
       provider: 'Lavador',
       service: 'Lavagem',
@@ -258,6 +290,7 @@ export const nicheDictionary = {
     },
     cleaning: {
       name: 'Serviços de Limpeza',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Profissional',
       service: 'Limpeza',
@@ -266,6 +299,7 @@ export const nicheDictionary = {
     },
     interior_design: {
       name: 'Design de Interiores',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Designer',
       service: 'Projeto',
@@ -274,6 +308,7 @@ export const nicheDictionary = {
     },
     party_venue: {
       name: 'Espaço de Eventos',
+      businessModel: 'MONETARY',
       client: 'Contratante',
       provider: 'Organizador',
       service: 'Evento',
@@ -282,6 +317,7 @@ export const nicheDictionary = {
     },
     photographer: {
       name: 'Fotógrafo (Studio)',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Fotógrafo',
       service: 'Ensaio',
@@ -290,6 +326,7 @@ export const nicheDictionary = {
     },
     coworking: {
       name: 'Coworking',
+      businessModel: 'MONETARY',
       client: 'Coworker',
       provider: 'Gestor',
       service: 'Reserva',
@@ -298,6 +335,7 @@ export const nicheDictionary = {
     },
     tattoo: {
       name: 'Tattoo & Piercing',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Tatuador',
       service: 'Sessão',
@@ -306,6 +344,7 @@ export const nicheDictionary = {
     },
     tech_repair: {
       name: 'Assistência Técnica',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Técnico',
       service: 'Reparo',
@@ -314,6 +353,7 @@ export const nicheDictionary = {
     },
     law: {
       name: 'Advocacia',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Advogado',
       service: 'Processo',
@@ -322,6 +362,7 @@ export const nicheDictionary = {
     },
     psychology: {
       name: 'Psicologia',
+      businessModel: 'MONETARY',
       client: 'Paciente',
       provider: 'Psicólogo',
       service: 'Sessão',
@@ -330,6 +371,7 @@ export const nicheDictionary = {
     },
     wine_club: {
       name: 'Clube do Vinho',
+      businessModel: 'MONETARY',
       client: 'Sócio',
       provider: 'Sommelier',
       service: 'Degustação',
@@ -338,6 +380,7 @@ export const nicheDictionary = {
     },
     brewery: {
       name: 'Cervejaria',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Mestre',
       service: 'Degustação',
@@ -346,14 +389,16 @@ export const nicheDictionary = {
     },
     barista: {
       name: 'Cafeteria/Barista',
-      client: 'Aluno',
-      provider: 'Barista',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Curso',
       establishment: 'Cafeteria',
       category: 'Grão'
     },
     confectionery: {
       name: 'Confeitaria',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Confeiteiro',
       service: 'Encomenda',
@@ -362,6 +407,7 @@ export const nicheDictionary = {
     },
     real_estate: {
       name: 'Imobiliária',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Corretor',
       service: 'Visita',
@@ -370,6 +416,7 @@ export const nicheDictionary = {
     },
     consulting: {
       name: 'Consultoria',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Consultor',
       service: 'Reunião',
@@ -378,6 +425,7 @@ export const nicheDictionary = {
     },
     marketing_agency: {
       name: 'Agência de Marketing',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Analista',
       service: 'Campanha',
@@ -386,6 +434,7 @@ export const nicheDictionary = {
     },
     dev_studio: {
       name: 'Desenvolvimento',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Dev',
       service: 'Sprint',
@@ -394,6 +443,7 @@ export const nicheDictionary = {
     },
     event_planning: {
       name: 'Organização de Eventos',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Organizador',
       service: 'Evento',
@@ -402,6 +452,7 @@ export const nicheDictionary = {
     },
     travel_agency: {
       name: 'Agência de Viagens',
+      businessModel: 'MONETARY',
       client: 'Viajante',
       provider: 'Agente',
       service: 'Roteiro',
@@ -410,6 +461,7 @@ export const nicheDictionary = {
     },
     insurance: {
       name: 'Corretora de Seguros',
+      businessModel: 'MONETARY',
       client: 'Segurado',
       provider: 'Corretor',
       service: 'Apólice',
@@ -418,6 +470,7 @@ export const nicheDictionary = {
     },
     landscaping: {
       name: 'Paisagismo',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Paisagista',
       service: 'Manutenção',
@@ -426,6 +479,7 @@ export const nicheDictionary = {
     },
     plumbing: {
       name: 'Encanador',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Encanador',
       service: 'Reparo',
@@ -434,6 +488,7 @@ export const nicheDictionary = {
     },
     electrician: {
       name: 'Eletricista',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Eletricista',
       service: 'Instalação',
@@ -442,14 +497,25 @@ export const nicheDictionary = {
     },
     construction: {
       name: 'Construção Civil',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Engenheiro',
       service: 'Obra',
       establishment: 'Construtora',
       category: 'Etapa'
     },
+    fire_protection: {
+      name: 'Empresa de Extintores e PPCI',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Técnico',
+      service: 'Vistoria/OS',
+      establishment: 'Empresa',
+      category: 'Equipamento'
+    },
     logistics: {
       name: 'Logística',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Entregador',
       service: 'Entrega',
@@ -458,6 +524,7 @@ export const nicheDictionary = {
     },
     tailoring: {
       name: 'Alfaiataria/Costura',
+      businessModel: 'MONETARY',
       client: 'Cliente',
       provider: 'Costureiro(a)',
       service: 'Ajuste',
@@ -466,14 +533,16 @@ export const nicheDictionary = {
     },
     tutoring: {
       name: 'Aulas Particulares',
-      client: 'Aluno',
-      provider: 'Tutor',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula',
       establishment: 'Local',
       category: 'Matéria'
     },
     daycare: {
       name: 'Creche Infantil',
+      businessModel: 'MONETARY',
       client: 'Responsável',
       provider: 'Cuidador',
       service: 'Diária',
@@ -482,6 +551,7 @@ export const nicheDictionary = {
     },
     elderly_care: {
       name: 'Casa de Repouso',
+      businessModel: 'MONETARY',
       client: 'Residente',
       provider: 'Cuidador',
       service: 'Estadia',
@@ -490,16 +560,45 @@ export const nicheDictionary = {
     },
     driving_school: {
       name: 'Auto Escola',
-      client: 'Aluno',
-      provider: 'Instrutor',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Profissional',
       service: 'Aula Prática',
       establishment: 'CFC',
+      category: 'Categoria'
+    },
+    sports_center: {
+      name: 'Centro Esportivo',
+      businessModel: 'CREDIT',
+      client: 'Atleta',
+      provider: 'Instrutor',
+      service: 'Treino',
+      establishment: 'Centro',
+      category: 'Esporte'
+    },
+    clinic_vet: {
+      name: 'Clínica Veterinária',
+      businessModel: 'MONETARY',
+      client: 'Tutor',
+      provider: 'Veterinário',
+      service: 'Consulta',
+      establishment: 'Clínica',
+      category: 'Especialidade'
+    },
+    default_generic: {
+      name: 'Geral',
+      businessModel: 'MONETARY',
+      client: 'Cliente',
+      provider: 'Profissional',
+      service: 'Serviço',
+      establishment: 'Estabelecimento',
       category: 'Categoria'
     }
   },
   en: {
     dance: {
       name: 'Dance',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Teacher',
       service: 'Class',
@@ -508,6 +607,7 @@ export const nicheDictionary = {
     },
     dentist: {
       name: 'Dentistry',
+      businessModel: 'MONETARY',
       client: 'Patient',
       provider: 'Doctor',
       service: 'Appointment',
@@ -516,6 +616,7 @@ export const nicheDictionary = {
     },
     gym: {
       name: 'Fitness/Gym',
+      businessModel: 'CREDIT',
       client: 'Member',
       provider: 'Instructor',
       service: 'Workout',
@@ -524,6 +625,7 @@ export const nicheDictionary = {
     },
     clinic: {
       name: 'Medical Clinic',
+      businessModel: 'MONETARY',
       client: 'Patient',
       provider: 'Doctor',
       service: 'Exam',
@@ -532,6 +634,7 @@ export const nicheDictionary = {
     },
     beauty: {
       name: 'Beauty & Aesthetics',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Professional',
       service: 'Procedure',
@@ -540,6 +643,7 @@ export const nicheDictionary = {
     },
     aesthetics: {
       name: 'Aesthetics',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Aesthetician',
       service: 'Session',
@@ -548,6 +652,7 @@ export const nicheDictionary = {
     },
     pilates: {
       name: 'Pilates',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Instructor',
       service: 'Class',
@@ -556,6 +661,7 @@ export const nicheDictionary = {
     },
     yoga: {
       name: 'Yoga',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Instructor',
       service: 'Practice',
@@ -564,6 +670,7 @@ export const nicheDictionary = {
     },
     barber: {
       name: 'Barbershop',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Barber',
       service: 'Cut',
@@ -572,6 +679,7 @@ export const nicheDictionary = {
     },
     spa: {
       name: 'Spa',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Therapist',
       service: 'Massage',
@@ -580,6 +688,7 @@ export const nicheDictionary = {
     },
     physio: {
       name: 'Physiotherapy',
+      businessModel: 'MONETARY',
       client: 'Patient',
       provider: 'Physiotherapist',
       service: 'Session',
@@ -588,6 +697,7 @@ export const nicheDictionary = {
     },
     nutrition: {
       name: 'Nutrition',
+      businessModel: 'MONETARY',
       client: 'Patient',
       provider: 'Nutritionist',
       service: 'Appointment',
@@ -596,6 +706,7 @@ export const nicheDictionary = {
     },
     podiatry: {
       name: 'Podiatry',
+      businessModel: 'MONETARY',
       client: 'Patient',
       provider: 'Podiatrist',
       service: 'Service',
@@ -604,6 +715,7 @@ export const nicheDictionary = {
     },
     tanning: {
       name: 'Tanning',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Attendant',
       service: 'Session',
@@ -612,6 +724,7 @@ export const nicheDictionary = {
     },
     pet_shop: {
       name: 'Pet Shop',
+      businessModel: 'MONETARY',
       client: 'Owner',
       provider: 'Groomer',
       service: 'Grooming',
@@ -620,6 +733,7 @@ export const nicheDictionary = {
     },
     vet: {
       name: 'Veterinary',
+      businessModel: 'MONETARY',
       client: 'Owner',
       provider: 'Veterinarian',
       service: 'Appointment',
@@ -628,6 +742,7 @@ export const nicheDictionary = {
     },
     dog_daycare: {
       name: 'Dog Daycare',
+      businessModel: 'CREDIT',
       client: 'Owner',
       provider: 'Staff',
       service: 'Daily',
@@ -636,6 +751,7 @@ export const nicheDictionary = {
     },
     dog_trainer: {
       name: 'Dog Training',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Trainer',
       service: 'Class',
@@ -644,6 +760,7 @@ export const nicheDictionary = {
     },
     pet_hotel: {
       name: 'Pet Hotel',
+      businessModel: 'MONETARY',
       client: 'Guest',
       provider: 'Caretaker',
       service: 'Lodging',
@@ -652,6 +769,7 @@ export const nicheDictionary = {
     },
     martial_arts: {
       name: 'Martial Arts',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Sensei',
       service: 'Workout',
@@ -660,6 +778,7 @@ export const nicheDictionary = {
     },
     crossfit: {
       name: 'Crossfit',
+      businessModel: 'CREDIT',
       client: 'Athlete',
       provider: 'Coach',
       service: 'WOD',
@@ -668,6 +787,7 @@ export const nicheDictionary = {
     },
     swim_school: {
       name: 'Swimming',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Instructor',
       service: 'Class',
@@ -676,6 +796,7 @@ export const nicheDictionary = {
     },
     personal: {
       name: 'Personal Trainer',
+      businessModel: 'MONETARY',
       client: 'Student',
       provider: 'Personal',
       service: 'Workout',
@@ -684,6 +805,7 @@ export const nicheDictionary = {
     },
     beach_tennis: {
       name: 'Beach Tennis',
+      businessModel: 'CREDIT',
       client: 'Player',
       provider: 'Teacher',
       service: 'Class',
@@ -692,6 +814,7 @@ export const nicheDictionary = {
     },
     music_school: {
       name: 'Music School',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Teacher',
       service: 'Class',
@@ -700,6 +823,7 @@ export const nicheDictionary = {
     },
     language_school: {
       name: 'Language School',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Teacher',
       service: 'Class',
@@ -708,6 +832,7 @@ export const nicheDictionary = {
     },
     art_studio: {
       name: 'Art Studio',
+      businessModel: 'MONETARY',
       client: 'Student',
       provider: 'Instructor',
       service: 'Workshop',
@@ -716,6 +841,7 @@ export const nicheDictionary = {
     },
     cooking_school: {
       name: 'Gastronomy',
+      businessModel: 'MONETARY',
       client: 'Student',
       provider: 'Chef',
       service: 'Class',
@@ -724,6 +850,7 @@ export const nicheDictionary = {
     },
     photography: {
       name: 'Photography (School)',
+      businessModel: 'CREDIT',
       client: 'Student',
       provider: 'Photographer',
       service: 'Course',
@@ -732,6 +859,7 @@ export const nicheDictionary = {
     },
     auto_detail: {
       name: 'Auto Detailing',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Professional',
       service: 'Service',
@@ -740,6 +868,7 @@ export const nicheDictionary = {
     },
     mechanic: {
       name: 'Mechanic Shop',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Mechanic',
       service: 'Repair',
@@ -748,6 +877,7 @@ export const nicheDictionary = {
     },
     car_wash: {
       name: 'Car Wash',
+      businessModel: 'MONETARY',
       client: 'Subscriber',
       provider: 'Washer',
       service: 'Wash',
@@ -756,6 +886,7 @@ export const nicheDictionary = {
     },
     cleaning: {
       name: 'Cleaning Services',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Professional',
       service: 'Cleaning',
@@ -764,6 +895,7 @@ export const nicheDictionary = {
     },
     interior_design: {
       name: 'Interior Design',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Designer',
       service: 'Project',
@@ -772,6 +904,7 @@ export const nicheDictionary = {
     },
     party_venue: {
       name: 'Event Space',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Organizer',
       service: 'Event',
@@ -780,6 +913,7 @@ export const nicheDictionary = {
     },
     photographer: {
       name: 'Photographer (Studio)',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Photographer',
       service: 'Photoshoot',
@@ -788,6 +922,7 @@ export const nicheDictionary = {
     },
     coworking: {
       name: 'Coworking',
+      businessModel: 'MONETARY',
       client: 'Coworker',
       provider: 'Manager',
       service: 'Booking',
@@ -796,6 +931,7 @@ export const nicheDictionary = {
     },
     tattoo: {
       name: 'Tattoo & Piercing',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Tattoo Artist',
       service: 'Session',
@@ -804,6 +940,7 @@ export const nicheDictionary = {
     },
     tech_repair: {
       name: 'Tech Repair',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Technician',
       service: 'Repair',
@@ -812,6 +949,7 @@ export const nicheDictionary = {
     },
     law: {
       name: 'Law',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Lawyer',
       service: 'Case',
@@ -820,6 +958,7 @@ export const nicheDictionary = {
     },
     psychology: {
       name: 'Psychology',
+      businessModel: 'MONETARY',
       client: 'Patient',
       provider: 'Psychologist',
       service: 'Session',
@@ -828,6 +967,7 @@ export const nicheDictionary = {
     },
     wine_club: {
       name: 'Wine Club',
+      businessModel: 'MONETARY',
       client: 'Member',
       provider: 'Sommelier',
       service: 'Tasting',
@@ -836,6 +976,7 @@ export const nicheDictionary = {
     },
     brewery: {
       name: 'Brewery',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Master',
       service: 'Tasting',
@@ -844,6 +985,7 @@ export const nicheDictionary = {
     },
     barista: {
       name: 'Coffee Shop/Barista',
+      businessModel: 'MONETARY',
       client: 'Student',
       provider: 'Barista',
       service: 'Course',
@@ -852,6 +994,7 @@ export const nicheDictionary = {
     },
     confectionery: {
       name: 'Confectionery',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Pastry Chef',
       service: 'Order',
@@ -860,6 +1003,7 @@ export const nicheDictionary = {
     },
     real_estate: {
       name: 'Real Estate',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Realtor',
       service: 'Visit',
@@ -868,6 +1012,7 @@ export const nicheDictionary = {
     },
     consulting: {
       name: 'Consulting',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Consultant',
       service: 'Meeting',
@@ -876,6 +1021,7 @@ export const nicheDictionary = {
     },
     marketing_agency: {
       name: 'Marketing Agency',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Analyst',
       service: 'Campaign',
@@ -884,6 +1030,7 @@ export const nicheDictionary = {
     },
     dev_studio: {
       name: 'Development',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Developer',
       service: 'Sprint',
@@ -892,6 +1039,7 @@ export const nicheDictionary = {
     },
     event_planning: {
       name: 'Event Planning',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Organizer',
       service: 'Event',
@@ -900,6 +1048,7 @@ export const nicheDictionary = {
     },
     travel_agency: {
       name: 'Travel Agency',
+      businessModel: 'MONETARY',
       client: 'Traveler',
       provider: 'Agent',
       service: 'Itinerary',
@@ -908,6 +1057,7 @@ export const nicheDictionary = {
     },
     insurance: {
       name: 'Insurance Brokerage',
+      businessModel: 'MONETARY',
       client: 'Insured',
       provider: 'Broker',
       service: 'Policy',
@@ -916,6 +1066,7 @@ export const nicheDictionary = {
     },
     landscaping: {
       name: 'Landscaping',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Landscaper',
       service: 'Maintenance',
@@ -924,6 +1075,7 @@ export const nicheDictionary = {
     },
     plumbing: {
       name: 'Plumbing',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Plumber',
       service: 'Repair',
@@ -932,6 +1084,7 @@ export const nicheDictionary = {
     },
     electrician: {
       name: 'Electrician',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Electrician',
       service: 'Installation',
@@ -940,22 +1093,34 @@ export const nicheDictionary = {
     },
     construction: {
       name: 'Construction',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Engineer',
       service: 'Work',
       establishment: 'Construction Company',
       category: 'Stage'
     },
+    fire_protection: {
+      name: 'Fire Protection & PPCI',
+      businessModel: 'MONETARY',
+      client: 'Client',
+      provider: 'Technician',
+      service: 'Inspection/OS',
+      establishment: 'Company',
+      category: 'Equipment'
+    },
     logistics: {
       name: 'Logistics',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Delivery Person',
       service: 'Delivery',
       establishment: 'Carrier',
-      category: 'Route'
+      category: 'Rota'
     },
     tailoring: {
       name: 'Tailoring/Sewing',
+      businessModel: 'MONETARY',
       client: 'Client',
       provider: 'Tailor',
       service: 'Adjustment',
@@ -964,6 +1129,7 @@ export const nicheDictionary = {
     },
     tutoring: {
       name: 'Private Tutoring',
+      businessModel: 'MONETARY',
       client: 'Student',
       provider: 'Tutor',
       service: 'Class',
@@ -972,6 +1138,7 @@ export const nicheDictionary = {
     },
     daycare: {
       name: 'Child Daycare',
+      businessModel: 'MONETARY',
       client: 'Guardian',
       provider: 'Caretaker',
       service: 'Daily',
@@ -980,6 +1147,7 @@ export const nicheDictionary = {
     },
     elderly_care: {
       name: 'Nursing Home',
+      businessModel: 'MONETARY',
       client: 'Resident',
       provider: 'Caretaker',
       service: 'Stay',
@@ -988,10 +1156,38 @@ export const nicheDictionary = {
     },
     driving_school: {
       name: 'Driving School',
+      businessModel: 'MONETARY',
       client: 'Student',
       provider: 'Instructor',
       service: 'Driving Lesson',
       establishment: 'Driving School',
+      category: 'Category'
+    },
+    sports_center: {
+      name: 'Sports Center',
+      businessModel: 'CREDIT',
+      client: 'Athlete',
+      provider: 'Instructor',
+      service: 'Workout',
+      establishment: 'Center',
+      category: 'Sport'
+    },
+    clinic_vet: {
+      name: 'Veterinary Clinic',
+      businessModel: 'MONETARY',
+      client: 'Owner',
+      provider: 'Veterinarian',
+      service: 'Appointment',
+      establishment: 'Clinic',
+      category: 'Specialty'
+    },
+    default_generic: {
+      name: 'General',
+      businessModel: 'MONETARY',
+      client: 'Client',
+      provider: 'Professional',
+      service: 'Service',
+      establishment: 'Establishment',
       category: 'Category'
     }
   }
@@ -1005,4 +1201,5 @@ export type VocabularyType = {
   service: string;
   establishment: string;
   category: string;
+  businessModel: 'CREDIT' | 'MONETARY';
 };

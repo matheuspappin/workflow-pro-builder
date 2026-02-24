@@ -12,6 +12,7 @@ import { getMarketplaceSettings, updateMarketplaceSettings, type MarketplaceSett
 import { getERPCatalog } from "@/lib/actions/erp"
 import { Loader2, ExternalLink, Store, Smartphone, Palette, Globe, Upload, Search, ShoppingBag } from "lucide-react"
 import { ModuleGuard } from "@/components/providers/module-guard"
+import { useOrganization } from "@/components/providers/organization-provider"
 import Link from "next/link"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 
@@ -24,7 +25,8 @@ import {
 } from "@/components/ui/select"
 
 export default function MarketplacePage() {
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, language } = useVocabulary()
+  const { t } = useOrganization()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -42,8 +44,8 @@ export default function MarketplacePage() {
     style_config: {
         buttonStyle: 'rounded',
         cardStyle: 'shadow',
-        welcomeTitle: 'Bem-vindo(a)!',
-        welcomeSubtitle: 'Confira nossos produtos oficiais.'
+        welcomeTitle: t.marketplace.welcomeDefault,
+        welcomeSubtitle: t.marketplace.welcomeSubtitle
     }
   })
 
@@ -72,7 +74,13 @@ export default function MarketplacePage() {
                 store_name: user.studio?.name || 'Minha Loja',
                 slug: (user.studio?.name || 'loja').toLowerCase().replace(/\s+/g, '-'),
                 primary_color: '#E11D48', // Default Pink
-                is_active: false
+                is_active: false,
+                style_config: {
+                    buttonStyle: 'rounded',
+                    cardStyle: 'shadow',
+                    welcomeTitle: t.marketplace.welcomeDefault,
+                    welcomeSubtitle: t.marketplace.welcomeSubtitle
+                }
               })
             }
           }
@@ -83,7 +91,7 @@ export default function MarketplacePage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [t.marketplace.welcomeDefault, t.marketplace.welcomeSubtitle])
 
   const handleSave = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault()
@@ -98,7 +106,11 @@ export default function MarketplacePage() {
     }
 
     if (!currentStudioId) {
-      toast({ title: "Erro de Sessão", description: `Não conseguimos identificar seu ${vocabulary.establishment.toLowerCase()}. Por favor, faça login novamente.`, variant: "destructive" })
+      toast({ 
+        title: t.marketplace.sessionError, 
+        description: t.marketplace.sessionErrorDesc.replace('{establishment}', vocabulary.establishment.toLowerCase()), 
+        variant: "destructive" 
+      })
       return
     }
 
@@ -114,12 +126,12 @@ export default function MarketplacePage() {
         style_config: settings.style_config
       })
       
-      toast({ title: "Sucesso!", description: "Sua loja moderna foi publicada." })
+      toast({ title: t.common.success, description: t.marketplace.saveSuccess })
     } catch (err: any) {
        console.error("Erro completo:", err)
        toast({ 
-         title: "Erro ao Salvar", 
-         description: err.message || "A tabela do marketplace pode não estar configurada no banco.", 
+         title: t.marketplace.saveError, 
+         description: err.message || t.marketplace.saveErrorDesc, 
          variant: "destructive" 
        })
     } finally {
@@ -134,7 +146,7 @@ export default function MarketplacePage() {
   return (
     <ModuleGuard module="marketplace" showFullError>
       <div className="min-h-screen bg-background flex flex-col">
-        <Header title="Marketplace Builder" />
+        <Header title={t.sidebar.marketplace} />
         
         <div className="flex-1 p-6 max-w-[1600px] mx-auto w-full h-[calc(100vh-80px)] overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
@@ -146,8 +158,8 @@ export default function MarketplacePage() {
                       <Store className="w-8 h-8 text-primary" />
                   </div>
                   <div>
-                      <h2 className="text-2xl font-bold">Personalizar Loja</h2>
-                      <p className="text-muted-foreground">Edite a aparência e configurações da sua vitrine.</p>
+                      <h2 className="text-2xl font-bold">{t.marketplace.title}</h2>
+                      <p className="text-muted-foreground">{t.marketplace.subtitle}</p>
                   </div>
               </div>
 
@@ -155,15 +167,15 @@ export default function MarketplacePage() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                       <Globe className="w-5 h-5 text-primary" />
-                      <CardTitle>Domínio e Visibilidade</CardTitle>
+                      <CardTitle>{t.marketplace.domainVisibility}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
                     <div className="space-y-0.5">
-                      <Label className="text-base">Loja Online</Label>
+                      <Label className="text-base">{t.marketplace.onlineStore}</Label>
                       <p className="text-sm text-muted-foreground">
-                        {settings.is_active ? 'Sua loja está visível para o público.' : 'Sua loja está oculta (Modo Manutenção).'}
+                        {settings.is_active ? t.marketplace.visible : t.marketplace.hidden}
                       </p>
                     </div>
                     <Switch 
@@ -173,7 +185,7 @@ export default function MarketplacePage() {
                   </div>
 
                     <div className="grid gap-2">
-                      <Label>Endereço da Loja (Staging URL)</Label>
+                      <Label>{t.marketplace.storeAddress}</Label>
                       <div className="flex items-center">
                         <span className="bg-yellow-100 text-yellow-800 px-3 py-2 text-sm border border-r-0 rounded-l-md truncate font-mono">
                           test-env.app.com/shop/
@@ -186,7 +198,7 @@ export default function MarketplacePage() {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                          Esta é uma URL de teste (staging). Para conectar seu domínio personalizado (ex: loja.suaempresa.com.br), <span className="underline cursor-pointer">faça o upgrade</span>.
+                        {t.marketplace.stagingNotice.replace('{upgradeLink}', t.marketplace.upgrade)}
                       </p>
                     </div>
                 </CardContent>
@@ -196,12 +208,12 @@ export default function MarketplacePage() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                       <Palette className="w-5 h-5 text-primary" />
-                      <CardTitle>Aparência da Marca</CardTitle>
+                      <CardTitle>{t.marketplace.brandAppearance}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid gap-2">
-                      <Label>Nome da Loja</Label>
+                      <Label>{t.marketplace.storeName}</Label>
                       <Input 
                         value={settings.store_name} 
                         onChange={e => setSettings({...settings, store_name: e.target.value})}
@@ -210,7 +222,7 @@ export default function MarketplacePage() {
                     </div>
 
                     <div className="grid gap-2">
-                      <Label>Cor da Marca</Label>
+                      <Label>{t.marketplace.brandColor}</Label>
                       <div className="flex gap-4 items-center">
                         <Input 
                           type="color" 
@@ -223,28 +235,28 @@ export default function MarketplacePage() {
                               value={settings.primary_color}
                               onChange={e => setSettings({...settings, primary_color: e.target.value})}
                             />
-                            <p className="text-xs text-muted-foreground mt-1">Essa cor será usada em botões, destaques e cabeçalho.</p>
+                            <p className="text-xs text-muted-foreground mt-1">{t.marketplace.colorDescription}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="grid gap-2">
-                      <Label>Banner da Loja (Opcional)</Label>
+                      <Label>{t.marketplace.storeBanner}</Label>
                       <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer">
                           <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">Clique para fazer upload de uma imagem</span>
+                          <span className="text-sm text-muted-foreground">{t.marketplace.uploadImage}</span>
                       </div>
                     </div>
 
                     <div className="border-t pt-6 mt-6">
                       <div className="flex items-center gap-2 mb-4">
                           <Palette className="w-5 h-5 text-primary" />
-                          <CardTitle className="text-lg">Personalização Avançada</CardTitle>
+                          <CardTitle className="text-lg">{t.marketplace.advancedCustomization}</CardTitle>
                       </div>
                       
                       <div className="grid gap-4">
                           <div className="grid gap-2">
-                              <Label>Estilo dos Botões</Label>
+                              <Label>{t.marketplace.buttonStyle}</Label>
                               <Select 
                                   value={settings.style_config?.buttonStyle || 'rounded'} 
                                   onValueChange={val => setSettings({
@@ -256,15 +268,15 @@ export default function MarketplacePage() {
                                       <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                      <SelectItem value="rounded">Padrão (Arredondado)</SelectItem>
-                                      <SelectItem value="pill">Pílula (Redondo)</SelectItem>
-                                      <SelectItem value="square">Quadrado (Reto)</SelectItem>
+                                      <SelectItem value="rounded">{t.marketplace.buttonStyles.rounded}</SelectItem>
+                                      <SelectItem value="pill">{t.marketplace.buttonStyles.pill}</SelectItem>
+                                      <SelectItem value="square">{t.marketplace.buttonStyles.square}</SelectItem>
                                   </SelectContent>
                               </Select>
                           </div>
 
                           <div className="grid gap-2">
-                              <Label>Título de Boas-vindas</Label>
+                              <Label>{t.marketplace.welcomeTitle}</Label>
                               <Input 
                                   value={settings.style_config?.welcomeTitle || ''}
                                   onChange={e => setSettings({
@@ -282,10 +294,10 @@ export default function MarketplacePage() {
                   <Button 
                       type="button"
                       onClick={async () => {
-                          console.log("DIAGNÓSTICO: Verificando estado do banco...");
+                          console.log("Checking database...");
                           const sId = studioId || JSON.parse(localStorage.getItem("danceflow_user") || '{}').studio_id;
                           const data = await getMarketplaceSettings(sId);
-                          console.log("Resultado Settings:", data);
+                          console.log("Settings result:", data);
                           await handleSave(); // Salva antes de tentar visualizar
                           // Redireciona para a loja após salvar
                           if (settings.slug) {
@@ -297,7 +309,7 @@ export default function MarketplacePage() {
                       size="lg"
                   >
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      {saving ? "Salvando..." : "Salvar e Publicar"}
+                      {saving ? t.marketplace.saving : t.marketplace.saveAndPublish}
                   </Button>
                   <Button 
                       type="button"
@@ -311,7 +323,7 @@ export default function MarketplacePage() {
                       }}
                   >
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      Ver Loja
+                      {t.marketplace.viewStore}
                   </Button>
               </div>
             </div>
@@ -320,7 +332,7 @@ export default function MarketplacePage() {
             <div className="lg:col-span-5 hidden lg:flex flex-col items-center justify-start h-full sticky top-0 pt-4">
               <div className="flex items-center gap-2 mb-4 text-muted-foreground">
                   <Smartphone className="w-4 h-4" />
-                  <span className="text-sm font-medium">Live Mobile Preview</span>
+                  <span className="text-sm font-medium">{t.marketplace.livePreview}</span>
               </div>
               
               {/* Phone Frame */}
@@ -338,7 +350,7 @@ export default function MarketplacePage() {
 
                       {/* Store Header Preview */}
                       <div className="p-4 bg-white/95 border-b flex items-center justify-between sticky top-0 z-10 backdrop-blur-sm">
-                           <div className="font-black text-lg uppercase tracking-tight">{settings.store_name || 'NIKE STYLE'}</div>
+                       <div className="font-black text-lg uppercase tracking-tight">{settings.store_name || (language === 'pt' ? 'MINHA LOJA' : 'MY STORE')}</div>
                            <div className="flex gap-2 text-gray-400">
                                <Search className="w-4 h-4" />
                                <ShoppingBag className="w-4 h-4 text-black" />
@@ -351,8 +363,8 @@ export default function MarketplacePage() {
                           <div className="relative h-40 bg-gray-100 flex items-center justify-center text-center p-4 mb-4">
                               <div className="absolute inset-0 bg-gray-200" />
                               <div className="relative z-10">
-                                  <h3 className="font-black text-2xl uppercase tracking-tighter leading-none mb-1">{settings.style_config?.welcomeTitle || 'JUST DO IT'}</h3>
-                                  <div className="text-[8px] bg-black text-white px-2 py-1 inline-block uppercase font-bold tracking-widest">Shop Now</div>
+                                  <h3 className="font-black text-2xl uppercase tracking-tighter leading-none mb-1">{settings.style_config?.welcomeTitle || t.marketplace.welcomeDefault}</h3>
+                                  <div className="text-[8px] bg-black text-white px-2 py-1 inline-block uppercase font-bold tracking-widest">{t.marketplace.shopNow}</div>
                               </div>
                           </div>
                           
@@ -363,12 +375,12 @@ export default function MarketplacePage() {
                                           {p.image_url ? (
                                               <img src={p.image_url} className="w-full h-full object-cover" alt="" />
                                           ) : (
-                                              <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">IMG</div>
+                                              <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">{language === 'pt' ? 'IMAGEM' : 'IMG'}</div>
                                           )}
                                       </div>
                                       <div className="text-[10px] font-bold uppercase tracking-tight line-clamp-1">{p.name}</div>
-                                      <div className="text-[10px] text-gray-500">{p.category || 'Lifestyle'}</div>
-                                      <div className="text-[10px] font-bold mt-0.5">R$ {p.selling_price}</div>
+                                      <div className="text-[10px] text-gray-500">{p.category || (language === 'pt' ? 'Estilo de Vida' : 'Lifestyle')}</div>
+                                      <div className="text-[10px] font-bold mt-0.5">{language === 'pt' ? 'R$' : '$'} {p.selling_price}</div>
                                   </div>
                               )) : (
                                   // ... placeholders ...
@@ -385,7 +397,7 @@ export default function MarketplacePage() {
                       
                       {/* Mock Footer */}
                       <div className="bg-white border-t p-2 text-center text-[8px] text-gray-400">
-                          Powered by AI
+                          {language === 'pt' ? 'Desenvolvido por Workflow AI' : 'Powered by Workflow AI'}
                       </div>
                   </div>
               </div>

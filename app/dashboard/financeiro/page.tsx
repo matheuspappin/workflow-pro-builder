@@ -81,11 +81,12 @@ import { ModuleGuard } from "@/components/providers/module-guard"
 
 export default function FinanceiroPage() {
   const { toast } = useToast()
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, t, language } = useVocabulary()
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString())
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString())
   const [activeTab, setActiveTab] = useState("visao-geral")
   const [loading, setLoading] = useState(true)
+  const [businessModel, setBusinessModel] = useState<'CREDIT' | 'MONETARY'>('CREDIT')
   const [isClosingMonth, setIsClosingMonth] = useState(false)
   const [financeData, setFinanceData] = useState<any>({
     totalReceita: 0,
@@ -126,6 +127,17 @@ export default function FinanceiroPage() {
 
     setLoading(true)
     try {
+      // Carregar Business Model
+      const { data: studioData } = await supabase
+        .from('studios')
+        .select('business_model')
+        .eq('id', studioId)
+        .single()
+      
+      if (studioData) {
+        setBusinessModel(studioData.business_model as 'CREDIT' | 'MONETARY' || 'CREDIT')
+      }
+
       const stats = await getDashboardStats()
       const realExpenses = await getExpenses()
       setExpenses(realExpenses)
@@ -179,26 +191,45 @@ export default function FinanceiroPage() {
         status: f.payment_status
       })) || []
 
+      // Carregar Pagamentos Pendentes Reais
+      const { data: realPendingPayments } = await supabase
+        .from('payments')
+        .select(`
+          id,
+          amount,
+          due_date,
+          status,
+          student:student_id(name)
+        `)
+        .eq('studio_id', studioId)
+        .in('status', ['pending', 'overdue'])
+        .order('due_date', { ascending: true })
+
+      const formattedPendingPayments = realPendingPayments?.map(p => {
+        const dueDate = new Date(p.due_date)
+        const diffTime = new Date().getTime() - dueDate.getTime()
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        return {
+          id: p.id,
+          student: (p.student as any)?.name || vocabulary.client,
+          value: parseFloat(p.amount),
+          dueDate: p.due_date,
+          status: diffDays > 0 ? "atrasado" : "pendente",
+          days: diffDays > 0 ? diffDays : 0
+        }
+      }) || []
+
       setFinanceData({
         totalReceita: stats.monthlyRevenue || 0,
         totalDespesas: totalRealExpenses || (stats.monthlyRevenue || 0) * 0.4,
         lucroLiquido: (stats.monthlyRevenue || 0) - totalRealExpenses,
-        inadimplencia: 1250,
+        inadimplencia: stats.totalOverdue || 0,
         monthlyData: stats.chartRevenueData || [],
         expensesByCategory,
-        pendingPayments: stats.evasionAlerts?.map((a: any) => ({
-          id: a.id,
-          student: a.name,
-          value: 250,
-          dueDate: "2026-01-10",
-          status: "atrasado",
-          days: 13
-        })) || [],
-        teacherPayments: formattedTeacherPayments.length > 0 ? formattedTeacherPayments : [
-          { id: 1, teacher: "Ana Paula Rodrigues", classes: 24, rate: 80, total: 1920, status: "pago" },
-          { id: 2, teacher: "Carlos Eduardo Silva", classes: 20, rate: 70, total: 1400, status: "pendente" },
-        ],
-        recentTransactions: []
+        pendingPayments: formattedPendingPayments,
+        teacherPayments: formattedTeacherPayments,
+        recentTransactions: stats.recentTransactions || []
       })
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error)
@@ -234,10 +265,10 @@ export default function FinanceiroPage() {
       })
 
       toast({
-        title: editingExpense ? "Despesa atualizada" : "Despesa adicionada",
+        title: editingExpense ? t.finance.expenseUpdated : t.finance.expenseAdded,
         description: newExpense.is_recurring 
-          ? "Esta despesa gerará uma nova conta automaticamente ao ser paga." 
-          : "As informações financeiras foram atualizadas."
+          ? t.finance.recurringInfo 
+          : t.finance.infoUpdated
       })
 
       setIsExpenseModalOpen(false)
@@ -284,7 +315,7 @@ export default function FinanceiroPage() {
 
       if (error) throw error
 
-      toast({ title: editingPackage ? "Pacote atualizado" : "Pacote criado" })
+      toast({ title: editingPackage ? t.finance.packageUpdated : t.finance.packageCreated })
       setIsPackageModalOpen(false)
       loadFinanceData()
     } catch (e: any) {
@@ -293,13 +324,13 @@ export default function FinanceiroPage() {
   }
 
   const handleDeletePackage = async (id: string) => {
-    if (!confirm("Excluir este pacote?")) return
+    if (!confirm(t.finance.deletePackage)) return
     try {
       await supabase.from('lesson_packages').delete().eq('id', id)
-      toast({ title: "Pacote excluído" })
+      toast({ title: t.finance.packageDeleted })
       loadFinanceData()
     } catch (e: any) {
-      toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" })
+      toast({ title: t.common.error, description: e.message, variant: "destructive" })
     }
   }
 
@@ -315,19 +346,38 @@ export default function FinanceiroPage() {
 
       if (error) throw error
 
-      toast({ title: "Pagamento Confirmado", description: "O repasse do professor foi marcado como pago." })
+      toast({ title: t.finance.paymentConfirmed, description: t.finance.paymentConfirmedDesc })
       loadFinanceData()
     } catch (e: any) {
-      toast({ title: "Erro ao pagar", description: e.message, variant: "destructive" })
+      toast({ title: t.common.error, description: e.message, variant: "destructive" })
     }
   }
 
-  const { totalReceita, totalDespesas, lucroLiquido, inadimplencia, monthlyData: displayMonthlyData, expensesByCategory: displayExpenses, pendingPayments: displayPending, teacherPayments: displayTeacherPayments } = financeData
+  const handleMarkAsPaid = async (paymentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .update({ 
+          status: 'paid',
+          payment_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', paymentId)
+
+      if (error) throw error
+
+      toast({ title: "Pagamento confirmado!", description: "O recebimento foi registrado com sucesso." })
+      loadFinanceData()
+    } catch (e: any) {
+      toast({ title: "Erro ao confirmar pagamento", description: e.message, variant: "destructive" })
+    }
+  }
+
+  const { totalReceita, totalDespesas, lucroLiquido, inadimplencia, monthlyData: displayMonthlyData, expensesByCategory: displayExpenses, pendingPayments: displayPending, teacherPayments: displayTeacherPayments, recentTransactions: displayRecentTransactions } = financeData
 
   return (
     <ModuleGuard module="financial" showFullError>
       <div className="min-h-screen bg-background pb-10">
-        <Header title="Financeiro" />
+        <Header title={t.finance.title} />
         {/* ... restante do código ... */}
 
       <div className="p-6 max-w-7xl mx-auto space-y-8">
@@ -345,8 +395,8 @@ export default function FinanceiroPage() {
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-3xl font-black text-card-foreground">R$ {totalReceita.toLocaleString('pt-BR')}</p>
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Receita Mensal</p>
+                <p className="text-3xl font-black text-card-foreground">{language === 'en' ? '$' : 'R$'} {totalReceita.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{t.dashboard.monthlyRevenue}</p>
               </div>
             </CardContent>
           </Card>
@@ -363,8 +413,8 @@ export default function FinanceiroPage() {
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-3xl font-black text-card-foreground">R$ {totalDespesas.toLocaleString('pt-BR')}</p>
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Despesas Reais</p>
+                <p className="text-3xl font-black text-card-foreground">{language === 'en' ? '$' : 'R$'} {totalDespesas.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{t.finance.outflows}</p>
               </div>
             </CardContent>
           </Card>
@@ -375,11 +425,11 @@ export default function FinanceiroPage() {
                 <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                   <Wallet className="w-6 h-6 text-white" />
                 </div>
-                <Badge className="bg-white/20 text-white border-none">Lucro</Badge>
+                <Badge className="bg-white/20 text-white border-none">{t.finance.cashFlow}</Badge>
               </div>
               <div className="mt-4">
-                <p className="text-3xl font-black text-white">R$ {lucroLiquido.toLocaleString('pt-BR')}</p>
-                <p className="text-sm font-medium text-indigo-100 uppercase tracking-wider">Lucro Líquido</p>
+                <p className="text-3xl font-black text-white">{language === 'en' ? '$' : 'R$'} {lucroLiquido.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</p>
+                <p className="text-sm font-medium text-indigo-100 uppercase tracking-wider">{t.finance.netProfit}</p>
               </div>
             </CardContent>
           </Card>
@@ -390,11 +440,11 @@ export default function FinanceiroPage() {
                 <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
                   <CreditCard className="w-6 h-6 text-amber-500" />
                 </div>
-                <Badge variant="destructive" className="animate-pulse">Alerta</Badge>
+                <Badge variant="destructive" className="animate-pulse">{t.common.status}</Badge>
               </div>
               <div className="mt-4">
-                <p className="text-3xl font-black text-card-foreground">R$ {inadimplencia.toLocaleString('pt-BR')}</p>
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Inadimplência</p>
+                <p className="text-3xl font-black text-card-foreground">{language === 'en' ? '$' : 'R$'} {inadimplencia.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</p>
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{t.dashboard.overdue}</p>
               </div>
             </CardContent>
           </Card>
@@ -404,11 +454,13 @@ export default function FinanceiroPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-sm border">
             <TabsList className="bg-transparent">
-                    <TabsTrigger value="visao-geral" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">Visão Geral</TabsTrigger>
-              <TabsTrigger value="despesas" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">Saídas (Custos Fixos)</TabsTrigger>
-              <TabsTrigger value="mensalidades" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">Entradas ({vocabulary.client}s)</TabsTrigger>
-              <TabsTrigger value="pacotes" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">Pacotes de Créditos</TabsTrigger>
-              <TabsTrigger value="professores" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">Repasses ({vocabulary.provider}s)</TabsTrigger>
+                    <TabsTrigger value="visao-geral" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">{t.finance.overview}</TabsTrigger>
+              <TabsTrigger value="despesas" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">{t.finance.outflows}</TabsTrigger>
+              <TabsTrigger value="mensalidades" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">{t.finance.inflows.replace('{client}', vocabulary.client)}</TabsTrigger>
+              {businessModel === 'CREDIT' && (
+                <TabsTrigger value="pacotes" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">{t.finance.packages}</TabsTrigger>
+              )}
+              <TabsTrigger value="professores" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-600">{t.finance.transfers.replace('{provider}', vocabulary.provider)}</TabsTrigger>
             </TabsList>
 
             <div className="flex gap-2 px-2">
@@ -427,7 +479,7 @@ export default function FinanceiroPage() {
                   setIsExpenseModalOpen(true)
                 }}
               >
-                <Plus className="w-4 h-4" /> Lançar Despesa
+                <Plus className="w-4 h-4" /> {t.finance.newExpense}
               </Button>
             </div>
           </div>
@@ -438,14 +490,14 @@ export default function FinanceiroPage() {
               {/* Revenue Chart */}
               <Card className="bg-card border-border shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-card-foreground font-bold">Fluxo de Caixa</CardTitle>
-                  <CardDescription>Receita vs Despesas reais lançadas</CardDescription>
+                  <CardTitle className="text-card-foreground font-bold">{t.finance.cashFlow}</CardTitle>
+                  <CardDescription>{t.finance.cashFlowDesc}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer
                     config={{
-                      receita: { label: "Receita", color: "#10b981" },
-                      despesas: { label: "Despesas", color: "#ef4444" },
+                      receita: { label: t.dashboard.revenue, color: "#10b981" },
+                      despesas: { label: t.dashboard.expenses, color: "#ef4444" },
                     }}
                     className="h-[300px]"
                   >
@@ -463,9 +515,9 @@ export default function FinanceiroPage() {
                                 {payload.map((entry, index) => (
                                   <div key={index} className="flex items-center gap-2 text-sm">
                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                                    <span className="text-slate-500">{entry.dataKey === "receita" ? "Receita" : "Despesas"}:</span>
+                                    <span className="text-slate-500">{entry.dataKey === "receita" ? t.dashboard.revenue : t.dashboard.expenses}:</span>
                                     <span className="font-bold" style={{ color: entry.color }}>
-                                      R$ {Number(entry.value).toLocaleString('pt-BR')}
+                                      {language === 'en' ? '$' : 'R$'} {Number(entry.value).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}
                                     </span>
                                   </div>
                                 ))}
@@ -484,13 +536,13 @@ export default function FinanceiroPage() {
               {/* Expenses by Category */}
               <Card className="bg-card border-border shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-card-foreground font-bold">Distribuição de Gastos</CardTitle>
-                  <CardDescription>Principais centros de custo</CardDescription>
+                  <CardTitle className="text-card-foreground font-bold">{t.finance.expenseDistribution}</CardTitle>
+                  <CardDescription>{t.finance.expenseDistributionDesc}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer
                     config={{
-                      valor: { label: "Valor", color: "#6366f1" },
+                      valor: { label: t.common.value, color: "#6366f1" },
                     }}
                     className="h-[300px]"
                   >
@@ -505,7 +557,7 @@ export default function FinanceiroPage() {
                             return (
                               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 shadow-2xl font-bold">
                                 <p className="text-slate-900 dark:text-white mb-1 uppercase text-xs">{label}</p>
-                                <p className="text-indigo-600 text-lg">R$ {Number(payload[0].value).toLocaleString('pt-BR')}</p>
+                                <p className="text-indigo-600 text-lg">{language === 'en' ? '$' : 'R$'} {Number(payload[0].value).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</p>
                               </div>
                             )
                           }}
@@ -517,6 +569,69 @@ export default function FinanceiroPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Recent Transactions */}
+            <Card className="bg-card border-border shadow-sm overflow-hidden">
+              <CardHeader className="border-b border-slate-50 dark:border-slate-800">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5 text-indigo-600" />
+                  Transações Recentes
+                </CardTitle>
+                <CardDescription>Últimas movimentações financeiras registradas (Vendas, OS, Mensalidades)</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50/50 dark:bg-slate-800/30">
+                      <TableHead className="pl-6">Data</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead className="pr-6">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayRecentTransactions?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                          Nenhuma transação recente encontrada.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      displayRecentTransactions?.map((tx: any) => (
+                        <TableRow key={tx.id}>
+                          <TableCell className="pl-6 font-mono text-xs text-muted-foreground">
+                            {new Date(tx.date).toLocaleDateString('pt-BR')}
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-900 dark:text-white">
+                            {tx.description}
+                          </TableCell>
+                          <TableCell className="text-slate-600 dark:text-slate-400">
+                            {tx.student}
+                          </TableCell>
+                          <TableCell className="capitalize text-xs text-muted-foreground">
+                            {tx.method || 'Outro'}
+                          </TableCell>
+                          <TableCell className="font-bold text-emerald-600">
+                            {language === 'en' ? '$' : 'R$'} {tx.amount.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}
+                          </TableCell>
+                          <TableCell className="pr-6">
+                            <Badge className={
+                              tx.status === 'paid' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                              tx.status === 'overdue' ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                              "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                            }>
+                              {tx.status === 'paid' ? 'Pago' : tx.status === 'overdue' ? 'Atrasado' : 'Pendente'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Despesas Tab */}
@@ -525,8 +640,8 @@ export default function FinanceiroPage() {
               <CardHeader className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg font-bold">Controle de Saídas</CardTitle>
-                    <CardDescription>Gerencie aluguel, luz, marketing e outros custos fixos.</CardDescription>
+                    <CardTitle className="text-lg font-bold">{t.finance.controlOutflows}</CardTitle>
+                    <CardDescription>{t.finance.controlOutflowsDesc}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -534,19 +649,19 @@ export default function FinanceiroPage() {
                 <Table>
                   <TableHeader className="bg-slate-50/50 dark:bg-slate-800/30">
                     <TableRow>
-                      <TableHead className="pl-6">Descrição</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right pr-6">Ações</TableHead>
+                      <TableHead className="pl-6">{t.common.description}</TableHead>
+                      <TableHead>{t.common.category}</TableHead>
+                      <TableHead>{t.finance.dueDate}</TableHead>
+                      <TableHead>{t.common.value}</TableHead>
+                      <TableHead>{t.common.status}</TableHead>
+                      <TableHead className="text-right pr-6">{t.common.actions}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {expenses.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="h-40 text-center text-slate-400">
-                          Nenhuma despesa lançada ainda. Clique em "Lançar Despesa" para começar.
+                          {t.finance.noExpenses}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -556,7 +671,7 @@ export default function FinanceiroPage() {
                             <div className="flex items-center gap-2">
                               {expense.description}
                               {expense.is_recurring && (
-                                <Repeat className="w-3 h-3 text-indigo-500" title="Recorrente" />
+                                <Repeat className="w-3 h-3 text-indigo-500" title={t.finance.recurring} />
                               )}
                             </div>
                           </TableCell>
@@ -567,11 +682,11 @@ export default function FinanceiroPage() {
                             {new Date(expense.due_date).toLocaleDateString('pt-BR')}
                           </TableCell>
                           <TableCell className="font-black text-red-500">
-                            R$ {Number(expense.amount).toLocaleString('pt-BR')}
+                            {language === 'en' ? '$' : 'R$'} {Number(expense.amount).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}
                           </TableCell>
                           <TableCell>
                             <Badge className={expense.status === 'paid' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}>
-                              {expense.status === 'paid' ? 'Pago' : 'Pendente'}
+                              {expense.status === 'paid' ? t.common.paid : t.common.pending}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right pr-6">
@@ -622,35 +737,57 @@ export default function FinanceiroPage() {
               <CardHeader className="border-b border-slate-50 dark:border-slate-800">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Users className="w-5 h-5 text-indigo-600" />
-                  Mensalidades em Atraso (Pendentes)
+                  {t.finance.overduePayments}
                 </CardTitle>
-                <CardDescription>{vocabulary.client}s que ainda não efetuaram o pagamento deste mês.</CardDescription>
+                <CardDescription>{t.finance.overduePaymentsDesc.replace('{client}', vocabulary.client)}</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50/50 dark:bg-slate-800/30">
                       <TableHead className="pl-6">{vocabulary.client}</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right pr-6">Ações</TableHead>
+                      <TableHead>{t.common.value}</TableHead>
+                      <TableHead>{t.finance.dueDate}</TableHead>
+                      <TableHead>{t.common.status}</TableHead>
+                      <TableHead className="text-right pr-6">{t.common.actions}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayPending.map((payment: any) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="pl-6 font-bold text-foreground">{payment.student}</TableCell>
-                        <TableCell className="text-foreground font-medium">R$ {payment.value}</TableCell>
-                        <TableCell className="text-muted-foreground font-mono text-sm">{payment.dueDate}</TableCell>
-                        <TableCell>
-                          <Badge variant="destructive" className="font-bold">{payment.days} dias atrasado</Badge>
-                        </TableCell>
-                        <TableCell className="text-right pr-6">
-                          <Button variant="outline" size="sm" className="font-bold text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50">Cobrar WhatsApp</Button>
+                    {displayPending?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                          Nenhum pagamento pendente no momento.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      displayPending.map((payment: any) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="pl-6 font-bold text-foreground">{payment.student}</TableCell>
+                          <TableCell className="text-foreground font-medium">{language === 'en' ? '$' : 'R$'} {payment.value.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-sm">
+                            {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={payment.status === 'atrasado' ? "destructive" : "secondary"} className="font-bold">
+                              {payment.status === 'atrasado' ? t.finance.daysLate.replace('{days}', payment.days) : t.common.pending}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <div className="flex justify-end gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="font-bold text-xs border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                onClick={() => handleMarkAsPaid(payment.id)}
+                              >
+                                {t.common.confirm}
+                              </Button>
+                              <Button variant="outline" size="sm" className="font-bold text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-50">{t.finance.whatsappCharge}</Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -663,26 +800,17 @@ export default function FinanceiroPage() {
               <div className="flex items-center gap-4">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Mês" />
+                    <SelectValue placeholder={t.common.month} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">Janeiro</SelectItem>
-                    <SelectItem value="1">Fevereiro</SelectItem>
-                    <SelectItem value="2">Março</SelectItem>
-                    <SelectItem value="3">Abril</SelectItem>
-                    <SelectItem value="4">Maio</SelectItem>
-                    <SelectItem value="5">Junho</SelectItem>
-                    <SelectItem value="6">Julho</SelectItem>
-                    <SelectItem value="7">Agosto</SelectItem>
-                    <SelectItem value="8">Setembro</SelectItem>
-                    <SelectItem value="9">Outubro</SelectItem>
-                    <SelectItem value="10">Novembro</SelectItem>
-                    <SelectItem value="11">Dezembro</SelectItem>
+                    {Object.entries(t.months).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
                   <SelectTrigger className="w-[100px]">
-                    <SelectValue placeholder="Ano" />
+                    <SelectValue placeholder={t.common.year} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="2025">2025</SelectItem>
@@ -699,15 +827,17 @@ export default function FinanceiroPage() {
                   setTimeout(() => {
                     setIsClosingMonth(false)
                     toast({
-                      title: "Mês Fechado!",
-                      description: `Relatórios de repasse gerados para ${displayTeacherPayments.length} ${vocabulary.providers.toLowerCase()}.`
+                      title: t.finance.monthClosed,
+                      description: t.finance.transferReportsGenerated
+                        .replace('{count}', displayTeacherPayments.length.toString())
+                        .replace('{providers}', vocabulary.providers.toLowerCase())
                     })
                   }, 1500)
                 }}
                 disabled={isClosingMonth}
               >
                 {isClosingMonth ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                Fechar Mês e Gerar Relatórios
+                {t.finance.closeMonth}
               </Button>
             </div>
 
@@ -715,48 +845,56 @@ export default function FinanceiroPage() {
               <CardHeader className="border-b border-slate-50 dark:border-slate-800">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <GraduationCap className="w-5 h-5 text-indigo-600" />
-                  Repasse de {vocabulary.providers}
+                  {t.finance.providerTransfers.replace('{provider}', vocabulary.provider)}
                 </CardTitle>
-                <CardDescription>Controle de pagamentos por {vocabulary.services.toLowerCase()} ministradas.</CardDescription>
+                <CardDescription>{t.finance.providerTransfersDesc.replace('{service}', vocabulary.services.toLowerCase())}</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50/50 dark:bg-slate-800/30">
                       <TableHead className="pl-6">{vocabulary.provider}</TableHead>
-                      <TableHead>Créditos / Sessões</TableHead>
-                      <TableHead>Valor/Uso</TableHead>
-                      <TableHead>Total à Pagar</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right pr-6">Ações</TableHead>
+                      <TableHead>{t.finance.creditsSessions}</TableHead>
+                      <TableHead>{t.finance.rateUsage}</TableHead>
+                      <TableHead>{t.finance.totalToPay}</TableHead>
+                      <TableHead>{t.common.status}</TableHead>
+                      <TableHead className="text-right pr-6">{t.common.actions}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayTeacherPayments.map((payment: any) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="pl-6 font-bold text-foreground">{payment.teacher}</TableCell>
-                        <TableCell className="text-foreground">{payment.classes} {vocabulary.services.toLowerCase()}</TableCell>
-                        <TableCell className="text-muted-foreground">R$ {payment.rate}</TableCell>
-                        <TableCell className="font-black text-indigo-600">R$ {payment.total.toLocaleString('pt-BR')}</TableCell>
-                        <TableCell>
-                          <Badge className={payment.status === 'pago' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}>
-                            {payment.status === 'pago' ? 'Pago' : 'Pendente'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right pr-6">
-                          {payment.status === "pendente" && (
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              className="bg-indigo-600 hover:bg-indigo-700 font-bold text-xs"
-                              onClick={() => handlePayTeacher(payment.id)}
-                            >
-                              Pagar Agora
-                            </Button>
-                          )}
+                    {displayTeacherPayments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                          Nenhum repasse registrado para {vocabulary.providers.toLowerCase()} neste período.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      displayTeacherPayments.map((payment: any) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="pl-6 font-bold text-foreground">{payment.teacher}</TableCell>
+                          <TableCell className="text-foreground">{payment.classes} {vocabulary.services.toLowerCase()}</TableCell>
+                          <TableCell className="text-muted-foreground">{language === 'en' ? '$' : 'R$'} {payment.rate}</TableCell>
+                          <TableCell className="font-black text-indigo-600">{language === 'en' ? '$' : 'R$'} {payment.total.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</TableCell>
+                          <TableCell>
+                            <Badge className={payment.status === 'pago' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}>
+                              {payment.status === 'pago' ? t.common.paid : t.common.pending}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            {payment.status === "pendente" && (
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                className="bg-indigo-600 hover:bg-indigo-700 font-bold text-xs"
+                                onClick={() => handlePayTeacher(payment.id)}
+                              >
+                                {t.finance.payNow}
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -764,78 +902,80 @@ export default function FinanceiroPage() {
           </TabsContent>
 
           {/* Pacotes Tab */}
-          <TabsContent value="pacotes" className="space-y-6">
-            <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-              <CardHeader className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg font-bold">Gestão de Pacotes de Créditos</CardTitle>
-                    <CardDescription>Configure os pacotes que os {vocabulary.clients.toLowerCase()} podem comprar por crédito.</CardDescription>
+          {businessModel === 'CREDIT' && (
+            <TabsContent value="pacotes" className="space-y-6">
+              <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg font-bold">{t.finance.packageManagement}</CardTitle>
+                      <CardDescription>{t.finance.packageManagementDesc.replace('{client}', vocabulary.client.toLowerCase())}</CardDescription>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="gap-2 bg-white dark:bg-slate-900 shadow-sm"
+                      onClick={() => {
+                        setEditingPackage(null)
+                        setNewPackage({ name: "", description: "", lessons_count: "", price: "", is_active: true })
+                        setIsPackageModalOpen(true)
+                      }}
+                    >
+                      <Plus className="w-4 h-4" /> {t.finance.newPackage}
+                    </Button>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    className="gap-2 bg-white dark:bg-slate-900 shadow-sm"
-                    onClick={() => {
-                      setEditingPackage(null)
-                      setNewPackage({ name: "", description: "", lessons_count: "", price: "", is_active: true })
-                      setIsPackageModalOpen(true)
-                    }}
-                  >
-                    <Plus className="w-4 h-4" /> Novo Pacote
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50/50 dark:bg-slate-800/30">
-                      <TableHead className="pl-6">Nome do Pacote</TableHead>
-                      <TableHead>Créditos</TableHead>
-                      <TableHead>Preço</TableHead>
-                      <TableHead>Custo/Uso</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right pr-6">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lessonPackages.map((pkg) => (
-                      <TableRow key={pkg.id}>
-                        <TableCell className="pl-6 font-bold">{pkg.name}</TableCell>
-                        <TableCell>{pkg.lessons_count} {vocabulary.services.toLowerCase()}</TableCell>
-                        <TableCell className="font-bold text-indigo-600">R$ {Number(pkg.price).toLocaleString('pt-BR')}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground italic">R$ {(Number(pkg.price) / pkg.lessons_count).toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Badge variant={pkg.is_active ? "default" : "secondary"}>
-                            {pkg.is_active ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right pr-6">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                              setEditingPackage(pkg)
-                              setNewPackage({
-                                name: pkg.name,
-                                description: pkg.description || "",
-                                lessons_count: pkg.lessons_count.toString(),
-                                price: pkg.price.toString(),
-                                is_active: pkg.is_active
-                              })
-                              setIsPackageModalOpen(true)
-                            }}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeletePackage(pkg.id)}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/50 dark:bg-slate-800/30">
+                        <TableHead className="pl-6">{t.finance.packageName}</TableHead>
+                        <TableHead>{t.finance.credits}</TableHead>
+                        <TableHead>{t.finance.price}</TableHead>
+                        <TableHead>{t.finance.costUsage}</TableHead>
+                        <TableHead>{t.common.status}</TableHead>
+                        <TableHead className="text-right pr-6">{t.common.actions}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                    </TableHeader>
+                    <TableBody>
+                      {lessonPackages.map((pkg) => (
+                        <TableRow key={pkg.id}>
+                          <TableCell className="pl-6 font-bold">{pkg.name}</TableCell>
+                          <TableCell>{pkg.lessons_count} {vocabulary.services.toLowerCase()}</TableCell>
+                          <TableCell className="font-bold text-indigo-600">{language === 'en' ? '$' : 'R$'} {Number(pkg.price).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground italic">{language === 'en' ? '$' : 'R$'} {(Number(pkg.price) / pkg.lessons_count).toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge variant={pkg.is_active ? "default" : "secondary"}>
+                              {pkg.is_active ? t.finance.active : t.finance.inactive}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setEditingPackage(pkg)
+                                setNewPackage({
+                                  name: pkg.name,
+                                  description: pkg.description || "",
+                                  lessons_count: pkg.lessons_count.toString(),
+                                  price: pkg.price.toString(),
+                                  is_active: pkg.is_active
+                                })
+                                setIsPackageModalOpen(true)
+                              }}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeletePackage(pkg.id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
@@ -844,16 +984,16 @@ export default function FinanceiroPage() {
         <DialogContent className="sm:max-w-[500px] border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-black">
-              {editingExpense ? "Editar Despesa" : "Nova Despesa (Saída)"}
+              {editingExpense ? t.finance.editExpense : t.finance.newExpense}
             </DialogTitle>
             <DialogDescription>
-              Lançamentos de custos fixos ou variáveis do {vocabulary.establishment.toLowerCase()}.
+              {t.finance.expenseDesc.replace('{establishment}', vocabulary.establishment.toLowerCase())}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="desc">Descrição</Label>
+              <Label htmlFor="desc">{t.common.description}</Label>
               <Input 
                 id="desc" 
                 placeholder="Ex: Aluguel Mensal" 
@@ -864,22 +1004,22 @@ export default function FinanceiroPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="cat">Categoria</Label>
+                <Label htmlFor="cat">{t.common.category}</Label>
                 <Select value={newExpense.category} onValueChange={v => setNewExpense({...newExpense, category: v})}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Aluguel">Aluguel</SelectItem>
-                    <SelectItem value="Utilidades">Utilidades (Luz/Água)</SelectItem>
-                    <SelectItem value="Marketing">Marketing/Anúncios</SelectItem>
-                    <SelectItem value="Limpeza">Limpeza</SelectItem>
-                    <SelectItem value="Manutenção">Manutenção</SelectItem>
-                    <SelectItem value="Sistema">Sistema/SaaS</SelectItem>
-                    <SelectItem value="Outros">Outros</SelectItem>
+                    <SelectItem value="Aluguel">{t.finance.rent}</SelectItem>
+                    <SelectItem value="Utilidades">{t.finance.utilities}</SelectItem>
+                    <SelectItem value="Marketing">{t.finance.marketing}</SelectItem>
+                    <SelectItem value="Limpeza">{t.finance.cleaning}</SelectItem>
+                    <SelectItem value="Manutenção">{t.finance.maintenance}</SelectItem>
+                    <SelectItem value="Sistema">{t.finance.system}</SelectItem>
+                    <SelectItem value="Outros">{t.finance.others}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="val">Valor (R$)</Label>
+                <Label htmlFor="val">{t.common.value} ({language === 'en' ? '$' : 'R$'})</Label>
                 <Input 
                   id="val" 
                   type="number" 
@@ -892,7 +1032,7 @@ export default function FinanceiroPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="date">Data de Vencimento</Label>
+                <Label htmlFor="date">{t.finance.dueDate}</Label>
                 <Input 
                   id="date" 
                   type="date" 
@@ -901,23 +1041,23 @@ export default function FinanceiroPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="status">{t.common.status}</Label>
                 <Select value={newExpense.status} onValueChange={v => setNewExpense({...newExpense, status: v})}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="paid">Pago</SelectItem>
-                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                    <SelectItem value="pending">{t.common.pending}</SelectItem>
+                    <SelectItem value="paid">{t.common.paid}</SelectItem>
+                    <SelectItem value="cancelled">{t.common.cancelled}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Observações (Opcional)</Label>
+              <Label htmlFor="notes">{t.finance.notes} ({t.common.optional})</Label>
               <Input 
                 id="notes" 
-                placeholder="Detalhes adicionais..." 
+                placeholder={t.finance.additionalDetails} 
                 value={newExpense.notes}
                 onChange={e => setNewExpense({...newExpense, notes: e.target.value})}
               />
@@ -928,8 +1068,8 @@ export default function FinanceiroPage() {
                 <div className="flex items-center gap-2">
                   <Repeat className="w-4 h-4 text-indigo-600" />
                   <div>
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">Pagamento Recorrente</p>
-                    <p className="text-[10px] text-slate-500">Repetir esta conta automaticamente</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{t.finance.recurring}</p>
+                    <p className="text-[10px] text-slate-500">{t.finance.recurringAccount}</p>
                   </div>
                 </div>
                 <Switch 
@@ -941,7 +1081,7 @@ export default function FinanceiroPage() {
 
             {newExpense.is_recurring && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <Label>Frequência da Recorrência</Label>
+                <Label>{t.finance.recurrenceFreq}</Label>
                 <Select 
                   value={newExpense.recurrence_period} 
                   onValueChange={v => setNewExpense({...newExpense, recurrence_period: v})}
@@ -950,9 +1090,9 @@ export default function FinanceiroPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="weekly">Semanal</SelectItem>
-                    <SelectItem value="monthly">Mensal</SelectItem>
-                    <SelectItem value="yearly">Anual</SelectItem>
+                    <SelectItem value="weekly">{t.finance.weekly}</SelectItem>
+                    <SelectItem value="monthly">{t.finance.monthly}</SelectItem>
+                    <SelectItem value="yearly">{t.finance.yearly}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -960,9 +1100,9 @@ export default function FinanceiroPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsExpenseModalOpen(false)}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => setIsExpenseModalOpen(false)}>{t.common.cancel}</Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700 font-bold" onClick={handleSaveExpense}>
-              {editingExpense ? "Salvar Alterações" : "Confirmar Lançamento"}
+              {editingExpense ? t.common.save : t.common.confirm}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -971,12 +1111,12 @@ export default function FinanceiroPage() {
       <Dialog open={isPackageModalOpen} onOpenChange={setIsPackageModalOpen}>
         <DialogContent className="sm:max-w-[400px] border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black">{editingPackage ? "Editar Pacote" : "Criar Novo Pacote"}</DialogTitle>
-            <DialogDescription>Defina o nome, quantidade de {vocabulary.services.toLowerCase()} e preço.</DialogDescription>
+            <DialogTitle className="text-xl font-black">{editingPackage ? t.finance.editPackage : t.finance.newPackage}</DialogTitle>
+            <DialogDescription>{t.finance.packageManagementDesc.replace('{client}', vocabulary.client.toLowerCase())}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Nome do Pacote</Label>
+              <Label>{t.finance.packageName}</Label>
               <Input 
                 placeholder="Ex: Pacote Ouro" 
                 value={newPackage.name}
@@ -985,7 +1125,7 @@ export default function FinanceiroPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Qtd. Créditos</Label>
+                <Label>{t.finance.quantityCredits}</Label>
                 <Input 
                   type="number" 
                   placeholder="10" 
@@ -994,7 +1134,7 @@ export default function FinanceiroPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Preço Total (R$)</Label>
+                <Label>{t.finance.packagePrice} ({language === 'en' ? '$' : 'R$'})</Label>
                 <Input 
                   type="number" 
                   placeholder="350.00" 
@@ -1008,13 +1148,13 @@ export default function FinanceiroPage() {
                 checked={newPackage.is_active}
                 onCheckedChange={v => setNewPackage({...newPackage, is_active: v})}
               />
-              <Label>Pacote Ativo (Visível para {vocabulary.clients.toLowerCase()})</Label>
+              <Label>{t.finance.packageActive.replace('{client}', vocabulary.client.toLowerCase())}</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsPackageModalOpen(false)}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => setIsPackageModalOpen(false)}>{t.common.cancel}</Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700 font-bold" onClick={handleSavePackage}>
-              Confirmar
+              {t.common.confirm}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,9 +2,8 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // Removido ignoreBuildErrors para garantir qualidade do código
+  // Removido serverExternalPackages pois removemos a dependência direta do pino
   images: {
     unoptimized: true,
   },
@@ -27,7 +26,7 @@ export default withSentryConfig(nextConfig, {
   hideSourceMaps: true,
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
-  // disableLogger: true,
+  disableLogger: true,
 
   org: "my-org",
   project: "my-project",

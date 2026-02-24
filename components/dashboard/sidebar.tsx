@@ -11,10 +11,12 @@ import { NavContent } from "./nav-content"
 interface SidebarProps {
   collapsed: boolean
   onToggle: () => void
-  isAffiliate?: boolean // Nova prop
+  isAffiliate?: boolean
+  isSeller?: boolean
+  isFinance?: boolean
 }
 
-export function Sidebar({ collapsed, onToggle, isAffiliate }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, isAffiliate, isSeller, isFinance }: SidebarProps) {
   return (
     <aside
       className={cn(
@@ -22,7 +24,7 @@ export function Sidebar({ collapsed, onToggle, isAffiliate }: SidebarProps) {
         collapsed ? "w-[72px]" : "w-64"
       )}
     >
-      <NavContent collapsed={collapsed} isAffiliate={isAffiliate} />
+      <NavContent collapsed={collapsed} isAffiliate={isAffiliate} isSeller={isSeller} isFinance={isFinance} />
 
       {/* Toggle Button */}
       <Button

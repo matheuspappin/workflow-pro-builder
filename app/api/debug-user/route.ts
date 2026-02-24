@@ -1,57 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  // Apenas disponível em ambiente de desenvolvimento
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Endpoint não disponível em produção' }, { status: 404 })
+  }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ 
-        error: 'Configuração ausente', 
-        details: {
-          hasUrl: !!supabaseUrl,
-          hasServiceKey: !!supabaseServiceKey
-        }
-      }, { status: 500 })
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const { data: internalUser } = await supabaseAdmin
+      .from('users_internal')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (!internalUser || internalUser.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Acesso restrito a super administradores' }, { status: 403 })
+    }
+
     const email = request.nextUrl.searchParams.get('email')
 
     if (!email) {
       return NextResponse.json({ error: 'Email é obrigatório na query string (?email=...)' }, { status: 400 })
     }
 
-    const results: any = {
-      email,
-      tables: {}
-    }
+    const results: any = { email, tables: {} }
 
-    // 1. Verificar users_internal
-    const { data: internal, error: internalError } = await supabase
+    const { data: internal, error: internalError } = await supabaseAdmin
       .from('users_internal')
-      .select('*, studio:studios(*)')
+      .select('id, name, email, role, studio_id, status, created_at')
       .eq('email', email)
-    
+
     results.tables.users_internal = { data: internal, error: internalError }
 
-    // 2. Verificar teachers
-    const { data: teachers, error: teachersError } = await supabase
+    const { data: teachers, error: teachersError } = await supabaseAdmin
       .from('teachers')
-      .select('*, studio:studios(*)')
+      .select('id, name, email, professional_type, studio_id, status')
       .eq('email', email)
-    
+
     results.tables.teachers = { data: teachers, error: teachersError }
 
-    // 3. Verificar students
-    const { data: students, error: studentsError } = await supabase
+    const { data: students, error: studentsError } = await supabaseAdmin
       .from('students')
-      .select('*, studio:studios(*)')
+      .select('id, name, email, studio_id, status')
       .eq('email', email)
-    
+
     results.tables.students = { data: students, error: studentsError }
 
     return NextResponse.json(results)

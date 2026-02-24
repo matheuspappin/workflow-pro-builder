@@ -1,8 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  // Apenas disponível em ambiente de desenvolvimento
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ success: false, error: 'Endpoint não disponível em produção' }, { status: 404 })
+  }
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json({ success: false, error: 'Não autenticado' }, { status: 401 })
+  }
+
+  const { data: internalUser } = await supabaseAdmin
+    .from('users_internal')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!internalUser || internalUser.role !== 'super_admin') {
+    return NextResponse.json({ success: false, error: 'Acesso restrito a super administradores' }, { status: 403 })
+  }
+
   try {
     logger.info('🔄 Iniciando teste de conexão Supabase...')
 

@@ -9,8 +9,9 @@ import { randomBytes } from 'crypto'
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: studioId } = await params
   const cookieStore = cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,11 +31,10 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
-  const studioId = params.id
-  const { clientEmail } = await request.json()
+  const { clientEmail, role } = await request.json()
 
-  if (!clientEmail) {
-    return NextResponse.json({ error: 'Client email is required' }, { status: 400 })
+  if (!clientEmail || !role) {
+    return NextResponse.json({ error: 'Client email and role are required' }, { status: 400 })
   }
 
   const supabaseAdmin = createClient(
@@ -50,7 +50,8 @@ export async function POST(
       studio_id: studioId,
       email: clientEmail,
       token: token,
-      created_by: user.id
+      created_by: user.id,
+      role: role
     })
 
   if (inviteError) {

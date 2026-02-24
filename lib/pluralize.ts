@@ -18,7 +18,26 @@ export function pluralize(word: string): string {
     'coworker': 'coworkers',
     'designer': 'designers',
     'personal': 'personais',
-    'wod': 'wods'
+    'caretaker': 'caretakers',
+    'wod': 'wods',
+    'guardian': 'guardians',
+    'parent/guardian': 'parents/guardians',
+    'category': 'categories',
+    'modality': 'modalities',
+    'specialty': 'specialties',
+    'property': 'properties',
+    'activity': 'activities',
+    'utility': 'utilities',
+    'itinerary': 'itineraries',
+    'agency': 'agencies',
+    'specialty': 'specialties',
+    'professional': 'professionals',
+    'patient': 'patients',
+    'client': 'clients',
+    'service': 'services',
+    'establishment': 'establishments',
+    'class': 'classes',
+    'member': 'members'
   }
 
   if (foreignWords[word.toLowerCase()]) {

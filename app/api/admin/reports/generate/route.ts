@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getStudentsData, getTeachersData, getFinancialData, getClassesData } from '@/lib/supabase';
 import logger from '@/lib/logger';
+import { translations } from '@/config/translations';
 
 /**
  * Gera um novo relatório de contexto para a IA
@@ -80,7 +81,7 @@ ${lessonPackages.data?.map(p => `- Pacote ${p.name}: ${p.lessons_count} aulas po
 --- RESUMO OPERACIONAL (EXCLUSIVO ADMIN) ---
 - Total de Alunos: ${sStats.total}
 - Alunos Ativos: ${sStats.active}
-- Taxa de Ocupação Média: ${cStats.occupancyRate}%
+- Taxa de Ocupação Média: ${cStats.occupancyRate}% (${translations.en.common.avgOccupancy})
 - Receita Mensal Realizada: R$ ${fStats.monthlyRevenue}
 - Pagamentos Atrasados: R$ ${fStats.overduePayments}
 

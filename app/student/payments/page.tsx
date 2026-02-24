@@ -16,7 +16,8 @@ import {
   LayoutDashboard, 
   User, 
   Calendar,
-  Plus
+  Plus,
+  FileText
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -31,6 +32,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useOrganization } from "@/components/providers/organization-provider"
 
 export default function StudentPayments() {
   return (
@@ -43,7 +45,18 @@ export default function StudentPayments() {
 function StudentPaymentsContent() {
   const { toast } = useToast()
   const { vocabulary } = useVocabulary()
+  const { businessModel, niche } = useOrganization()
   const searchParams = useSearchParams()
+  
+  // Nichos que usam Ordens de Serviço (OS)
+  const isServiceOrderBased = ['auto_detail', 'mechanic', 'tech_repair', 'plumbing', 'electrician', 
+    'construction', 'landscaping', 'tailoring', 'cleaning', 'car_wash', 
+    'party_venue', 'logistics', 'dentist', 'clinic', 'beauty', 'aesthetics', 
+    'spa', 'physio', 'nutrition', 'podiatry', 'tanning', 'vet', 'clinic_vet', 
+    'psychology', 'law', 'consulting', 'marketing_agency', 'dev_studio', 
+    'interior_design', 'real_estate', 'insurance', 'travel_agency', 'coworking', 
+    'tattoo', 'photographer', 'event_planning'].includes(niche)
+
   const [student, setStudent] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
@@ -90,7 +103,26 @@ function StudentPaymentsContent() {
   }, [searchParams, toast])
 
   const loadInvoices = async (studentId: string, studioId: string) => {
-    // ... existing loadInvoices ...
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('studio_id', studioId)
+        .order('due_date', { ascending: false })
+
+      if (error) throw error
+      
+      setInvoices(data || [])
+      
+      const pending = (data || [])
+        .filter((inv: any) => inv.status === 'pending')
+        .reduce((acc: number, inv: any) => acc + Number(inv.amount), 0)
+      
+      setTotalPendente(pending)
+    } catch (error) {
+      console.error('Erro ao carregar faturas:', error)
+    }
   }
 
   const loadPackages = async (studioId: string) => {
@@ -110,11 +142,34 @@ function StudentPaymentsContent() {
   }
 
   const loadStudentCredits = async (studentId: string, studioId: string) => {
-    // ... existing ...
+    try {
+      const { data, error } = await supabase
+        .from('student_lesson_credits')
+        .select('*')
+        .eq('student_id', studentId)
+        .maybeSingle()
+
+      if (error) throw error
+      setStudentCredits(data)
+    } catch (error) {
+      console.error('Erro ao carregar créditos:', error)
+    }
   }
 
   const loadCreditUsage = async (studentId: string, studioId: string) => {
-    // ... existing ...
+    try {
+      const { data, error } = await supabase
+        .from('student_credit_usage')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (error) throw error
+      setCreditUsage(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar uso de créditos:', error)
+    }
   }
 
   const checkMonthlyPlan = async (studentId: string, studioId: string) => {
@@ -143,7 +198,8 @@ function StudentPaymentsContent() {
           amount: invoice.amount,
           description: invoice.description || `Mensalidade ${invoice.reference_month}`,
           studentId: student.id,
-          studioId: student.studio_id
+          studioId: student.studio_id,
+          type: invoice.type || 'student_payment'
         })
       });
 
@@ -176,7 +232,7 @@ function StudentPaymentsContent() {
       </div>
       
       <main className="container p-4 space-y-6 max-w-md mx-auto">
-        {studentCredits && (
+        {businessModel === 'CREDIT' && studentCredits && (
           <Card className="bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-none shadow-lg">
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
@@ -203,39 +259,41 @@ function StudentPaymentsContent() {
           </Card>
         )}
 
-        <div className="space-y-4">
-          <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Comprar Pacote de Créditos</h3>
-          <div className="grid grid-cols-1 gap-3">
-            {packages.map((pkg) => (
-              <Card key={pkg.id} className="border-2 border-slate-100 dark:border-slate-800 hover:border-primary/50 transition-all cursor-pointer group"
-                onClick={() => handlePayment({
-                  id: pkg.id,
-                  amount: pkg.price,
-                  description: `Pacote: ${pkg.name} (${pkg.lessons_count} créditos)`,
-                  type: 'package'
-                })}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                      <Plus className="w-5 h-5" />
+        {businessModel === 'CREDIT' && (
+          <div className="space-y-4">
+            <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Comprar Pacote de Créditos</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {packages.map((pkg) => (
+                <Card key={pkg.id} className="border-2 border-slate-100 dark:border-slate-800 hover:border-primary/50 transition-all cursor-pointer group"
+                  onClick={() => handlePayment({
+                    id: pkg.id,
+                    amount: pkg.price,
+                    description: `Pacote: ${pkg.name} (${pkg.lessons_count} créditos)`,
+                    type: 'package'
+                  })}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                        <Plus className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm">{pkg.name}</p>
+                        <p className="text-xs text-muted-foreground">{pkg.lessons_count} {vocabulary.service.toLowerCase()}s</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-sm">{pkg.name}</p>
-                      <p className="text-xs text-muted-foreground">{pkg.lessons_count} {vocabulary.service.toLowerCase()}s</p>
+                    <div className="text-right">
+                      <p className="font-black text-sm">R$ {Number(pkg.price).toFixed(2).replace('.', ',')}</p>
+                      <p className="text-[10px] text-muted-foreground italic">~ R$ {(Number(pkg.price) / pkg.lessons_count).toFixed(2)}/{vocabulary.service.toLowerCase()}</p>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-black text-sm">R$ {Number(pkg.price).toFixed(2).replace('.', ',')}</p>
-                    <p className="text-[10px] text-muted-foreground italic">~ R$ {(Number(pkg.price) / pkg.lessons_count).toFixed(2)}/{vocabulary.service.toLowerCase()}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {creditUsage.length > 0 && (
+        {businessModel === 'CREDIT' && creditUsage.length > 0 && (
           <div className="space-y-4">
             <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Uso de Créditos</h3>
             <Card className="border-none shadow-sm">
@@ -313,14 +371,16 @@ function StudentPaymentsContent() {
                   </div>
                 </div>
                 
-                <div className="text-right">
+                  <div className="text-right">
                   <p className="font-black text-sm">R$ {Number(invoice.amount).toFixed(2).replace('.', ',')}</p>
                   {invoice.status === 'pending' ? (
                     <Button 
                       size="sm" 
                       className="h-7 px-3 text-[10px] font-bold mt-1 bg-indigo-600"
                       onClick={() => {
-                        setSelectedInvoice(invoice);
+                        // Se for um pagamento vinculado a OS, mudamos o tipo para o checkout tratar corretamente
+                        const paymentWithOS = invoice.service_order_id ? { ...invoice, type: 'service_order', id: invoice.service_order_id } : invoice;
+                        setSelectedInvoice(paymentWithOS);
                         setIsPaymentModalOpen(true);
                       }}
                     >
@@ -404,10 +464,19 @@ function StudentPaymentsContent() {
           <LayoutDashboard className="w-5 h-5" />
           <span className="text-[10px]">Início</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
-          <Calendar className="w-5 h-5" />
-          <span className="text-[10px]">{vocabulary.service}s</span>
-        </Button>
+        
+        {isServiceOrderBased ? (
+          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+            <FileText className="w-5 h-5" />
+            <span className="text-[10px]">Minhas OS</span>
+          </Button>
+        ) : (
+          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
+            <Calendar className="w-5 h-5" />
+            <span className="text-[10px]">{vocabulary.service}s</span>
+          </Button>
+        )}
+
         <Button variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/payments'}>
           <CreditCard className="w-5 h-5" />
           <span className="text-[10px]">Pagar</span>

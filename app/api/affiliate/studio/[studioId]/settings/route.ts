@@ -8,17 +8,10 @@ import logger from '@/lib/logger';
 
 export async function GET(
   request: Request,
-  { params }: { params: { studioId: string } }
+  { params }: { params: Promise<{ studioId: string }> }
 ) {
+  const { studioId } = await params
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { studioId } = params;
 
   // Implementar verificação se o usuário (afiliado) tem permissão para gerenciar este studioId
   const { data: partnerData, error: partnerError } = await supabase
@@ -62,17 +55,10 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { studioId: string } }
+  { params }: { params: Promise<{ studioId: string }> }
 ) {
+  const { studioId } = await params
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { studioId } = params;
   const { enabledModules } = await request.json();
 
   // Implementar verificação se o usuário (afiliado) tem permissão para gerenciar este studioId

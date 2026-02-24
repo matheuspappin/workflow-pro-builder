@@ -11,7 +11,8 @@ const messageSchema = z.object({
 
 // REMOVED local createClient
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
 
   try {
@@ -24,7 +25,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const { data: messages, error } = await supabase
       .from('support_messages')
       .select('*, user:user_id(email, user_metadata)')
-      .eq('ticket_id', params.id)
+      .eq('ticket_id', id)
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -39,7 +40,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
 
   try {
@@ -55,7 +57,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const { data, error } = await supabase
       .from('support_messages')
       .insert({
-        ticket_id: params.id,
+        ticket_id: id,
         user_id: session.user.id,
         message: body.message,
         is_internal: body.is_internal,
@@ -73,7 +75,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await supabase
       .from('support_tickets')
       .update({ updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
 
     return NextResponse.json(data)
   } catch (error) {

@@ -11,11 +11,13 @@ import { Switch } from "@/components/ui/switch"
 import { Loader2, Copy, Check, Sparkles, Building2 } from "lucide-react"
 import { nicheDictionary, NicheType } from "@/config/niche-dictionary"
 import { createEcosystemInvite } from "@/lib/actions/ecosystem"
+import { getDefaultModulesForNiche } from "@/config/niche-modules"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { pluralize } from "@/lib/pluralize"
+import { useVocabulary } from "@/hooks/use-vocabulary"
 
-const GET_AVAILABLE_MODULES = (vocabulary: any) => [
+const GET_AVAILABLE_MODULES = (vocabulary: any, t: any) => [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'students', label: `Gestão de ${pluralize(vocabulary.client)}` },
   { id: 'classes', label: `Gestão de ${pluralize(vocabulary.service)}` },
@@ -24,9 +26,13 @@ const GET_AVAILABLE_MODULES = (vocabulary: any) => [
   { id: 'ai_chat', label: 'IA Chat' },
   { id: 'pos', label: 'PDV (Ponto de Venda)' },
   { id: 'scanner', label: 'Scanner' },
+  { id: 'inventory', label: 'Estoque/Inventário' },
+  { id: 'leads', label: 'Leads (CRM)' },
+  { id: 'gamification', label: 'Gamificação' },
   { id: 'marketplace', label: 'Marketplace' },
+  { id: 'multi_unit', label: 'Multi-unidade' },
   { id: 'erp', label: 'ERP' },
-  { id: 'service_orders', label: 'Ordens de Serviço' },
+  { id: 'service_orders', label: t.service_orders.title },
 ]
 
 type PackageType = 'custom' | 'basic' | 'pro'
@@ -48,6 +54,7 @@ export default function NewEcosystemPage() {
   const [loading, setLoading] = useState(false)
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [packageType, setPackageType] = useState<PackageType>('custom')
+  const { t, vocabulary } = useVocabulary()
   const [formData, setFormData] = useState({
     name: "",
     clientEmail: "",
@@ -55,22 +62,17 @@ export default function NewEcosystemPage() {
     businessModel: "CREDIT" as "CREDIT" | "MONETARY",
     studioSlug: "",
   })
-  const [modules, setModules] = useState<Record<string, boolean>>({
-    dashboard: true,
-    students: true,
-    classes: true,
-    financial: true,
-    whatsapp: true,
-    ai_chat: true,
-    pos: true,
-    scanner: true,
-    marketplace: true,
-    erp: true,
-    service_orders: true
-  })
+  const [modules, setModules] = useState<Record<string, boolean>>(getDefaultModulesForNiche("law"))
 
   const currentVocabulary = nicheDictionary.pt[formData.niche] || nicheDictionary.pt.dance
-  const availableModules = GET_AVAILABLE_MODULES(currentVocabulary)
+  const availableModules = GET_AVAILABLE_MODULES(currentVocabulary, t)
+
+  const handleNicheChange = (niche: NicheType) => {
+    setFormData(prev => ({ ...prev, niche }))
+    // Ao mudar o nicho, carregamos os módulos padrão dele
+    const defaultModules = getDefaultModulesForNiche(niche)
+    setModules(defaultModules)
+  }
 
   const handlePackageChange = (type: PackageType) => {
     setPackageType(type)
@@ -211,7 +213,7 @@ export default function NewEcosystemPage() {
                   <Label>Nicho de Atuação</Label>
                   <Select 
                     value={formData.niche} 
-                    onValueChange={v => setFormData({...formData, niche: v})}
+                    onValueChange={v => handleNicheChange(v as NicheType)}
                   >
                     <SelectTrigger>
                       <SelectValue />

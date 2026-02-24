@@ -97,6 +97,7 @@ CREATE TABLE professionals (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
   phone VARCHAR(20),
+  cpf_cnpj VARCHAR(20),
   specialties TEXT[] DEFAULT '{}',
   hourly_rate DECIMAL(10,2) DEFAULT 0,
   bonus_per_student DECIMAL(10,2) DEFAULT 0,

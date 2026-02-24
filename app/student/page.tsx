@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { StudentHeader } from "@/components/student/student-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
 import { 
   Calendar, 
   CreditCard, 
@@ -20,7 +21,11 @@ import {
   User,
   Loader2,
   Sparkles,
-  QrCode as QrCodeIcon
+  FileText,
+  QrCode as QrCodeIcon,
+  Shield,
+  Truck,
+  Check
 } from "lucide-react"
 import QRCode from "react-qr-code"
 import { Badge } from "@/components/ui/badge"
@@ -34,17 +39,40 @@ import {
 } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useOrganization } from "@/components/providers/organization-provider"
+import { AppointmentScheduler } from "@/components/student/appointment-scheduler"
 
 export default function StudentDashboard() {
   const router = useRouter()
   const { toast } = useToast()
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, t, language } = useVocabulary()
+  const { businessModel, niche } = useOrganization()
+  
+  // Nichos que usam Ordens de Serviço (OS)
+  const isServiceOrderBased = ['auto_detail', 'mechanic', 'tech_repair', 'plumbing', 'electrician', 
+    'construction', 'landscaping', 'tailoring', 'cleaning', 'car_wash', 
+    'party_venue', 'logistics', 'dentist', 'clinic', 'beauty', 'aesthetics', 
+    'spa', 'physio', 'nutrition', 'podiatry', 'tanning', 'vet', 'clinic_vet', 
+    'psychology', 'law', 'consulting', 'marketing_agency', 'dev_studio', 
+    'interior_design', 'real_estate', 'insurance', 'travel_agency', 'coworking', 
+    'tattoo', 'photographer', 'event_planning'].includes(niche)
+
+  // Nichos que NÃO são baseados em turmas fixas (ex: Pet Shop, Barbearia, Clínica)
+  const isAppointmentBased = !['dance', 'gym', 'pilates', 'yoga', 'crossfit', 'swim_school', 'personal', 
+    'beach_tennis', 'music_school', 'language_school', 'art_studio', 
+    'cooking_school', 'photography', 'tutoring', 'driving_school', 
+    'sports_center', 'martial_arts'].includes(niche)
+
   const [student, setStudent] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [nextClass, setNextClass] = useState<any>(null)
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [isClientIDOpen, setIsClientIDOpen] = useState(false)
+  const [isPayingOnline, setIsPayingOnline] = useState(false)
   const [attendanceRecord, setAttendanceRecord] = useState<any>(null)
   const [pendingPayment, setPendingPayment] = useState<any>(null)
   const [studentCredits, setStudentCredits] = useState<any>(null)
+  const [totalPendingAmount, setTotalPendingAmount] = useState(0)
   const [creditPackages, setCreditPackages] = useState<any[]>([])
   const [availableToday, setAvailableToday] = useState<any[]>([])
   const [achievements, setAchievements] = useState<any[]>([])
@@ -90,7 +118,46 @@ export default function StudentDashboard() {
     }
   }
 
+  const handleRequestReload = async () => {
+    setIsLoading(true);
+    try {
+        const selectedItems = assets.filter(a => selectedAssets.includes(a.id));
+        if (selectedItems.length === 0) return;
+
+        const description = `Recarga de ${selectedItems.length} extintores: ${selectedItems.map((a: any) => a.name).join(', ')}`;
+        
+        const { error } = await supabase
+            .from('service_orders')
+            .insert({
+                studio_id: student.studio_id || student.studioId,
+                customer_id: student.id,
+                description: description,
+                status: 'open',
+                priority: 'high', // Recarga é urgente geralmente
+                type: 'maintenance'
+            });
+        
+        if (error) throw error;
+        
+        toast({ title: 'Pedido Enviado! 🚚', description: 'Nossa equipe agendará a coleta.' });
+        setIsRequestReloadOpen(false);
+        setSelectedAssets([]);
+        // Refresh OS list
+        fetchStudentData(student.id, student.studio_id || student.studioId);
+
+    } catch (e: any) {
+        toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+    } finally {
+        setIsLoading(false);
+    }
+  }
+
   const [activeAttendanceId, setActiveAttendanceId] = useState<string | null>(null)
+  
+  // Fire Protection States
+  const [assets, setAssets] = useState<any[]>([])
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([])
+  const [isRequestReloadOpen, setIsRequestReloadOpen] = useState(false)
 
   const handleConfirmAttendance = async (classToBook?: any) => {
     try {
@@ -356,6 +423,62 @@ export default function StudentDashboard() {
         .limit(20)
       
       setCreditTransactions(txs || [])
+
+      // 6.1 If Monetary, fetch pending payments total
+      if (businessModel === 'MONETARY') {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('amount, service_order_id, status, due_date, description, reference_month')
+          .eq('student_id', studentId)
+        
+        const pendingPayments = payments?.filter(p => p.status === 'pending') || []
+        const total = pendingPayments.reduce((acc, p) => acc + Number(p.amount), 0) || 0
+        setTotalPendingAmount(total)
+        
+        // Se houver pagamentos pendentes, pega o mais próximo
+        const latestPending = [...pendingPayments].sort((a, b) => 
+          new Date(a.due_date || '').getTime() - new Date(b.due_date || '').getTime()
+        )[0]
+        
+        setPendingPayment(latestPending || null)
+      }
+
+      // 6.2 Fetch Assets for Fire Protection
+      if (niche === 'fire_protection') {
+        const { data: assetsData } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('student_id', studentId)
+          .order('expiration_date', { ascending: true }); // Vencidos primeiro
+        
+        // Calculate status dynamically
+        const processedAssets = (assetsData || []).map((asset: any) => {
+            const now = new Date();
+            const expiration = asset.expiration_date ? new Date(asset.expiration_date) : new Date(8640000000000000);
+            const warningDate = new Date();
+            warningDate.setDate(warningDate.getDate() + 30);
+            
+            let status = 'ok';
+            if (asset.expiration_date && expiration < now) status = 'expired';
+            else if (asset.expiration_date && expiration < warningDate) status = 'warning';
+            
+            return { ...asset, status };
+        });
+
+        setAssets(processedAssets);
+      }
+
+      // 7. Fetch Recent Service Orders if applicable
+      if (isServiceOrderBased) {
+        const { data: osData } = await supabase
+          .from('service_orders')
+          .select('*, teachers(name)')
+          .eq('customer_id', studentId)
+          .order('created_at', { ascending: false })
+          .limit(3)
+        
+        setRecentOrders(osData || [])
+      }
     } catch (error: any) {
       console.error("Error fetching student data:", error)
     } finally {
@@ -379,15 +502,19 @@ export default function StudentDashboard() {
         </div>
         <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Bem-vindo ao Workflow AI!</h1>
         <p className="text-slate-500 max-w-xs mb-8 text-sm">
-          Você ainda não está vinculado a nenhum estúdio de dança. <br/><br/>
-          Peça o <b>link de convite</b> para seu professor para começar a agendar suas aulas!
+          Você ainda não está vinculado a nenhum {vocabulary.establishment.toLowerCase()}. <br/><br/>
+          Peça o <b>link de convite</b> para seu profissional para começar a acompanhar seus serviços!
         </p>
         <Button 
           variant="outline" 
           className="w-full max-w-[200px]"
-          onClick={() => {
+          onClick={async () => {
+            await supabase.auth.signOut()
+            try {
+              await fetch('/api/auth/logout', { method: 'POST' })
+            } catch (e) {}
             localStorage.removeItem("danceflow_user")
-            supabase.auth.signOut().then(() => router.push("/login"))
+            window.location.href = "/login"
           }}
         >
           Sair da Conta
@@ -401,43 +528,287 @@ export default function StudentDashboard() {
       <StudentHeader student={student} />
       
       <main className="container p-4 space-y-6 max-w-md mx-auto">
-        {/* Saldo de Créditos Flex */}
-        <Card className="border-none shadow-sm bg-indigo-50 dark:bg-indigo-950/40">
+        {/* Dashboard de Ativos (Extintores) - Nicho Fire Protection */}
+        {niche === 'fire_protection' && assets.length > 0 && (
+          <section className="space-y-4">
+             <div className="grid grid-cols-2 gap-3 mb-2">
+                <Card className="bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800">
+                    <CardContent className="p-4 text-center">
+                        <p className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{assets.filter(a => a.status === 'ok').length}</p>
+                        <p className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-500 tracking-widest">Em Dia</p>
+                    </CardContent>
+                </Card>
+                <Card className="bg-rose-50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800">
+                    <CardContent className="p-4 text-center relative">
+                        {assets.filter(a => a.status === 'expired' || a.status === 'warning').length > 0 && (
+                            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        )}
+                        <p className="text-3xl font-black text-rose-700 dark:text-rose-400">{assets.filter(a => a.status === 'expired' || a.status === 'warning').length}</p>
+                        <p className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-500 tracking-widest">Atenção/Vencidos</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Shield className="w-5 h-5 text-indigo-600" />
+                Meus Extintores
+              </h2>
+              <Button size="sm" variant="outline" className="text-xs h-8 gap-2 bg-white" onClick={() => setIsRequestReloadOpen(true)}>
+                <Truck className="w-3 h-3 text-indigo-600" /> Solicitar Recarga
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {assets.slice(0, 3).map((asset) => (
+                <Card key={asset.id} className={`border-l-4 shadow-sm ${
+                    asset.status === 'expired' ? 'border-l-rose-500' : 
+                    asset.status === 'warning' ? 'border-l-amber-500' : 
+                    'border-l-emerald-500'
+                }`}>
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold leading-tight">{asset.name}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase mt-1">{asset.type} • Selo: {asset.serial_number}</p>
+                      <p className={`text-[10px] font-bold mt-1 ${
+                        asset.status === 'expired' ? 'text-rose-600' : 
+                        asset.status === 'warning' ? 'text-amber-600' : 
+                        'text-emerald-600'
+                      }`}>
+                        Vence: {new Date(asset.expiration_date).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {assets.length > 3 && (
+                  <Button variant="ghost" className="w-full text-xs text-muted-foreground">Ver todos ({assets.length})</Button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Ordens de Serviço Recentes (Para modelos de crédito) */}
+        {businessModel === 'CREDIT' && isServiceOrderBased && recentOrders.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                Minhas Ordens
+              </h2>
+              <Button variant="ghost" size="sm" className="text-xs text-indigo-600 font-bold" onClick={() => router.push('/student/os')}>
+                Ver Todas
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              {recentOrders.map((order) => (
+                <Card key={order.id} className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => router.push(`/student/os/${order.id}`)}>
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                        #{order.tracking_code || order.id.substring(0, 4)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-tight">{order.description || 'Ordem de Serviço'}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">
+                          {new Date(order.created_at).toLocaleDateString('pt-BR')} • {
+                            order.status === 'open' ? 'Aberta' : 
+                            order.status === 'in_progress' ? 'Em Andamento' : 
+                            order.status === 'finished' ? 'Finalizada' : 'Cancelada'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Agendador Pontual para Nichos de Serviço */}
+        {isAppointmentBased && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-indigo-600" />
+              Agendar Horário
+            </h2>
+            <AppointmentScheduler student={student} vocabulary={vocabulary} />
+          </section>
+        )}
+
+        {/* Saldo / Financeiro Flex */}
+        <Card className={`border-none shadow-sm ${businessModel === 'MONETARY' ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-indigo-50 dark:bg-indigo-950/40'}`}>
           <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
-                <PlayCircle className="w-6 h-6 text-white" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg dark:shadow-none ${businessModel === 'MONETARY' ? 'bg-emerald-600 shadow-emerald-200' : 'bg-indigo-600 shadow-indigo-200'}`}>
+                {businessModel === 'MONETARY' ? <User className="w-6 h-6 text-white" /> : <PlayCircle className="w-6 h-6 text-white" />}
               </div>
               <div>
-                <p className="text-[10px] uppercase font-bold text-indigo-600/70 dark:text-indigo-400 tracking-widest">Saldo de {vocabulary.service}s</p>
-                <p className="text-xl font-black text-indigo-900 dark:text-indigo-100">
-                  {studentCredits?.remaining_credits || 0} Créditos
+                <p className={`text-[10px] uppercase font-bold tracking-widest ${businessModel === 'MONETARY' ? 'text-emerald-600/70 dark:text-emerald-400' : 'text-indigo-600/70 dark:text-indigo-400'}`}>
+                  {businessModel === 'MONETARY' ? 'Meu Cartão de Acesso' : `Saldo de ${vocabulary.service}s`}
+                </p>
+                <p className={`text-xl font-black ${businessModel === 'MONETARY' ? 'text-emerald-900 dark:text-emerald-100' : 'text-indigo-900 dark:text-indigo-100'}`}>
+                  {businessModel === 'MONETARY' 
+                    ? `ID: #${student.id.substring(0, 6).toUpperCase()}`
+                    : `${studentCredits?.remaining_credits || 0} Créditos`
+                  }
                 </p>
               </div>
             </div>
             <div className="text-right flex flex-col items-end gap-1">
-              {studentCredits ? (
-                <>
-                  <p className="text-[10px] text-muted-foreground uppercase">Expira em</p>
-                  <p className="text-xs font-bold text-rose-500">{new Date(studentCredits.expiry_date).toLocaleDateString('pt-BR')}</p>
-                </>
+              {businessModel === 'MONETARY' ? (
+                <Button 
+                  size="sm" 
+                  className="h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-md shadow-emerald-200"
+                  onClick={() => setIsClientIDOpen(true)}
+                >
+                  <QrCodeIcon className="w-3.5 h-3.5" /> ABRIR QR
+                </Button>
               ) : (
-                <p className="text-[10px] text-muted-foreground uppercase">Sem créditos ativos</p>
+                <>
+                  {studentCredits ? (
+                    <>
+                      <p className="text-[10px] text-muted-foreground uppercase">Expira em</p>
+                      <p className="text-xs font-bold text-rose-500">{new Date(studentCredits.expiry_date).toLocaleDateString('pt-BR')}</p>
+                    </>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground uppercase">Sem créditos ativos</p>
+                  )}
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-7 text-[10px] font-bold border-indigo-200 text-indigo-600 bg-white hover:bg-indigo-50"
+                    onClick={() => setIsBuyCreditsOpen(true)}
+                  >
+                    + COMPRAR
+                  </Button>
+                </>
               )}
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-7 text-[10px] font-bold border-indigo-200 text-indigo-600 bg-white hover:bg-indigo-50"
-                onClick={() => setIsBuyCreditsOpen(true)}
-              >
-                + COMPRAR
-              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Alerta de Pagamento */}
-        {pendingPayment && (
+        {/* Status das Ordens de Serviço (Somente para Monetário) */}
+        {businessModel === 'MONETARY' && recentOrders.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <FileText className="w-5 h-5 text-emerald-600" />
+              Acompanhamento de {vocabulary.service}s
+            </h2>
+            
+            <div className="space-y-4">
+              {recentOrders.map((order) => {
+                const statusStep = order.status === 'open' ? 1 : order.status === 'in_progress' ? 2 : order.status === 'finished' ? 3 : 0;
+                const isPaid = order.payment_status === 'paid';
+
+                return (
+                  <Card key={order.id} className={`border-none shadow-md overflow-hidden bg-white dark:bg-slate-900 border-l-4 ${order.status === 'finished' ? 'border-emerald-500' : 'border-slate-300'}`} onClick={() => router.push(`/student/os/${order.id}`)}>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className={`text-[10px] font-black uppercase ${order.status === 'finished' ? 'text-emerald-600' : 'text-slate-500'}`}>OS #{order.tracking_code || order.id.substring(0, 8)}</p>
+                          <h3 className="text-sm font-bold">{order.description || 'Serviço em andamento'}</h3>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge className={`${
+                            order.status === 'open' ? 'bg-blue-100 text-blue-600' : 
+                            order.status === 'in_progress' ? 'bg-amber-100 text-amber-600' : 
+                            order.status === 'finished' ? 'bg-emerald-100 text-emerald-600' : 
+                            'bg-slate-100 text-slate-600'
+                          } border-none text-[10px] uppercase`}>
+                            {order.status === 'open' ? 'Aguardando' : 
+                             order.status === 'in_progress' ? 'Em Execução' : 
+                             order.status === 'finished' ? 'Finalizado' : 'Cancelado'}
+                          </Badge>
+                          {isPaid ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[8px] uppercase font-bold">PAGO ✅</Badge>
+                          ) : (
+                            <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[8px] uppercase font-bold">PAGAMENTO PENDENTE ⚠️</Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Barra de Progresso Visual */}
+                      <div className="flex items-center gap-2 py-2">
+                        <div className={`h-1.5 flex-1 rounded-full ${statusStep >= 1 ? 'bg-emerald-500' : 'bg-slate-100'}`} />
+                        <div className={`h-1.5 flex-1 rounded-full ${statusStep >= 2 ? 'bg-emerald-500' : 'bg-slate-100'}`} />
+                        <div className={`h-1.5 flex-1 rounded-full ${statusStep >= 3 ? 'bg-emerald-500' : 'bg-slate-100'}`} />
+                      </div>
+
+                      {order.status === 'finished' && !isPaid && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/30">
+                          <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300 leading-tight mb-3">
+                            Este serviço foi concluído! Efetue o pagamento para liberar a retirada.
+                          </p>
+                          <Button 
+                            className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePayOS(order);
+                            }}
+                            disabled={isPayingOnline}
+                          >
+                            {isPayingOnline ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
+                            PAGAR E LIBERAR AGORA
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-center pt-2">
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          <span>Atualizado em {new Date(order.updated_at || order.created_at).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        {order.status === 'finished' && isPaid && (
+                          <div className="flex items-center gap-2 text-emerald-600">
+                             <span className="text-[10px] font-black animate-pulse uppercase tracking-widest">PRONTO PARA RETIRADA 🚀</span>
+                             <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 rounded-full bg-emerald-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsClientIDOpen(true);
+                              }}
+                             >
+                               <QrCodeIcon className="w-4 h-4" />
+                             </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Alerta de Vencimento de Extintores (Nicho Fire Protection) */}
+        {niche === 'fire_protection' && assets.some(a => a.status !== 'ok') && (
+          <Card className="bg-rose-50 border-rose-200 dark:bg-rose-950/10 dark:border-rose-900/30 animate-pulse-subtle">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/20 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-rose-900 dark:text-rose-200">Atenção: Extintores Vencidos ou Próximos!</p>
+                <p className="text-xs text-rose-700 dark:text-rose-400">
+                  Você tem {assets.filter(a => a.status === 'expired').length} extintor(es) vencido(s) e {assets.filter(a => a.status === 'warning').length} próximo(s) do vencimento.
+                </p>
+              </div>
+              <Button size="sm" className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => setIsRequestReloadOpen(true)}>
+                Solicitar Recarga
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Alerta de Pagamento (Genérico, se não houver alerta de extintor) */}
+        {pendingPayment && !(niche === 'fire_protection' && assets.some(a => a.status !== 'ok')) && (
           <Card className="bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30 animate-pulse-subtle">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
@@ -498,29 +869,33 @@ export default function StudentDashboard() {
                 
                 <div className="bg-black/10 p-3 flex justify-between items-center px-5">
                   <span className="text-[10px] font-medium opacity-70 uppercase">
-                    {attendanceRecord?.status === 'present' ? 'PRESENÇA VALIDADA ✅' : (studentCredits?.remaining_credits > 0 ? 'DESCONTO NO CHECK-IN' : 'CRÉDITOS INSUFICIENTES ⚠️')}
+                    {attendanceRecord?.status === 'present' ? 'VALIDADO ✅' : (businessModel === 'MONETARY' ? 'AGUARDANDO ATENDIMENTO' : (studentCredits?.remaining_credits > 0 ? 'DESCONTO NO CHECK-IN' : 'CRÉDITOS INSUFICIENTES ⚠️'))}
                   </span>
                   {attendanceRecord?.status === 'present' ? (
                     <Badge className="bg-emerald-500 text-white border-none">VALIDADO</Badge>
                   ) : (
-                    studentCredits?.remaining_credits > 0 ? (
-                      <Button 
-                        size="sm" 
-                        variant="secondary" 
-                        className="bg-white text-indigo-600 hover:bg-white/90 gap-1 text-xs font-bold"
-                        onClick={() => handleConfirmAttendance()}
-                      >
-                        <QrCodeIcon className="w-3 h-3" /> Ver QR Check-in
-                      </Button>
+                    businessModel === 'MONETARY' ? (
+                      <Badge variant="outline" className="text-white border-white/30 uppercase text-[10px]">AGENDADO</Badge>
                     ) : (
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        className="bg-rose-500 hover:bg-rose-600 text-white gap-1 text-xs font-bold animate-pulse"
-                        onClick={() => setIsBuyCreditsOpen(true)}
-                      >
-                        <CreditCard className="w-3 h-3" /> Comprar Créditos
-                      </Button>
+                      studentCredits?.remaining_credits > 0 ? (
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="bg-white text-indigo-600 hover:bg-white/90 gap-1 text-xs font-bold"
+                          onClick={() => handleConfirmAttendance()}
+                        >
+                          <QrCodeIcon className="w-3 h-3" /> Ver QR Check-in
+                        </Button>
+                      ) : (
+                        <Button 
+                          size="sm" 
+                          variant="destructive" 
+                          className="bg-rose-500 hover:bg-rose-600 text-white gap-1 text-xs font-bold animate-pulse"
+                          onClick={() => setIsBuyCreditsOpen(true)}
+                        >
+                          <CreditCard className="w-3 h-3" /> Comprar Créditos
+                        </Button>
+                      )
                     )
                   )}
                 </div>
@@ -530,7 +905,7 @@ export default function StudentDashboard() {
              <div className="p-4 bg-slate-100 dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-center py-8">
                 <Calendar className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Você não tem reserva para hoje.</p>
-                <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">Escolha uma {vocabulary.service.toLowerCase()} abaixo para reservar</p>
+                <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">Escolha um {vocabulary.service.toLowerCase()} abaixo para reservar</p>
              </div>
           )}
         </section>
@@ -592,13 +967,27 @@ export default function StudentDashboard() {
             <LayoutDashboard className="w-5 h-5" />
             <span className="text-[10px]">Início</span>
           </Button>
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
-            <Calendar className="w-5 h-5" />
-            <span className="text-[10px]">{vocabulary.service}s</span>
-          </Button>
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => setIsStatementOpen(true)}>
+          
+          {isServiceOrderBased && niche !== 'fire_protection' ? (
+            <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+              <FileText className="w-5 h-5" />
+              <span className="text-[10px]">Minhas OS</span>
+            </Button>
+          ) : niche === 'fire_protection' ? (
+            <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+              <Shield className="w-5 h-5" />
+              <span className="text-[10px]">Meus Extintores</span>
+            </Button>
+          ) : (
+            <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
+              <Calendar className="w-5 h-5" />
+              <span className="text-[10px]">{vocabulary.service}s</span>
+            </Button>
+          )}
+
+          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => businessModel === 'MONETARY' ? window.location.href='/student/payments' : setIsStatementOpen(true)}>
             <History className="w-5 h-5" />
-            <span className="text-[10px]">Extrato</span>
+            <span className="text-[10px]">{businessModel === 'MONETARY' ? 'Financeiro' : 'Extrato'}</span>
           </Button>
           <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/payments'}>
             <CreditCard className="w-5 h-5" />
@@ -611,6 +1000,56 @@ export default function StudentDashboard() {
         </nav>
 
         {/* Dialogs */}
+        <Dialog open={isRequestReloadOpen} onOpenChange={setIsRequestReloadOpen}>
+          <DialogContent className="sm:max-w-md max-w-[95vw] rounded-2xl border-none max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black">Solicitar Recarga</DialogTitle>
+              <DialogDescription>Selecione os equipamentos para coleta.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-4">
+                {assets.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground">Nenhum equipamento cadastrado.</p>
+                )}
+                {assets.map((asset: any) => (
+                    <div key={asset.id} 
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedAssets.includes(asset.id) ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-slate-200'
+                        }`}
+                        onClick={() => {
+                            if (selectedAssets.includes(asset.id)) {
+                                setSelectedAssets(prev => prev.filter(id => id !== asset.id));
+                            } else {
+                                setSelectedAssets(prev => [...prev, asset.id]);
+                            }
+                        }}
+                    >
+                        <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${selectedAssets.includes(asset.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                            {selectedAssets.includes(asset.id) && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-bold">{asset.name}</p>
+                            <p className="text-[10px] text-muted-foreground">Vence: {new Date(asset.expiration_date).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <Badge variant="outline" className={`text-[10px] uppercase border bg-opacity-50 ${
+                            asset.status === 'expired' ? 'text-rose-600 border-rose-200 bg-rose-50' : 
+                            asset.status === 'warning' ? 'text-amber-600 border-amber-200 bg-amber-50' : 
+                            'text-emerald-600 border-emerald-200 bg-emerald-50'
+                        }`}>
+                            {asset.status === 'expired' ? 'Vencido' : asset.status === 'warning' ? 'Vence logo' : 'Ok'}
+                        </Badge>
+                    </div>
+                ))}
+            </div>
+            <div className="flex flex-col gap-2">
+                <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12" onClick={handleRequestReload} disabled={selectedAssets.length === 0 || isLoading}>
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Truck className="w-4 h-4 mr-2" />}
+                    SOLICITAR COLETA ({selectedAssets.length})
+                </Button>
+                <Button variant="ghost" onClick={() => setIsRequestReloadOpen(false)}>Cancelar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={isStatementOpen} onOpenChange={setIsStatementOpen}>
           <DialogContent className="sm:max-w-md max-w-[95vw] rounded-2xl border-none max-h-[80vh] overflow-y-auto">
             <DialogHeader>
@@ -698,7 +1137,7 @@ export default function StudentDashboard() {
                       </div>
                       <div className="text-left">
                         <p className="font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{pkg.name}</p>
-                        <p className="text-xs text-muted-foreground font-medium uppercase">{pkg.lessons_count} {vocabulary.service.toLowerCase()}s mensais</p>
+                        <p className="text-xs text-muted-foreground font-medium uppercase">{pkg.lessons_count} {vocabulary.service.toLowerCase()}s</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -713,6 +1152,46 @@ export default function StudentDashboard() {
                   )}
                 </div>
               ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isClientIDOpen} onOpenChange={setIsClientIDOpen}>
+          <DialogContent className="sm:max-w-md max-w-[90vw] rounded-3xl border-none p-0 overflow-hidden">
+          <div className="bg-emerald-600 p-8 text-center text-white space-y-2">
+            <h2 className="text-2xl font-black tracking-tight">Cartão Digital</h2>
+            <p className="text-emerald-100 text-sm font-medium opacity-90">Apresente este código para liberar seu serviço ou retirar produtos.</p>
+          </div>
+          
+          <div className="flex flex-col items-center justify-center py-10 gap-8 bg-white dark:bg-slate-950">
+            <div className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-8 border-emerald-50">
+              <QRCode
+                value={`SECURE-CLI-${student?.id?.toString().slice(-12).toUpperCase()}-${new Date().toISOString().slice(0,10)}`}
+                size={240}
+                level="H"
+                viewBox={`0 0 256 256`}
+              />
+            </div>
+
+            <div className="space-y-4 w-full px-10">
+              <div className="bg-slate-50 dark:bg-slate-900 px-6 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 w-full text-center">
+                <p className="text-[11px] text-muted-foreground font-black uppercase mb-1 tracking-widest">TOKEN DE SEGURANÇA DIÁRIO</p>
+                <p className="font-mono text-2xl font-black text-emerald-600 tracking-[0.2em]">
+                  CLI-{student?.id?.toString().slice(-8).toUpperCase()}
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-3 justify-center text-slate-400">
+                <Shield className="w-4 h-4" />
+                <span className="text-[10px] font-bold uppercase tracking-widest italic">Válido apenas para hoje • Workflow Pro Guard</span>
+              </div>
+            </div>
+          </div>
+            
+            <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t">
+              <Button variant="ghost" className="w-full font-bold text-slate-500 h-12 rounded-xl" onClick={() => setIsClientIDOpen(false)}>
+                FECHAR CARTÃO
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

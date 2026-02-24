@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,12 +9,16 @@ import { Sparkles, Loader2, ArrowLeft, Building2, UserCircle2 } from "lucide-rea
 import { useToast } from "@/hooks/use-toast"
 import { nicheDictionary } from "@/config/niche-dictionary"
 
+import { getPublicStudioBySlug } from "@/lib/actions/studios"
+
 export default function JoinStudioPage() {
   const { slug } = useParams()
+  const searchParams = useSearchParams()
+  const roleParam = searchParams.get('role') // 'client' or 'professional'
   const router = useRouter()
   const { toast } = useToast()
   const [studio, setStudio] = useState<any>(null)
-  const [vocabulary, setVocabulary] = useState<any>(nicheDictionary.dance)
+  const [vocabulary, setVocabulary] = useState<any>(nicheDictionary.pt.dance)
   const [user, setUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isJoining, setIsJoining] = useState(false)
@@ -24,19 +28,8 @@ export default function JoinStudioPage() {
       try {
         setIsLoading(true)
         
-        // 1. Carregar Estúdio
-        const { data: studioData, error: studioError } = await supabase
-          .from('studios')
-          .select(`
-            id, 
-            name, 
-            slug,
-            organization_settings (
-              vocabulary
-            )
-          `)
-          .eq('slug', slug)
-          .single()
+        // 1. Carregar Estúdio via Server Action (Bypass RLS)
+        const { data: studioData, error: studioError } = await getPublicStudioBySlug(slug as string)
 
         if (studioError || !studioData) {
           toast({ title: "Estabelecimento não encontrado", variant: "destructive" })
@@ -44,10 +37,9 @@ export default function JoinStudioPage() {
           return
         }
         setStudio(studioData)
-        if (studioData.organization_settings?.[0]?.vocabulary) {
-          setVocabulary(studioData.organization_settings[0].vocabulary)
-        } else if (studioData.organization_settings?.vocabulary) {
-          setVocabulary(studioData.organization_settings.vocabulary)
+        const fetchedVocabulary = studioData.organization_settings?.[0]?.vocabulary || studioData.organization_settings?.vocabulary;
+        if (fetchedVocabulary) {
+          setVocabulary(fetchedVocabulary);
         }
 
         // 2. Verificar Sessão
@@ -55,7 +47,8 @@ export default function JoinStudioPage() {
         if (!session) {
           // Guardar a intenção de entrar para após o login
           localStorage.setItem('pending_join_slug', slug as string)
-          router.push(`/s/${slug}/login?redirect=/s/${slug}/join`)
+          if (roleParam) localStorage.setItem('pending_join_role', roleParam)
+          router.push(`/s/${slug}/login?redirect=/s/${slug}/join${roleParam ? `&role=${roleParam}` : ''}`)
           return
         }
 
@@ -123,8 +116,24 @@ export default function JoinStudioPage() {
     console.log('🚀 Iniciando processo de Join para usuário:', userId)
 
     try {
-      const userRole = user?.role || 'student'
-      const table = userRole === 'student' ? 'students' : 'users_internal'
+      let userRole = user?.role
+      
+      // Priorizar o parâmetro do convite se ele for para um papel específico ou se o usuário for apenas um estudante
+      if (roleParam && (roleParam === 'engineer' || roleParam === 'architect' || roleParam === 'professional' || !userRole || userRole === 'student')) {
+        if (roleParam === 'engineer') {
+          userRole = 'engineer'
+        } else if (roleParam === 'architect') {
+          userRole = 'architect'
+        } else if (roleParam === 'professional') {
+          userRole = 'teacher'
+        } else {
+          userRole = 'student'
+        }
+      }
+      
+      userRole = userRole || 'student'
+      const table = (userRole === 'student') ? 'students' : 
+                    (userRole === 'engineer' || userRole === 'architect') ? 'professionals' : 'users_internal'
       
       // 1. Atualizar no Banco de Dados o perfil do usuário
       console.log(`📝 Atualizando tabela ${table} para studio ${studio.id}`)
@@ -138,17 +147,57 @@ export default function JoinStudioPage() {
         if (teacherErr) console.error("Erro ao atualizar tabela teachers:", teacherErr)
       }
 
-      const { error: profileError } = await supabase
-        .from(table)
-        .update({ 
-          studio_id: studio.id,
-          status: 'active'
-        })
-        .eq('id', userId)
+      // Se for engenheiro ou arquiteto, o upsert já cuida de tudo na tabela 'professionals'
+      if (userRole === 'engineer' || userRole === 'architect') {
+        const { error: profErr } = await supabase
+          .from('professionals')
+          .upsert({
+            user_id: userId,
+            studio_id: studio.id,
+            professional_type: userRole,
+            name: user?.name || session.user.email?.split('@')[0] || 'Novo Profissional',
+            email: session.user.email,
+            status: 'active'
+          }, { onConflict: 'studio_id, email' })
 
-      if (profileError) {
-        console.error(`❌ Erro ao atualizar ${table}:`, profileError)
-        throw new Error(`Erro ao atualizar perfil: ${profileError.message}`)
+        if (profErr) {
+          console.error("Erro ao fazer upsert na tabela professionals:", profErr)
+          throw new Error(`Erro ao vincular perfil profissional: ${profErr.message}`)
+        }
+
+        // CORREÇÃO CRÍTICA PARA RLS:
+        // Verificar se existe registro em users_internal e atualizar para evitar conflito de studio_id na função de segurança
+        const { data: internalUser } = await supabase
+          .from('users_internal')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle()
+        
+        if (internalUser) {
+          console.log('🔄 Atualizando users_internal para consistência de RLS')
+          await supabase
+            .from('users_internal')
+            .update({ 
+              studio_id: studio.id,
+              role: 'professional' // Marca como professional genérico em users_internal
+            })
+            .eq('id', userId)
+        }
+
+      } else {
+        // Para outras roles, atualiza a tabela correspondente (students ou users_internal)
+        const { error: profileError } = await supabase
+          .from(table)
+          .update({ 
+            studio_id: studio.id,
+            status: 'active'
+          })
+          .eq('id', userId)
+
+        if (profileError) {
+          console.error(`❌ Erro ao atualizar ${table}:`, profileError)
+          throw new Error(`Erro ao atualizar perfil: ${profileError.message}`)
+        }
       }
 
       // 2. Inicializar créditos se for aluno
@@ -207,10 +256,15 @@ export default function JoinStudioPage() {
       })
 
       // 5. Redirecionar
-      console.log('✅ Join concluído. Redirecionando...')
+      console.log('✅ Join concluído. Redirecionando para:', userRole === 'student' ? '/student' : (userRole === 'engineer' || userRole === 'architect' ? '/engineer' : '/teacher'))
+      
+      // Pequeno delay para o usuário ver o toast de sucesso
       setTimeout(() => {
-        router.push(userRole === 'student' ? '/student' : '/teacher')
-      }, 800)
+        const targetPath = userRole === 'student' ? '/student' : (userRole === 'engineer' || userRole === 'architect' ? '/engineer' : '/teacher')
+        
+        // Forçar reload completo para garantir atualização de sessão e RLS
+        window.location.href = targetPath
+      }, 1000)
 
     } catch (error: any) {
       console.error('💥 Erro fatal no handleJoin:', error)
@@ -271,8 +325,13 @@ export default function JoinStudioPage() {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Seu Perfil</p>
-                <p className="font-medium text-sm leading-tight">{user?.name}</p>
-                <p className="text-xs text-muted-foreground">{user?.role === 'student' ? vocabulary.client : vocabulary.provider}</p>
+                <p className="font-medium text-sm leading-tight">{user?.name || 'Novo Usuário'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {user?.role === 'student' || (!user?.role && roleParam === 'client') ? vocabulary.client : 
+                   user?.role === 'engineer' || (!user?.role && roleParam === 'engineer') ? 'Engenheiro Técnico' : 
+                   user?.role === 'architect' || (!user?.role && roleParam === 'architect') ? 'Arquiteto Parceiro' : 
+                   vocabulary.provider}
+                </p>
               </div>
             </div>
 

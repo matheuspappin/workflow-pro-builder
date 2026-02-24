@@ -27,6 +27,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Código de presença ausente' }, { status: 400 })
     }
 
+    // 0. Tentar buscar por Asset (Extintor/Equipamento)
+    // Primeiro verificamos se é um Asset, pois o ID pode ser qualquer string (hash)
+    const { data: asset, error: assetError } = await supabaseAdmin
+      .from('assets')
+      .select('*, student:students(name)')
+      .eq('qr_code', attendanceId)
+      .maybeSingle();
+
+    if (asset) {
+        // Lógica de validação de Asset
+        const now = new Date();
+        const expiration = asset.expiration_date ? new Date(asset.expiration_date) : new Date(8640000000000000); // Se não tiver data, assume eterno
+        const warningDate = new Date();
+        warningDate.setDate(warningDate.getDate() + 30);
+        
+        let status = 'ok';
+        let message = 'Equipamento em dia.';
+        let success = true;
+
+        if (asset.expiration_date && expiration < now) {
+            status = 'expired';
+            message = 'Equipamento VENCIDO!';
+            success = false; // Scanner deve mostrar erro/vermelho
+        } else if (asset.expiration_date && expiration < warningDate) {
+            status = 'warning';
+            message = 'Vence em menos de 30 dias.';
+            // Success true mas o frontend deve tratar warning
+        }
+
+        return NextResponse.json({
+            success: success, 
+            type: 'asset',
+            asset: asset,
+            status: status, // ok, warning, expired
+            studentName: asset.student?.name || 'Sem Cliente',
+            className: `${asset.name} (${asset.type || 'N/A'})`, // Reusando campo className para mostrar info do asset
+            message: message,
+            expirationDate: asset.expiration_date
+        });
+    }
+
     let targetId = attendanceId;
 
     // 0. Se for formato curto (DF-XXXXXXXX), buscar o ID completo

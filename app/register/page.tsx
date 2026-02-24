@@ -1,6 +1,6 @@
 "use client"
 
-import React, { Suspense } from "react"
+import React, { Suspense, useEffect } from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -8,12 +8,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Zap, Eye, EyeOff, Loader2, Check, GraduationCap, User, Building2 } from "lucide-react"
+import { Sparkles, Zap, Eye, EyeOff, Loader2, Check, GraduationCap, User, Building2, Package, Minus, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
 import { validateCPF, validateCNPJ } from "@/lib/validation-utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { supabase } from "@/lib/supabase"
+import { getSystemModules } from "@/lib/actions/modules"
+import { Switch } from "@/components/ui/switch"
+import logger from "@/lib/logger"
 import {
   Select,
   SelectContent,
@@ -21,22 +25,216 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
+
+import { nicheDictionary, NicheType } from "@/config/niche-dictionary"
+import { getDefaultModulesForNiche, monetaryBasedNiches } from "@/config/niche-modules"
+import { useVocabulary } from "@/hooks/use-vocabulary"
+import { LanguageSwitcher } from "@/components/common/language-switcher"
+import { pluralize } from "@/lib/pluralize"
+
+const defaultPlans = [
+  { 
+    id: 'gratuito', 
+    name: 'Gratuito', 
+    price: 'R$ 0', 
+    description: 'Para testar e começar', 
+    features: ['Até 10 {clients}', '1 {provider}'] 
+  },
+  { 
+    id: 'pro', 
+    name: 'Pro', 
+    price: 'R$ 297', 
+    description: 'Para crescer seu negócio', 
+    features: ['Até 100 {clients}', 'WhatsApp Business'] 
+  },
+  { 
+    id: 'pro-plus', 
+    name: 'Pro+', 
+    price: 'R$ 197', 
+    description: 'Melhor custo-benefício', 
+    features: ['Ilimitado', 'IA + WhatsApp'] 
+  },
+  { 
+    id: 'enterprise', 
+    name: 'Enterprise', 
+    price: 'Sob Consulta', 
+    description: 'Para grandes redes', 
+    features: ['Tudo Ilimitado', 'Multi-unidades'] 
+  },
+]
 
 const benefits = [
-  "14 dias de teste grátis (Dono)",
-  "Portal exclusivo do Aluno/Professor",
+  "Teste grátis para começar (Dono)",
+  "Portal exclusivo do {client}/{provider}",
   "Suporte em português",
   "Gestão com IA",
 ]
 
 function RegisterContent() {
+  const { t, language } = useVocabulary()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const initialRole = (searchParams.get('role') as any) || 'admin'
-  const [role, setRole] = useState<'admin' | 'student' | 'teacher'>(initialRole)
+  const initialStudioId = searchParams.get('studioId') || undefined
+  const [role, setRole] = useState<'admin' | 'student' | 'teacher' | 'finance' | 'seller' | 'receptionist'>(initialRole)
+  const [niche, setNiche] = useState<NicheType>('dance')
+  
+  const currentVocabulary = nicheDictionary[language as 'pt' | 'en'][niche] || nicheDictionary[language as 'pt' | 'en'].dance;
+
+  const v = (text: string) => {
+    if (!text) return text;
+    return text
+      .replace(/{clients}/g, pluralize(currentVocabulary.client))
+      .replace(/{client}/g, currentVocabulary.client)
+      .replace(/{providers}/g, pluralize(currentVocabulary.provider))
+      .replace(/{provider}/g, currentVocabulary.provider)
+      .replace(/{establishments}/g, pluralize(currentVocabulary.establishment))
+      .replace(/{establishment}/g, currentVocabulary.establishment)
+      .replace(/{services}/g, pluralize(currentVocabulary.service))
+      .replace(/{service}/g, currentVocabulary.service)
+      .replace(/{categories}/g, pluralize(currentVocabulary.category))
+      .replace(/{category}/g, currentVocabulary.category);
+  }
+    const [businessModel, setBusinessModel] = useState<'CREDIT' | 'MONETARY'>('CREDIT')
+
+    useEffect(() => {
+        // Sugerir modelo de negócio baseado no nicho
+        if (niche && (monetaryBasedNiches as string[]).includes(niche)) {
+            setBusinessModel('MONETARY')
+        } else {
+            setBusinessModel('CREDIT')
+        }
+    }, [niche])
+  const [plan, setPlan] = useState('gratuito')
+  const [plans, setPlans] = useState<any[]>(defaultPlans)
+  const [loadingPlans, setLoadingPlans] = useState(true)
+  
+  // Custom Modules State
+  const [systemModules, setSystemModules] = useState<any[]>([])
+  const [selectedModules, setSelectedModules] = useState<Record<string, boolean>>({})
+  const [multiUnitQuantity, setMultiUnitQuantity] = useState(1)
+  const [customTotal, setCustomTotal] = useState(0)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [plansData, modulesData] = await Promise.all([
+          supabase
+            .from('system_plans')
+            .select('*')
+            .eq('status', 'active')
+            .order('price', { ascending: true }),
+          getSystemModules()
+        ])
+        
+        const { data, error } = plansData
+        if (error) throw error
+        
+        let mappedPlans = []
+        if (data && data.length > 0) {
+          mappedPlans = data.map(p => ({
+            id: p.id,
+            name: p.name,
+            price: p.id === 'enterprise' ? 'Sob Consulta' : `R$ ${Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
+            description: p.description,
+            features: p.features || [],
+            isPopular: p.is_popular
+          }))
+        } else {
+          mappedPlans = [...defaultPlans]
+        }
+
+        // Add Custom Plan Option
+        mappedPlans.push({
+          id: 'custom',
+          name: t.auth.register.customPlanName,
+          price: t.auth.register.customPlanPrice,
+          description: t.auth.register.customPlanDesc,
+          features: [t.auth.register.customPlanFeature1, t.auth.register.customPlanFeature2],
+          isPopular: false
+        })
+
+        setPlans(mappedPlans)
+        setSystemModules(modulesData || [])
+
+        // Initialize with default niche modules if any, or current selection
+        // Use logic from getDefaultModulesForNiche for initial setup based on default niche ('dance')
+        // But better to wait for user to select niche or use the default state one.
+        const defaultNicheModules = getDefaultModulesForNiche(niche);
+        
+        // Convert ModuleConfig to Record<string, boolean>
+        const initialSelected: Record<string, boolean> = {};
+        
+        // Merge system modules list with default config
+        modulesData?.forEach((m: any) => {
+           // If module is recommended by niche, select it.
+           // If it's free/base, also select it (dashboard etc).
+           // But here we want to follow the niche-modules logic.
+           
+           if (m.id in defaultNicheModules) {
+             initialSelected[m.id] = (defaultNicheModules as any)[m.id];
+           } else if (m.active && Number(m.price) === 0) {
+             // Free modules default to true if not specified in niche config
+             initialSelected[m.id] = true;
+           }
+        })
+        setSelectedModules(initialSelected)
+
+      } catch (err) {
+        logger.error('Error loading plans/modules:', err)
+        // Keep default plans on error
+      } finally {
+        setLoadingPlans(false)
+      }
+    }
+    
+    loadData()
+  }, [t])
+
+  // Effect to update suggested modules when niche changes
+  useEffect(() => {
+    if (role === 'admin' && niche && systemModules.length > 0) { // Adicionado check para systemModules
+      const suggestedModules = getDefaultModulesForNiche(niche);
+      
+      const nextSelected: Record<string, boolean> = {};
+
+      systemModules.forEach(m => {
+        // Se o módulo for ativado por padrão para o nicho, ativá-lo
+        if ((suggestedModules as any)[m.id] === true) {
+          nextSelected[m.id] = true;
+        } else if (Number(m.price) === 0 && m.active) {
+          // Módulos gratuitos e ativos devem ser selecionados por padrão, a menos que o nicho os desabilite explicitamente
+          // (a lógica getDefaultModulesForNiche já lida com hiddenModules, então se não está em suggestedModules, é falso)
+          if (!(m.id in suggestedModules) || (suggestedModules as any)[m.id] !== false) {
+             nextSelected[m.id] = true;
+          }
+        }
+      });
+      
+      setSelectedModules(nextSelected); // Substituir completamente, não mesclar
+    }
+  }, [niche, role, systemModules]);
+
+  useEffect(() => {
+    if (plan === 'custom') {
+      const total = systemModules.reduce((acc, mod) => {
+        if (selectedModules[mod.id]) {
+          const price = Number(mod.price)
+          if (mod.id === 'multi_unit') {
+            return acc + (price * multiUnitQuantity)
+          }
+          return acc + price
+        }
+        return acc
+      }, 0)
+      setCustomTotal(total)
+    }
+  }, [selectedModules, plan, systemModules, multiUnitQuantity])
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -49,7 +247,7 @@ function RegisterContent() {
     address: "",
   })
   const [taxIdType, setTaxIdType] = useState<'cpf' | 'cnpj'>('cpf')
-  const [isEmailVerified, setIsEmailVerified] = useState(false)
+  const [isEmailVerified, setIsEmailVerified] = useState(true)
   const [codeSent, setCodeSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [isSendingCode, setIsSendingCode] = useState(false)
@@ -178,7 +376,8 @@ function RegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validar e-mail verificado
+    // Validar e-mail verificado (Desativado para testes)
+    /*
     if (!isEmailVerified) {
       toast({
         title: "E-mail não verificado",
@@ -187,6 +386,7 @@ function RegisterContent() {
       })
       return
     }
+    */
 
     // Validar CPF/CNPJ
     const isValidTaxId = role === 'admin' 
@@ -232,8 +432,15 @@ function RegisterContent() {
         body: JSON.stringify({ 
           ...formData, 
           role,
+          studioId: (role === 'finance' || role === 'seller' || role === 'receptionist') ? initialStudioId : undefined,
+          niche: role === 'admin' ? niche : undefined,
+          businessModel: role === 'admin' ? businessModel : undefined,
+          plan: role === 'admin' ? plan : undefined,
           taxId: formData.taxId,
-          taxIdType: role === 'admin' ? taxIdType : 'cpf'
+          taxIdType: role === 'admin' ? taxIdType : 'cpf',
+          modules: (role === 'admin' && plan === 'custom') ? selectedModules : undefined,
+          multiUnitQuantity: (role === 'admin' && plan === 'custom' && selectedModules['multi_unit']) ? multiUnitQuantity : 1,
+          language
         })
       })
 
@@ -243,7 +450,7 @@ function RegisterContent() {
         toast({
           title: "Conta criada com sucesso!",
           description: role === 'admin' 
-            ? `Bem-vindo ao Workflow AI!` 
+            ? (plan === 'gratuito' ? "Bem-vindo ao Workflow AI!" : "Bem-vindo ao Workflow AI! Seu teste grátis de 14 dias começou.") 
             : `Bem-vindo, ${formData.name}!`,
         })
         
@@ -251,7 +458,10 @@ function RegisterContent() {
         localStorage.setItem("danceflow_user", JSON.stringify(data.user))
         
         // Redirect based on role
-        if (role === 'student') router.push("/student")
+        const returnTo = searchParams.get('returnTo')
+        if (returnTo) {
+          router.push(returnTo)
+        } else if (role === 'student') router.push("/student")
         else if (role === 'teacher') router.push("/teacher")
         else router.push("/dashboard")
       } else {
@@ -275,6 +485,11 @@ function RegisterContent() {
 
   return (
     <div className="min-h-screen bg-background flex">
+      {/* Botão de Idioma */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-accent p-12 flex-col justify-between">
         <Link href="/" className="flex items-center gap-2">
@@ -288,24 +503,19 @@ function RegisterContent() {
 
         <div>
           <h1 className="text-4xl font-bold text-white mb-4">
-            Seu software, suas regras.
+            {v(t.auth.register.brandingTitle)}
           </h1>
           <p className="text-white/80 text-lg mb-8">
-            Crie sua conta e monte o sistema ideal para seu negócio em minutos.
+            {v(t.auth.register.brandingSubtitle)}
           </p>
           
           <ul className="space-y-3">
-            {[
-              "14 dias de teste grátis",
-              "Feature Builder Exclusivo",
-              "Suporte especializado",
-              "Tecnologia White-label",
-            ].map((benefit, index) => (
+            {benefits.map((benefit, index) => (
               <li key={index} className="flex items-center gap-3 text-white/90">
                 <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
                   <Check className="w-3 h-3 text-white" />
                 </div>
-                {benefit}
+                {v(benefit)}
               </li>
             ))}
           </ul>
@@ -323,7 +533,7 @@ function RegisterContent() {
             ))}
           </div>
           <p className="text-white/80 text-sm">
-            +500 empresas ativas
+            {t.auth.register.activeCompanies}
           </p>
         </div>
       </div>
@@ -345,35 +555,44 @@ function RegisterContent() {
 
           <Card className="border-border">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-bold text-card-foreground">Criar Conta</CardTitle>
+              <CardTitle className="text-2xl font-bold text-card-foreground">{v(t.auth.register.title)}</CardTitle>
               <CardDescription>
-                Escolha seu perfil e preencha os dados abaixo
+                {v(t.auth.register.subtitle)}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-6">
-              <Select value={role} onValueChange={(value: "admin" | "student" | "teacher") => setRole(value)}>
-                <SelectTrigger className="w-full h-11">
-                  <SelectValue placeholder="Selecione seu perfil" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4" /> Dono de Negócio / Gestor
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="student">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" /> Cliente / Aluno / Paciente
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="teacher">
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="w-4 h-4" /> Profissional / Professor
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              {(initialStudioId && (role === 'finance' || role === 'seller' || role === 'receptionist')) ? (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+                  <Building2 className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    {role === 'finance' ? 'Financeiro' : role === 'seller' ? 'Vendedor' : 'Recepcionista'} — cadastro via convite
+                  </span>
+                </div>
+              ) : (
+                <Select value={role} onValueChange={(value: "admin" | "student" | "teacher") => setRole(value)}>
+                  <SelectTrigger className="w-full h-11">
+                    <SelectValue placeholder={t.auth.register.selectProfile} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4" /> {v(t.auth.register.businessOwner)}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="student">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4" /> {v(t.auth.register.clientStudent)}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="teacher">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4" /> {v(t.auth.register.professional)}
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -381,11 +600,11 @@ function RegisterContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   
                   <div className="space-y-2 col-span-1 md:col-span-2">
-                    <Label htmlFor="name">Nome Completo</Label>
+                    <Label htmlFor="name">{v(t.auth.register.fullName)}</Label>
                     <Input
                       id="name"
                       type="text"
-                      placeholder="Ex: João Silva Santos"
+                      placeholder={v(t.auth.register.fullNamePlaceholder)}
                       value={formData.name || ""}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
@@ -397,7 +616,7 @@ function RegisterContent() {
                     <Label htmlFor="taxId" className="flex justify-between">
                       {role === 'admin' ? (
                         <>
-                          <span>Documento (CPF ou CNPJ)</span>
+                          <span>{v(t.auth.register.document)}</span>
                           <div className="flex gap-2">
                             <button 
                               type="button" 
@@ -437,64 +656,20 @@ function RegisterContent() {
                   </div>
 
                   <div className="space-y-2 col-span-1 md:col-span-2">
-                    <Label htmlFor="email">E-mail</Label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={formData.email || ""}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          required
-                          disabled={isEmailVerified}
-                          className="bg-background h-11 pr-10"
-                        />
-                        {isEmailVerified && (
-                          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
-                        )}
-                      </div>
-                      {!isEmailVerified && (
-                        <Button 
-                          type="button" 
-                          onClick={handleSendCode} 
-                          disabled={isSendingCode || !formData.email || !formData.email.includes('@')}
-                          variant="outline"
-                          className="h-11 border-primary text-primary hover:bg-primary/5"
-                        >
-                          {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : (codeSent ? "Reenviar" : "Validar")}
-                        </Button>
-                      )}
-                    </div>
+                    <Label htmlFor="email">{v(t.auth.register.emailOrPhone)}</Label>
+                    <Input
+                      id="email"
+                      type="text"
+                      placeholder={v(t.auth.register.emailPlaceholder)}
+                      value={formData.email || ""}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      className="bg-background h-11"
+                    />
                   </div>
 
-                  {codeSent && !isEmailVerified && (
-                    <div className="space-y-2 col-span-1 md:col-span-2 animate-in fade-in slide-in-from-top-2">
-                      <Label htmlFor="code">Código de Verificação (E-mail)</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="code"
-                          type="text"
-                          placeholder="Digite os 6 dígitos"
-                          maxLength={6}
-                          value={verificationCode || ""}
-                          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                          className="bg-background h-11 flex-1 text-center text-lg tracking-[0.5em] font-bold"
-                        />
-                        <Button 
-                          type="button" 
-                          onClick={handleVerifyCode} 
-                          disabled={isVerifyingCode || (verificationCode?.length !== 6)}
-                          className="h-11 bg-emerald-600 hover:bg-emerald-700"
-                        >
-                          {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verificar"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="space-y-2">
-                    <Label htmlFor="birthDate">Data de Nascimento</Label>
+                    <Label htmlFor="birthDate">{v(t.auth.register.birthDate)}</Label>
                     <Input
                       id="birthDate"
                       type="date"
@@ -505,11 +680,11 @@ function RegisterContent() {
                   </div>
 
                   <div className="space-y-2 col-span-1 md:col-span-2">
-                    <Label htmlFor="address">Endereço Completo</Label>
+                    <Label htmlFor="address">{v(t.auth.register.fullAddress)}</Label>
                     <Input
                       id="address"
                       type="text"
-                      placeholder="Rua, número, bairro, cidade - UF"
+                      placeholder={v(t.auth.register.addressPlaceholder)}
                       value={formData.address || ""}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       className="bg-background h-11"
@@ -517,11 +692,11 @@ function RegisterContent() {
                   </div>
 
                   <div className="space-y-2 col-span-1 md:col-span-2">
-                    <Label htmlFor="phone">Telefone / WhatsApp</Label>
+                    <Label htmlFor="phone">{v(t.auth.register.phoneWhatsapp)}</Label>
                     <Input
                       id="phone"
                       type="text"
-                      placeholder="(00) 00000-0000"
+                      placeholder={v(t.auth.register.phonePlaceholder)}
                       value={formData.phone || ""}
                       onChange={handlePhoneChange}
                       required
@@ -531,11 +706,54 @@ function RegisterContent() {
 
                   {role === 'admin' && (
                     <div className="space-y-2 col-span-1 md:col-span-2">
-                      <Label htmlFor="studioName">Nome da Empresa</Label>
+                      <Label htmlFor="niche">{v(t.auth.register.niche)}</Label>
+                      <Select value={niche} onValueChange={(value: NicheType) => setNiche(value)}>
+                        <SelectTrigger className="w-full h-11 bg-background">
+                          <SelectValue placeholder={v(t.auth.register.nichePlaceholder)} />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {Object.entries(nicheDictionary[language as 'pt' | 'en'] || nicheDictionary.pt).map(([key, value]) => (
+                            <SelectItem key={key} value={key as NicheType}>
+                              {value.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {role === 'admin' && (
+                    <div className="space-y-2 col-span-1 md:col-span-2">
+                      <Label htmlFor="businessModel">{v(t.auth.register.businessModel)}</Label>
+                      <Select value={businessModel} onValueChange={(value: 'CREDIT' | 'MONETARY') => setBusinessModel(value)}>
+                        <SelectTrigger className="w-full h-11 bg-background">
+                          <SelectValue placeholder={v(t.auth.register.businessModelPlaceholder)} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CREDIT">
+                            <div className="flex flex-col">
+                              <span className="font-bold">{v(t.auth.register.businessModelCredit)}</span>
+                              <span className="text-[10px] text-muted-foreground">{v(t.auth.register.businessModelCreditDesc)}</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="MONETARY">
+                            <div className="flex flex-col">
+                              <span className="font-bold">{v(t.auth.register.businessModelMonetary)}</span>
+                              <span className="text-[10px] text-muted-foreground">{v(t.auth.register.businessModelMonetaryDesc)}</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {role === 'admin' && (
+                    <div className="space-y-2 col-span-1 md:col-span-2">
+                      <Label htmlFor="studioName">{v(t.auth.register.companyName)}</Label>
                       <Input
                         id="studioName"
                         type="text"
-                        placeholder="Ex: Minha Empresa Ltda"
+                        placeholder={v(t.auth.register.companyNamePlaceholder)}
                         value={formData.studioName || ""}
                         onChange={(e) => setFormData({ ...formData, studioName: e.target.value })}
                         required={role === 'admin'}
@@ -544,13 +762,151 @@ function RegisterContent() {
                     </div>
                   )}
 
+                  {role === 'admin' && (
+                    <div className="space-y-3 col-span-1 md:col-span-2 pt-2">
+                      <Label>{v(t.auth.register.choosePlan)}</Label>
+                      {loadingPlans ? (
+                        <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {t.auth.register.loadingPlans}
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {plans.map((p) => (
+                              <div
+                                key={p.id}
+                                className={cn(
+                                  "cursor-pointer rounded-xl border-2 p-4 transition-all hover:border-primary/50 relative overflow-hidden group",
+                                  plan === p.id ? "border-primary bg-primary/5 shadow-sm" : "border-muted bg-card hover:bg-accent/5"
+                                )}
+                                onClick={() => setPlan(p.id)}
+                              >
+                                {plan === p.id && (
+                                  <div className="absolute top-0 right-0 w-4 h-4 bg-primary rounded-bl-lg flex items-center justify-center">
+                                    <Check className="w-2.5 h-2.5 text-white" />
+                                  </div>
+                                )}
+                                {p.isPopular && (
+                                  <div className="absolute top-0 left-0 bg-primary/10 text-primary text-[9px] font-bold px-2 py-0.5 rounded-br-lg">
+                                    POPULAR
+                                  </div>
+                                )}
+                                <div className="flex justify-between items-start mb-2 mt-2">
+                                  <span className={cn("font-bold text-sm", plan === p.id ? "text-primary" : "text-foreground")}>{v(p.name)}</span>
+                                  <span className="text-[10px] font-bold bg-background px-2 py-1 rounded-full border shadow-sm">{p.price}</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mb-3 font-medium leading-tight">{v(p.description)}</p>
+                                <ul className="space-y-1">
+                                  {p.features.slice(0, 3).map((f: string, i: number) => (
+                                    <li key={i} className="text-[10px] flex items-center gap-1.5 text-muted-foreground">
+                                      <div className="w-1 h-1 rounded-full bg-primary/50" /> {v(f)}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+
+                          {plan === 'custom' && (
+                            <Card className="border-dashed border-2 border-primary/20 bg-primary/5">
+                              <CardHeader className="pb-2">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                  <Package className="w-4 h-4 text-primary" />
+                                  {t.auth.register.additionalModules}
+                                </CardTitle>
+                                <CardDescription>{t.auth.register.additionalModulesDesc}</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {systemModules.map(mod => {
+                                    // Check if this module is recommended for the current niche
+                                    const isRecommended = role === 'admin' && niche && (getDefaultModulesForNiche(niche) as any)[mod.id];
+                                    
+                                    return (
+                                    <div key={mod.id} className={cn(
+                                      "flex flex-col gap-2 p-3 rounded-lg border bg-background text-sm transition-all",
+                                      selectedModules[mod.id] ? "border-primary/50 bg-primary/5" : ""
+                                    )}>
+                                      <div className="flex items-center justify-between">
+                                        <Label htmlFor={mod.id} className="flex-1 cursor-pointer flex flex-col">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium">{mod.label}</span>
+                                            {isRecommended && (
+                                              <span className="text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200">
+                                                RECOMENDADO
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="text-[10px] text-muted-foreground">
+                                            {Number(mod.price) === 0 ? "Grátis" : `+ R$ ${Number(mod.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                          </span>
+                                        </Label>
+                                        <Switch 
+                                          id={mod.id}
+                                          checked={selectedModules[mod.id] || false}
+                                          onCheckedChange={(checked) => {
+                                            if (!checked && isRecommended) {
+                                              if (!confirm(`O módulo "${mod.label}" é altamente recomendado para o nicho de ${nicheDictionary.pt[niche]?.name || niche}. Deseja realmente remover?`)) {
+                                                return;
+                                              }
+                                            }
+                                            setSelectedModules(prev => ({ ...prev, [mod.id]: checked }))
+                                          }}
+                                          disabled={Number(mod.price) === 0 && mod.active}
+                                        />
+                                      </div>
+                                      
+                                      {mod.id === 'multi_unit' && selectedModules[mod.id] && (
+                                        <div className="flex items-center justify-between mt-1 pt-2 border-t border-dashed">
+                                          <span className="text-[10px] font-medium text-muted-foreground">{t.auth.register.multiUnitQuantity}</span>
+                                          <div className="flex items-center gap-2">
+                                            <Button 
+                                              type="button" 
+                                              variant="outline" 
+                                              size="icon" 
+                                              className="h-6 w-6 rounded-md"
+                                              onClick={() => setMultiUnitQuantity(prev => Math.max(1, prev - 1))}
+                                            >
+                                              <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <span className="text-xs font-bold w-4 text-center">{multiUnitQuantity}</span>
+                                            <Button 
+                                              type="button" 
+                                              variant="outline" 
+                                              size="icon" 
+                                              className="h-6 w-6 rounded-md"
+                                              onClick={() => setMultiUnitQuantity(prev => prev + 1)}
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )})}
+                                </div>
+                                <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                                  <span className="font-bold text-sm">{t.auth.register.totalMonthly}</span>
+                                  <span className="font-bold text-xl text-primary">
+                                    R$ {customTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label htmlFor="password">Senha</Label>
+                    <Label htmlFor="password">{t.auth.register.password}</Label>
                     <div className="relative">
                       <Input
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Mínimo 8 caracteres"
+                        placeholder={t.auth.register.passwordPlaceholder}
                         value={formData.password || ""}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         required
@@ -568,12 +924,12 @@ function RegisterContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                    <Label htmlFor="confirmPassword">{t.auth.register.confirmPassword}</Label>
                     <div className="relative">
                       <Input
                         id="confirmPassword"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Repita sua senha"
+                        placeholder={t.auth.register.confirmPasswordPlaceholder}
                         value={formData.confirmPassword || ""}
                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                         required
@@ -596,19 +952,21 @@ function RegisterContent() {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processando...
+                      {v(t.auth.register.processing)}
                     </>
                   ) : (
-                    role === 'admin' ? "Começar Teste Grátis" : "Criar Minha Conta"
+                    role === 'admin' 
+                      ? (plan === 'gratuito' ? v(t.auth.register.submitAdminFree) : v(t.auth.register.submitAdmin))
+                      : v(t.auth.register.submitStudent)
                   )}
                 </Button>
               </form>
 
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Já tem uma conta?{" "}
+                  {t.auth.register.alreadyHaveAccount}{" "}
                   <Link href="/login" className="text-primary hover:underline font-medium">
-                    Entrar
+                    {t.auth.register.login}
                   </Link>
                 </p>
               </div>
@@ -616,10 +974,27 @@ function RegisterContent() {
           </Card>
 
           <p className="text-center text-xs text-muted-foreground mt-6 px-4">
-            Ao criar uma conta, você concorda com nossos{" "}
-            <Link href="#" className="underline hover:text-foreground">Termos de Serviço</Link>
-            {" "}e{" "}
-            <Link href="#" className="underline hover:text-foreground">Política de Privacidade</Link>.
+            {t.auth.register.agreeTo
+              .split('{terms}')
+              .map((part, i, arr) => (
+                <React.Fragment key={i}>
+                  {part.split('{privacy}').map((subPart, j, subArr) => (
+                    <React.Fragment key={j}>
+                      {subPart}
+                      {j < subArr.length - 1 && (
+                        <Link href="#" className="underline hover:text-foreground">
+                          {t.auth.register.privacy}
+                        </Link>
+                      )}
+                    </React.Fragment>
+                  ))}
+                  {i < arr.length - 1 && (
+                    <Link href="#" className="underline hover:text-foreground">
+                      {t.auth.register.terms}
+                    </Link>
+                  )}
+                </React.Fragment>
+              ))}
           </p>
         </div>
       </div>

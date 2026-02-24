@@ -25,7 +25,7 @@ import { useVocabulary } from "@/hooks/use-vocabulary"
 
 export default function AdminAttendancePage() {
   const { id } = useParams() as { id: string }
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, language } = useVocabulary()
   const router = useRouter()
   const { toast } = useToast()
   

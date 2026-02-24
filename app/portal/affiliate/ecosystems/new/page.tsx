@@ -15,8 +15,9 @@ import { createEcosystemInvite } from "@/lib/actions/ecosystem"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { pluralize } from "@/lib/pluralize"
+import { useVocabulary } from "@/hooks/use-vocabulary"
 
-const GET_AVAILABLE_MODULES = (vocabulary: any) => [
+const GET_AVAILABLE_MODULES = (vocabulary: any, t: any) => [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'students', label: `Gestão de ${pluralize(vocabulary.client)}` },
   { id: 'classes', label: `Gestão de ${pluralize(vocabulary.service)}` },
@@ -27,7 +28,7 @@ const GET_AVAILABLE_MODULES = (vocabulary: any) => [
   { id: 'scanner', label: 'Scanner' },
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'erp', label: 'ERP' },
-  { id: 'service_orders', label: 'Ordens de Serviço' },
+  { id: 'service_orders', label: t.service_orders.title },
 ]
 
 type PackageType = 'custom' | 'basic' | 'pro'
@@ -59,6 +60,7 @@ export default function NewAffiliateEcosystemPage() {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [packageType, setPackageType] = useState<PackageType>('custom')
   const [user, setUser] = useState<User | null>(null)
+  const { t, vocabulary } = useVocabulary()
 
   const [formData, setFormData] = useState({
     name: "",
@@ -112,7 +114,7 @@ export default function NewAffiliateEcosystemPage() {
   }, [router])
 
   const currentVocabulary = nicheDictionary.pt[formData.niche] || nicheDictionary.pt.dance
-  const availableModules = GET_AVAILABLE_MODULES(currentVocabulary)
+  const availableModules = GET_AVAILABLE_MODULES(currentVocabulary, t)
 
   const handlePackageChange = (type: PackageType) => {
     setPackageType(type)

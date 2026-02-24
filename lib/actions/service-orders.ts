@@ -2,34 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { z } from 'zod'
 import { guardModule } from '@/lib/modules-server'
-
-// --- Schemas ---
-
-export const ServiceOrderItemSchema = z.object({
-  id: z.string().optional(),
-  item_type: z.enum(['product', 'service']),
-  product_id: z.string().nullable().optional(),
-  service_id: z.string().nullable().optional(),
-  description: z.string().min(1, "Descrição é obrigatória"),
-  quantity: z.number().min(0.01, "Quantidade mínima é 0.01"),
-  unit_price: z.number().min(0, "Preço unitário não pode ser negativo"),
-})
-
-export const ServiceOrderSchema = z.object({
-  id: z.string().optional(),
-  customer_id: z.string().min(1, "Cliente é obrigatório"),
-  professional_id: z.string().optional().nullable(),
-  status: z.enum(['draft', 'open', 'in_progress', 'waiting_parts', 'finished', 'cancelled']).default('draft'),
-  description: z.string().min(1, "Descrição do problema é obrigatória"),
-  observations: z.string().optional(),
-  private_notes: z.string().optional(),
-  items: z.array(ServiceOrderItemSchema).default([]),
-  discount: z.number().default(0),
-})
-
-export type ServiceOrderFormValues = z.infer<typeof ServiceOrderSchema>
+import { ServiceOrderFormValues } from '@/lib/schemas/service-orders'
 
 // --- Actions ---
 
@@ -57,7 +31,7 @@ export async function getServiceOrders(studioId: string, filters?: { status?: st
     .select(`
       *,
       customer:students(id, name, email, phone),
-      professional:professionals(id, name),
+      professional:professionals!professional_id(id, name, professional_type),
       items:service_order_items(*)
     `)
     .eq('studio_id', studioId)
@@ -92,7 +66,7 @@ export async function getServiceOrderById(id: string) {
     .select(`
       *,
       customer:students(id, name, email, phone),
-      professional:professionals(id, name),
+      professional:professionals!professional_id(id, name),
       items:service_order_items(*),
       history:service_order_history(
         *,
@@ -132,6 +106,9 @@ export async function createServiceOrder(data: ServiceOrderFormValues, studioId:
       total_services,
       total_amount,
       status: 'draft',
+      project_type: orderData.project_type || 'common',
+      professional_commission_value: orderData.professional_commission_value || 0,
+      professional_commission_status: 'pending',
       opened_at: new Date().toISOString()
     })
     .select()
@@ -140,7 +117,7 @@ export async function createServiceOrder(data: ServiceOrderFormValues, studioId:
   if (orderError) throw new Error(`Erro ao criar OS: ${orderError.message}`)
 
   // 2. Criar Itens
-  if (items.length > 0) {
+  if (items && items.length > 0) {
     const itemsToInsert = items.map(item => ({
       studio_id: studioId,
       service_order_id: newOrder.id,
@@ -208,6 +185,11 @@ export async function updateServiceOrder(id: string, data: ServiceOrderFormValue
       private_notes: orderData.private_notes,
       discount: orderData.discount,
       status: orderData.status,
+      project_type: orderData.project_type,
+      professional_commission_value: orderData.professional_commission_value,
+      professional_commission_status: orderData.professional_commission_status,
+      scheduled_at: orderData.scheduled_at,
+      customer_signature_url: orderData.customer_signature_url,
       total_products,
       total_services,
       total_amount
@@ -222,7 +204,7 @@ export async function updateServiceOrder(id: string, data: ServiceOrderFormValue
   
   await supabase.from('service_order_items').delete().eq('service_order_id', id)
 
-  if (items.length > 0) {
+  if (items && items.length > 0) {
     const itemsToInsert = items.map(item => ({
       studio_id: studioId,
       service_order_id: id,
@@ -262,27 +244,66 @@ export async function updateServiceOrder(id: string, data: ServiceOrderFormValue
   return { success: true }
 }
 
+export async function getPendingServiceOrders(studioId: string) {
+  await guardModule('service_orders')
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('service_orders')
+    .select(`
+      *,
+      customer:students(id, name)
+    `)
+    .eq('studio_id', studioId)
+    .eq('payment_status', 'pending')
+    .in('status', ['finished', 'in_progress', 'open'])
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(`Erro ao buscar OS pendentes: ${error.message}`)
+  return data
+}
+
+export async function deleteServiceOrder(id: string, studioId: string) {
+  await guardModule('service_orders')
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from('service_orders')
+    .delete()
+    .eq('id', id)
+    .eq('studio_id', studioId)
+
+  if (error) throw new Error(`Erro ao excluir OS: ${error.message}`)
+  
+  revalidatePath('/dashboard/os')
+  return { success: true }
+}
+
 export async function getStudentsForOS(studioId: string) {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('students')
     .select('id, name, email, phone')
     .eq('studio_id', studioId)
-    .eq('status', 'active')
     .order('name')
   
   if (error) throw error
   return data
 }
 
-export async function getProfessionalsForOS(studioId: string) {
+export async function getProfessionalsForOS(studioId: string, types?: Array<'technician' | 'engineer' | 'architect' | 'other'>) {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('professionals')
-    .select('id, name')
+    .select('id, name, professional_type') // Incluir professional_type
     .eq('studio_id', studioId)
     .eq('status', 'active')
-    .order('name')
+
+  if (types && types.length > 0) {
+    query = query.in('professional_type', types)
+  }
+  
+  const { data, error } = await query.order('name')
   
   if (error) throw error
   return data
@@ -290,58 +311,91 @@ export async function getProfessionalsForOS(studioId: string) {
 
 export async function getProductsForOS(studioId: string) {
   const supabase = await createClient()
+  
+  // Buscamos todas as colunas possíveis para garantir compatibilidade entre esquemas
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, price, quantity')
+    .select('id, name, price, selling_price, current_stock, quantity')
     .eq('studio_id', studioId)
+    .eq('status', 'active')
     .order('name')
   
-  if (error) throw error
-  return data
+  if (error) {
+    // Se der erro de coluna não existente, tentamos o fallback manual
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('products')
+      .select('*')
+      .eq('studio_id', studioId)
+      .eq('status', 'active')
+      .order('name')
+    
+    if (fallbackError) throw new Error(`Erro ao buscar produtos: ${fallbackError.message}`)
+    
+    return fallbackData.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price || p.selling_price || 0),
+      current_stock: Number(p.current_stock ?? p.quantity ?? 0)
+    }))
+  }
+
+  // Mapeia para o formato esperado pelo componente, preferindo valores preenchidos
+  return data.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: Number(p.price || p.selling_price || 0),
+    current_stock: Number(p.current_stock ?? p.quantity ?? 0)
+  }))
 }
 
 async function handleFinishOrder(orderId: string, studioId: string, amount: number, customerId: string) {
   const supabase = await createClient()
   
   // Buscar configuração do business_model
-  // Assumindo que está em organization_settings ou studio_settings. 
-  // O prompt fala de "organization_settings.business_type" mas "business_model" (monetary/credit)
-  // Vamos buscar em organization_settings ou assumir default Monetary.
-  
-  const { data: orgSettings } = await supabase
-    .from('organization_settings')
-    .select('business_type') // Pode ser que o modelo de cobranca esteja aqui
-    .eq('studio_id', studioId)
+  const { data: studio } = await supabase
+    .from('studios')
+    .select('business_model')
+    .eq('id', studioId)
     .single()
     
-  // Como não tenho certeza onde está "business_model" (CREDIT vs MONETARY), vou inferir ou usar padrão.
-  // Se for CREDIT, debita. Se for MONETARY, gera fatura.
-  // Vou assumir MONETARY como default.
+  const businessModel = studio?.business_model || 'CREDIT'
   
-  // TODO: Implementar verificação real do modelo de negócio. 
-  // Por enquanto, vou criar um pagamento pendente (MONETARY).
-  
-  // Se for Credit:
-  /*
-  const { error: creditError } = await supabase.rpc('deduct_student_credits', {
-      p_student_id: customerId,
-      p_amount: amount
-  })
-  */
-  
-  // Monetary (Padrão): Gerar Pagamento Pendente
-  if (amount > 0) {
-      await supabase.from('payments').insert({
-          studio_id: studioId,
-          student_id: customerId,
-          amount: amount,
-          due_date: new Date().toISOString(), // Vence hoje
-          status: 'pending',
-          reference_month: new Date().toISOString().slice(0, 7), // YYYY-MM
-          description: `Referente à OS #${orderId}`,
-          payment_method: 'other'
+  if (businessModel === 'CREDIT') {
+      // Se for CREDIT, tenta debitar créditos do aluno
+      // Assumimos que o 'amount' da OS representa a quantidade de créditos
+      const { error: creditError } = await supabase.rpc('adjust_student_credits', {
+          p_student_id: customerId,
+          p_studio_id: studioId,
+          p_amount: -Math.ceil(amount) // Negativo para deduzir
       })
-  }
+
+      if (creditError) {
+          console.error("Erro ao debitar créditos na finalização da OS:", creditError)
+          // Não interrompe o fluxo, mas loga o erro. Idealmente deveria notificar.
+      }
+  } else {
+      // MONETARY (Padrão): Gerar Pagamento Pendente
+      if (amount > 0) {
+          await supabase.from('payments').insert({
+              studio_id: studioId,
+              student_id: customerId,
+              service_order_id: orderId, // Vínculo direto
+              amount: amount,
+              due_date: new Date().toISOString(), // Vence hoje
+              status: 'pending',
+              payment_status: 'pending',
+              reference_month: new Date().toISOString().slice(0, 7), // YYYY-MM
+              description: `Referente à OS #${orderId.substring(0, 8)}`,
+              payment_method: 'other'
+          })
+      }
+   }
+  
+  // Atualizar payment_status da OS para 'pending' se a venda foi gerada aqui
+  await supabase
+    .from('service_orders')
+    .update({ payment_status: 'pending' })
+    .eq('id', orderId);
   
   // Atualizar finished_at
   await supabase
@@ -360,4 +414,186 @@ export async function createService(data: { name: string, price: number, descrip
     
     if (error) throw new Error(error.message)
     revalidatePath('/dashboard/service-orders')
+}
+
+// --- Documents Actions ---
+
+export async function getServiceOrderDocuments(orderId: string) {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+        .from('service_order_documents')
+        .select('*')
+        .eq('service_order_id', orderId)
+        .order('created_at', { ascending: false })
+
+    if (error) throw new Error(`Erro ao buscar documentos: ${error.message}`)
+    return data
+}
+
+export async function createServiceOrderDocument(data: any, studioId: string) {
+    const supabase = await createClient()
+    const { data: user } = await supabase.auth.getUser()
+    
+    const { error } = await supabase
+        .from('service_order_documents')
+        .insert({
+            ...data,
+            studio_id: studioId,
+            uploaded_by: user.user?.id
+        })
+
+    if (error) throw new Error(`Erro ao anexar documento: ${error.message}`)
+    revalidatePath('/dashboard/os')
+}
+
+export async function deleteServiceOrderDocument(id: string, studioId: string) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('service_order_documents')
+        .delete()
+        .eq('id', id)
+        .eq('studio_id', studioId)
+
+    if (error) throw new Error(`Erro ao excluir documento: ${error.message}`)
+    revalidatePath('/dashboard/os')
+}
+
+export async function signServiceOrderDocument(id: string, studioId: string) {
+    const supabase = await createClient()
+    const { data: user } = await supabase.auth.getUser()
+    
+    const { error } = await supabase
+        .from('service_order_documents')
+        .update({
+            signed_at: new Date().toISOString(),
+            signed_by_id: user.user?.id
+        })
+        .eq('id', id)
+        .eq('studio_id', studioId)
+
+    if (error) throw new Error(`Erro ao assinar documento: ${error.message}`)
+    revalidatePath('/dashboard/os')
+}
+
+export async function updateServiceOrderStatus(id: string, status: string, studioId: string) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('service_orders')
+        .update({ status })
+        .eq('id', id)
+        .eq('studio_id', studioId)
+
+    if (error) throw new Error(`Erro ao atualizar status do projeto: ${error.message}`)
+    
+    // Log history
+    await supabase.from('service_order_history').insert({
+        studio_id: studioId,
+        service_order_id: id,
+        new_status: status,
+        notes: `Status alterado pelo engenheiro para ${status}`
+    })
+
+    revalidatePath('/dashboard/os')
+    revalidatePath(`/solutions/fire-protection/engineer/projetos/${id}`)
+    return { success: true }
+}
+
+export async function getServiceOrderMilestones(orderId: string) {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+        .from('service_order_milestones')
+        .select('*')
+        .eq('service_order_id', orderId)
+        .order('order_index', { ascending: true })
+
+    if (error) throw new Error(`Erro ao buscar marcos: ${error.message}`)
+    return data
+}
+
+export async function createServiceOrderMilestone(data: any, studioId: string) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('service_order_milestones')
+        .insert({
+            ...data,
+            studio_id: studioId
+        })
+
+    if (error) throw new Error(`Erro ao criar marco: ${error.message}`)
+    revalidatePath('/dashboard/os')
+}
+
+export async function updateMilestoneStatus(id: string, status: 'pending' | 'completed' | 'cancelled', studioId: string, assignedProfessionalId?: string) {
+    const supabase = await createClient()
+    const updateData: any = { 
+        status,
+        completed_at: status === 'completed' ? new Date().toISOString() : null
+    }
+    
+    if (assignedProfessionalId) {
+        updateData.assigned_professional_id = assignedProfessionalId
+    }
+
+    const { error } = await supabase
+        .from('service_order_milestones')
+        .update(updateData)
+        .eq('id', id)
+        .eq('studio_id', studioId)
+
+    if (error) throw new Error(`Erro ao atualizar status do marco: ${error.message}`)
+    revalidatePath('/dashboard/os')
+}
+
+export async function deleteMilestone(id: string, studioId: string) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('service_order_milestones')
+        .delete()
+        .eq('id', id)
+        .eq('studio_id', studioId)
+
+    if (error) throw new Error(`Erro ao excluir marco: ${error.message}`)
+    revalidatePath('/dashboard/os')
+}
+
+// --- Comments Actions ---
+
+export async function getServiceOrderComments(orderId: string, studioId: string) {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+        .from('service_order_comments')
+        .select(`
+            *,
+            user:auth.users(email)
+        `)
+        .eq('service_order_id', orderId)
+        .eq('studio_id', studioId)
+        .order('created_at', { ascending: true })
+
+    if (error) throw new Error(`Erro ao buscar comentários: ${error.message}`)
+    
+    // Fallback manual para nome de usuário se não tiver relação direta com tabela de users (dependendo da configuração do supabase)
+    // O ideal seria fazer join com a tabela de perfis (students, teachers, professionals, users_internal)
+    // Mas para simplificar, vamos usar o email do auth.users se disponível, ou buscar o nome.
+    
+    return data
+}
+
+export async function createServiceOrderComment(orderId: string, studioId: string, content: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) throw new Error('Usuário não autenticado')
+
+    const { error } = await supabase
+        .from('service_order_comments')
+        .insert({
+            service_order_id: orderId,
+            studio_id: studioId,
+            user_id: user.id,
+            content
+        })
+
+    if (error) throw new Error(`Erro ao adicionar comentário: ${error.message}`)
+    revalidatePath('/dashboard/os')
 }

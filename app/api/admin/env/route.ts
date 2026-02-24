@@ -2,11 +2,37 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import dotenv from 'dotenv'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // Caminho para o arquivo .env na raiz do projeto
 const envPath = path.join(process.cwd(), '.env')
 
+async function requireSuperAdmin(): Promise<{ authorized: boolean; response?: NextResponse }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { authorized: false, response: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
+  }
+
+  const { data: internalUser } = await supabaseAdmin
+    .from('users_internal')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!internalUser || internalUser.role !== 'super_admin') {
+    return { authorized: false, response: NextResponse.json({ error: 'Acesso restrito a super administradores' }, { status: 403 }) }
+  }
+
+  return { authorized: true }
+}
+
 export async function GET() {
+  const auth = await requireSuperAdmin()
+  if (!auth.authorized) return auth.response!
+
   try {
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ error: 'Arquivo .env não encontrado' }, { status: 404 })
@@ -46,6 +72,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireSuperAdmin()
+  if (!auth.authorized) return auth.response!
+
   try {
     const newConfig = await request.json()
     

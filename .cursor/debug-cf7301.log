@@ -1,0 +1,3 @@
+{"sessionId":"cf7301","location":"app/dashboard/page.tsx:127","message":"handleCopyLink called","data":{"role":"engineer","studioSlug":"lalapro"},"timestamp":1771816794679}
+{"sessionId":"cf7301","location":"app/dashboard/page.tsx:156","message":"Clipboard write success","data":{"role":"engineer"},"timestamp":1771816794680}
+{"sessionId":"cf7301","location":"app/dashboard/page.tsx:138","message":"Generated link","data":{"link":"http://localhost:3000/s/lalapro/join?role=engineer","role":"engineer"},"timestamp":1771816794679}

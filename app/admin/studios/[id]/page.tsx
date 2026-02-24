@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AdminHeader } from "@/components/admin/admin-header"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Save, ArrowLeft, Database, Globe } from "lucide-react"
+import { Loader2, Save, ArrowLeft, Database, Globe, FireExtinguisher } from "lucide-react"
 import Link from "next/link"
 import { supabase } from '@/lib/supabase'
 import { toast } from "sonner"
@@ -63,10 +63,83 @@ export default function TenantDetailPage() {
   const [saving, setSaving] = useState(false)
   const [isSendingLink, setIsSendingLink] = useState(false)
   const [clientEmail, setClientEmail] = useState('')
+  const [productionConfig, setProductionConfig] = useState({
+    extintores_por_dia: 20,
+    lead_time_minimo_dias: 1,
+    technicians: [] as { id: string; name: string; extintores_por_dia: number | null }[],
+  })
+  const [loadingProduction, setLoadingProduction] = useState(false)
+  const [savingProduction, setSavingProduction] = useState(false)
 
   useEffect(() => {
     loadTenant()
   }, [])
+
+  useEffect(() => {
+    if (params.id && niche === 'fire_protection') {
+      loadProductionConfig()
+    }
+  }, [params.id, niche])
+
+  async function loadProductionConfig() {
+    setLoadingProduction(true)
+    try {
+      const res = await fetch(`/api/admin/fire-protection/production-config?studioId=${params.id}`)
+      const data = await res.json()
+      if (data.config) {
+        setProductionConfig((prev) => ({
+          ...prev,
+          extintores_por_dia: data.config.extintores_por_dia ?? 20,
+          lead_time_minimo_dias: data.config.lead_time_minimo_dias ?? 1,
+        }))
+      }
+      if (data.technicians?.length) {
+        setProductionConfig((prev) => ({
+          ...prev,
+          technicians: data.technicians.map((t: { id: string; name: string; extintores_por_dia: number | null }) => ({
+            id: t.id,
+            name: t.name,
+            extintores_por_dia: t.extintores_por_dia ?? null,
+          })),
+        }))
+      } else {
+        setProductionConfig((prev) => ({ ...prev, technicians: [] }))
+      }
+    } catch (e) {
+      toast.error('Erro ao carregar configuração de produção')
+    } finally {
+      setLoadingProduction(false)
+    }
+  }
+
+  async function handleSaveProduction() {
+    setSavingProduction(true)
+    try {
+      const res = await fetch('/api/admin/fire-protection/production-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studio_id: params.id,
+          extintores_por_dia: productionConfig.extintores_por_dia,
+          lead_time_minimo_dias: productionConfig.lead_time_minimo_dias,
+          technicians: productionConfig.technicians.map((t) => ({
+            id: t.id,
+            extintores_por_dia: t.extintores_por_dia,
+          })),
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Erro ao salvar')
+      }
+      toast.success('Configuração de produção salva!')
+      loadProductionConfig()
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao salvar configuração')
+    } finally {
+      setSavingProduction(false)
+    }
+  }
 
   async function loadTenant() {
     setLoading(true);
@@ -236,6 +309,111 @@ export default function TenantDetailPage() {
                   </Button>
               </CardFooter>
             </Card>
+
+            {niche === 'fire_protection' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FireExtinguisher className="w-5 h-5 text-red-500" />
+                    Produção de Extintores
+                  </CardTitle>
+                  <CardDescription>
+                    Configure a capacidade de recarga por dia e por técnico para estimar datas de entrega.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase">Extintores possíveis recarregar por dia (total da empresa)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={productionConfig.extintores_por_dia}
+                        onChange={(e) =>
+                          setProductionConfig((p) => ({
+                            ...p,
+                            extintores_por_dia: Math.max(1, Math.min(500, parseInt(e.target.value, 10) || 1)),
+                          }))
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase">Lead time mínimo (dias)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={productionConfig.lead_time_minimo_dias}
+                        onChange={(e) =>
+                          setProductionConfig((p) => ({
+                            ...p,
+                            lead_time_minimo_dias: Math.max(0, Math.min(30, parseInt(e.target.value, 10) ?? 1)),
+                          }))
+                        }
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Dias mínimos entre retirada e entrega prevista.</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase mb-2 block">Capacidade por técnico (extintores/dia)</Label>
+                    {loadingProduction ? (
+                      <div className="flex items-center gap-2 py-4 text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">Carregando técnicos...</span>
+                      </div>
+                    ) : productionConfig.technicians.length > 0 ? (
+                      <div className="rounded-lg border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="text-left p-3 font-medium">Técnico</th>
+                              <th className="text-right p-3 font-medium w-28">Extintores/dia</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {productionConfig.technicians.map((t) => (
+                              <tr key={t.id} className="border-t">
+                                <td className="p-3">{t.name}</td>
+                                <td className="p-3 text-right">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    placeholder="—"
+                                    value={t.extintores_por_dia ?? ''}
+                                    onChange={(e) => {
+                                      const v = e.target.value === '' ? null : Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0))
+                                      setProductionConfig((p) => ({
+                                        ...p,
+                                        technicians: p.technicians.map((x) =>
+                                          x.id === t.id ? { ...x, extintores_por_dia: v } : x
+                                        ),
+                                      }))
+                                    }}
+                                    className="w-20 text-right h-8"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-4">Nenhum técnico cadastrado neste estúdio.</p>
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button onClick={handleSaveProduction} disabled={savingProduction || loadingProduction}>
+                    {savingProduction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Salvar configuração
+                  </Button>
+                </CardFooter>
+              </Card>
+            )}
 
           </div>
 

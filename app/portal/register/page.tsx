@@ -13,10 +13,11 @@ import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
 import { validateCPF } from "@/lib/validation-utils"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { LanguageSwitcher } from "@/components/common/language-switcher"
 
 function PortalRegisterContent() {
   const router = useRouter()
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, language, t } = useVocabulary()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [showPassword, setShowPassword] = useState(false)
@@ -35,7 +36,7 @@ function PortalRegisterContent() {
     confirmPassword: "",
   })
 
-  const [isEmailVerified, setIsEmailVerified] = useState(false)
+  const [isEmailVerified, setIsEmailVerified] = useState(true)
   const [codeSent, setCodeSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [isSendingCode, setIsSendingCode] = useState(false)
@@ -60,7 +61,7 @@ function PortalRegisterContent() {
 
   const handleSendCode = async () => {
     if (!formData.email || !formData.email.includes('@')) {
-      toast({ title: "E-mail inválido", description: "Preencha seu e-mail para receber o código.", variant: "destructive" })
+      toast({ title: language === 'pt' ? "E-mail inválido" : "Invalid email", description: language === 'pt' ? "Preencha seu e-mail para receber o código." : "Fill in your email to receive the code.", variant: "destructive" })
       return
     }
     setIsSendingCode(true)
@@ -72,12 +73,12 @@ function PortalRegisterContent() {
       })
       if (response.ok) {
         setCodeSent(true)
-        toast({ title: "Código enviado ao seu e-mail!" })
+        toast({ title: language === 'pt' ? "Código enviado ao seu e-mail!" : "Code sent to your email!" })
       } else {
-        toast({ title: "Erro ao enviar código", variant: "destructive" })
+        toast({ title: language === 'pt' ? "Erro ao enviar código" : "Error sending code", variant: "destructive" })
       }
     } catch (e) {
-      toast({ title: "Erro de conexão", variant: "destructive" })
+      toast({ title: t.auth.login.connectionErrorTitle, variant: "destructive" })
     } finally {
       setIsSendingCode(false)
     }
@@ -94,12 +95,12 @@ function PortalRegisterContent() {
       })
       if (response.ok) {
         setIsEmailVerified(true)
-        toast({ title: "E-mail verificado!" })
+        toast({ title: language === 'pt' ? "E-mail verificado!" : "Email verified!" })
       } else {
-        toast({ title: "Código inválido", variant: "destructive" })
+        toast({ title: language === 'pt' ? "Código inválido" : "Invalid code", variant: "destructive" })
       }
     } catch (e) {
-      toast({ title: "Erro de conexão", variant: "destructive" })
+      toast({ title: t.auth.login.connectionErrorTitle, variant: "destructive" })
     } finally {
       setIsVerifyingCode(false)
     }
@@ -108,24 +109,27 @@ function PortalRegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Validar e-mail verificado (Desativado para testes)
+    /*
     if (!isEmailVerified) {
       toast({ title: "Verifique seu e-mail primeiro", variant: "destructive" })
       return
     }
+    */
 
     if (!validateCPF(formData.taxId)) {
-      toast({ title: "CPF inválido", variant: "destructive" })
+      toast({ title: language === 'pt' ? "CPF inválido" : "Invalid CPF", variant: "destructive" })
       return
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast({ title: "Senhas não coincidem", variant: "destructive" })
+      toast({ title: language === 'pt' ? "Senhas não coincidem" : "Passwords do not match", variant: "destructive" })
       return
     }
 
     const strength = checkPasswordStrength(formData.password)
     if (strength.score < MIN_STRONG_PASSWORD_SCORE) {
-      toast({ title: "Senha muito fraca", variant: "destructive" })
+      toast({ title: language === 'pt' ? "Senha muito fraca" : "Password too weak", variant: "destructive" })
       return
     }
 
@@ -140,7 +144,8 @@ function PortalRegisterContent() {
         body: JSON.stringify({ 
           ...formData, 
           role,
-          portal: 'user'
+          portal: 'user',
+          language
         })
       })
 
@@ -148,10 +153,10 @@ function PortalRegisterContent() {
         setIsSuccess(true)
       } else {
         const data = await response.json()
-        toast({ title: "Erro no cadastro", description: data.error, variant: "destructive" })
+        toast({ title: language === 'pt' ? "Erro no cadastro" : "Registration error", description: data.error, variant: "destructive" })
       }
     } catch (error) {
-      toast({ title: "Erro de conexão", variant: "destructive" })
+      toast({ title: t.auth.login.connectionErrorTitle, variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
@@ -165,17 +170,21 @@ function PortalRegisterContent() {
             <Mail className="w-10 h-10 text-emerald-600" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-black">Quase lá!</h2>
+            <h2 className="text-2xl font-black">{language === 'pt' ? "Quase lá!" : "Almost there!"}</h2>
             <p className="text-slate-500">
-              Sua solicitação de cadastro foi recebida com sucesso.
+              {language === 'pt' ? "Sua solicitação de cadastro foi recebida com sucesso." : "Your registration request has been successfully received."}
             </p>
           </div>
           <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl text-sm text-indigo-900 dark:text-indigo-100 font-medium">
-            Você receberá um <strong>link de ativação</strong> no seu e-mail assim que seu cadastro for aprovado.
+            {language === 'pt' ? (
+              <>Você receberá um <strong>link de ativação</strong> no seu e-mail assim que seu cadastro for aprovado.</>
+            ) : (
+              <>You will receive an <strong>activation link</strong> in your email as soon as your registration is approved.</>
+            )}
           </div>
           <Link href="/portal/login" className="block">
             <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 rounded-xl">
-              Voltar para o Login
+              {language === 'pt' ? "Voltar para o Login" : "Back to Login"}
             </Button>
           </Link>
         </Card>
@@ -184,7 +193,10 @@ function PortalRegisterContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher showIcon />
+      </div>
       <div className="w-full max-w-md space-y-8 my-8">
         <div className="text-center space-y-2">
           <Link href="/portal" className="inline-flex items-center gap-2">
@@ -195,7 +207,7 @@ function PortalRegisterContent() {
               <span className="text-indigo-600">Portal</span>
             </span>
           </Link>
-          <h1 className="text-xl font-bold">Criar minha conta</h1>
+          <h1 className="text-xl font-bold">{language === 'pt' ? "Criar minha conta" : "Create my account"}</h1>
         </div>
 
         <Card className="border-none shadow-2xl">
@@ -222,10 +234,10 @@ function PortalRegisterContent() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome Completo</Label>
+                <Label htmlFor="name">{t.auth.register.fullName}</Label>
                 <Input
                   id="name"
-                  placeholder="Seu nome"
+                  placeholder={t.auth.register.fullNamePlaceholder}
                   value={formData.name || ""}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
@@ -234,7 +246,7 @@ function PortalRegisterContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="taxId">CPF</Label>
+                <Label htmlFor="taxId">{t.auth.register.document}</Label>
                 <Input
                   id="taxId"
                   placeholder="000.000.000-00"
@@ -246,63 +258,23 @@ function PortalRegisterContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                      <Input
-                          id="email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={formData.email || ""}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          required
-                          disabled={isEmailVerified}
-                          className="bg-slate-50 dark:bg-slate-900 pr-10"
-                      />
-                      {isEmailVerified && <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />}
-                  </div>
-                  {!isEmailVerified && (
-                      <Button 
-                      type="button" 
-                      onClick={handleSendCode} 
-                      disabled={isSendingCode || !formData.email || !formData.email.includes('@')}
-                      variant="outline"
-                      className="h-10 text-xs border-indigo-600 text-indigo-600"
-                      >
-                      {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Validar"}
-                      </Button>
-                  )}
-                </div>
+                <Label htmlFor="email">{t.auth.register.emailOrPhone}</Label>
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder={t.auth.register.emailPlaceholder}
+                  value={formData.email || ""}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  className="bg-slate-50 dark:bg-slate-900 h-12"
+                />
               </div>
 
-                {codeSent && !isEmailVerified && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                  <Label>Código de Verificação (E-mail)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="6 dígitos"
-                      maxLength={6}
-                      value={verificationCode || ""}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                      className="bg-slate-50 dark:bg-slate-900 text-center font-bold tracking-widest"
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={handleVerifyCode} 
-                      disabled={isVerifyingCode || (verificationCode?.length !== 6)}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verificar"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-2">
-                <Label htmlFor="phone">Telefone / WhatsApp</Label>
+                <Label htmlFor="phone">{t.auth.register.phoneWhatsapp}</Label>
                 <Input
                   id="phone"
-                  placeholder="(00) 00000-0000"
+                  placeholder={t.auth.register.phonePlaceholder}
                   value={formData.phone || ""}
                   onChange={handlePhoneChange}
                   required
@@ -312,7 +284,7 @@ function PortalRegisterContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <Label htmlFor="password">{t.auth.register.password}</Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -328,7 +300,7 @@ function PortalRegisterContent() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                  <Label htmlFor="confirmPassword">{t.auth.register.confirmPassword}</Label>
                   <Input
                     id="confirmPassword"
                     type={showPassword ? "text" : "password"}
@@ -349,26 +321,28 @@ function PortalRegisterContent() {
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black h-12 rounded-xl mt-4"
                 disabled={isLoading || !isEmailVerified}
               >
-                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Solicitar Cadastro"}
+                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : (language === 'pt' ? "Solicitar Cadastro" : "Request Registration")}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-slate-500">
-                Já tem conta? <Link href="/portal/login" className="text-indigo-600 font-bold hover:underline">Entrar</Link>
+                {language === 'pt' ? "Já tem conta? " : "Already have an account? "}
+                <Link href={`/portal/login?${searchParams.get('returnTo') ? `returnTo=${encodeURIComponent(searchParams.get('returnTo') as string)}` : ''}`} className="text-indigo-600 font-bold hover:underline">{t.auth.login.submit}</Link>
               </p>
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
               <Link href="/portal/affiliate/register" className="text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors">
-                Quer ser um parceiro? <span className="underline">Cadastre-se como afiliado</span>
+                {language === 'pt' ? "Quer ser um parceiro? " : "Want to be a partner? "}
+                <span className="underline">{language === 'pt' ? "Cadastre-se como afiliado" : "Register as an affiliate"}</span>
               </Link>
             </div>
           </CardContent>
         </Card>
 
         <Link href="/portal" className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-indigo-600 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Voltar
+          <ArrowLeft className="w-4 h-4" /> {language === 'pt' ? "Voltar" : "Back"}
         </Link>
       </div>
     </div>

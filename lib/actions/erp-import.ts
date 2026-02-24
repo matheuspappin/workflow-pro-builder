@@ -85,22 +85,24 @@ export async function processXmlInvoice(formData: FormData) {
       let averageCost = 0;
 
       // Search query
-      let query = supabase
+      // Tentamos buscar com suporte a ambos os esquemas (novo/erp e antigo/inventory)
+      const { data: existingProduct, error: searchError } = await supabase
         .from('products')
-        .select('id, current_stock, cost_price')
-        .eq('studio_id', studioId);
-      
-      if (item.ean) {
-        query = query.eq('barcode', item.ean);
-      } else {
-        query = query.eq('sku', item.code); // Fallback to internal code if no EAN
-      }
+        .select('id, current_stock, quantity, cost_price')
+        .eq('studio_id', studioId)
+        .or(`barcode.eq.${item.ean},sku.eq.${item.code}`)
+        .maybeSingle();
 
-      const { data: existingProduct } = await query.maybeSingle();
+      if (searchError) {
+        logger.error('Error searching product:', searchError);
+      }
 
       if (existingProduct) {
         productId = existingProduct.id;
-        currentStock = existingProduct.current_stock || 0;
+        // Resilience: uses current_stock if available, otherwise quantity
+        currentStock = (existingProduct.current_stock !== undefined && existingProduct.current_stock !== null) 
+          ? existingProduct.current_stock 
+          : (existingProduct.quantity || 0);
         averageCost = Number(existingProduct.cost_price) || 0;
 
         // Calculate Weighted Average Cost
@@ -109,30 +111,41 @@ export async function processXmlInvoice(formData: FormData) {
         const newAverageCost = newTotalQty > 0 ? newTotalValue / newTotalQty : item.unitPrice;
 
         // Update Product
+        const updateData: any = {
+          cost_price: newAverageCost,
+          updated_at: new Date().toISOString()
+        };
+
+        // Resilience: update both columns if they exist
+        if (existingProduct.current_stock !== undefined) updateData.current_stock = newTotalQty;
+        if (existingProduct.quantity !== undefined) updateData.quantity = newTotalQty;
+
         await supabase
           .from('products')
-          .update({
-            current_stock: newTotalQty,
-            cost_price: newAverageCost,
-            updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('id', productId);
 
       } else {
         // Create Product
+        const insertData: any = {
+          studio_id: studioId,
+          name: item.name,
+          barcode: item.ean || null,
+          sku: item.code, // Use supplier code as SKU initially
+          description: `Importado de NFe ${invoice.number}`,
+          cost_price: item.unitPrice, // Initial cost
+          unit: item.unit
+        };
+
+        // Insert into both columns to ensure compatibility
+        insertData.price = item.unitPrice * 1.5;
+        insertData.selling_price = item.unitPrice * 1.5;
+        insertData.current_stock = item.quantity;
+        insertData.quantity = item.quantity;
+
         const { data: newProduct, error: createProdError } = await supabase
           .from('products')
-          .insert({
-            studio_id: studioId,
-            name: item.name,
-            barcode: item.ean || null,
-            sku: item.code, // Use supplier code as SKU initially
-            description: `Importado de NFe ${invoice.number}`,
-            cost_price: item.unitPrice, // Initial cost
-            price: item.unitPrice * 1.5, // Default markup 50% (just a rule of thumb for auto-import)
-            current_stock: item.quantity,
-            unit: item.unit
-          })
+          .insert(insertData)
           .select('id')
           .single();
 

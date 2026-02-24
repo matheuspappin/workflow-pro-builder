@@ -107,8 +107,8 @@ const studentData = {
   enrolledClasses: [
     {
       id: 1,
-      name: 'Ballet Intermediário',
-      style: 'Ballet',
+      name: 'Turma de Nível 1',
+      style: 'Geral',
       level: 'Intermediário',
       schedule: 'Terça e Quinta - 19h',
       teacher: 'Prof. Sofia',
@@ -116,8 +116,8 @@ const studentData = {
     },
     {
       id: 2,
-      name: 'Jazz Avançado',
-      style: 'Jazz',
+      name: 'Turma de Nível 2',
+      style: 'Específico',
       level: 'Avançado',
       schedule: 'Sábado - 14h',
       teacher: 'Prof. Carla',
@@ -180,14 +180,14 @@ const studentData = {
       id: 1,
       teacher: 'Prof. Sofia',
       date: '2024-01-15',
-      note: 'Melhorou significativamente a postura e o equilíbrio. Continua progredindo bem no ballet intermediário.',
+      note: 'Melhorou significativamente a postura e o equilíbrio. Continua progredindo bem no nível intermediário.',
       type: 'positive',
     },
     {
       id: 2,
       teacher: 'Prof. Carla',
       date: '2024-01-12',
-      note: 'Apresentou grande evolução nos movimentos de jazz. Recomendo foco nos giros para o próximo nível.',
+      note: 'Apresentou grande evolução nos movimentos técnicos. Recomendo foco nos detalhes para o próximo nível.',
       type: 'improvement',
     },
     {
@@ -201,13 +201,20 @@ const studentData = {
       id: 4,
       teacher: 'Prof. Carla',
       date: '2024-01-05',
-      note: 'Excelente participação na aula de jazz. Demonstrou grande entusiasmo e dedicação.',
+      note: 'Excelente participação na aula prática. Demonstrou grande entusiasmo e dedicação.',
       type: 'positive',
     },
   ],
 }
 
-const StudentProfile = ({ studentData: propStudentData }: { studentData?: any }) => {
+import { useOrganization } from '@/components/providers/organization-provider'
+
+interface StudentProfileProps {
+  studentData?: any
+}
+
+const StudentProfile = ({ studentData: propStudentData }: StudentProfileProps) => {
+  const { vocabulary, t, niche, businessModel } = useOrganization()
   // Use dados passados por props ou dados mockados como fallback
   const data = propStudentData || studentData
 
@@ -229,7 +236,10 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
 
   // Handlers
   const handleWhatsApp = () => {
-    const message = `Olá ${data.name}! Tudo bem? Passando para confirmar nossa aula de dança.`
+    const message = t.studentProfile.message
+      .replace('{client}', data.name)
+      .replace('{service}', vocabulary.service)
+      .replace('{niche}', niche || 'dança')
     const whatsappUrl = `https://wa.me/${data.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
@@ -251,12 +261,12 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
     return status === 'active' ? (
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
         <CheckCircle className="w-3 h-3" />
-        Ativo
+        {t.studentProfile.active}
       </span>
     ) : (
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
         <AlertTriangle className="w-3 h-3" />
-        Inadimplente
+        {t.studentProfile.overdue}
       </span>
     )
   }
@@ -265,12 +275,12 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
     return status === 'pago' ? (
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
         <CheckCircle className="w-3 h-3" />
-        Pago
+        {t.studentProfile.paid}
       </span>
     ) : (
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
         <AlertTriangle className="w-3 h-3" />
-        Pendente
+        {t.studentProfile.pending}
       </span>
     )
   }
@@ -310,11 +320,11 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">{data.name}</h1>
                 <div className="flex items-center gap-3 mt-2">
-                  <span className="text-lg text-gray-600">{data.age} anos</span>
+                  <span className="text-lg text-gray-600">{data.age} {t.studentProfile.age}</span>
                   {getStatusBadge(data.status)}
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  Aluna desde {new Date(data.joinDate).toLocaleDateString('pt-BR')}
+                  {t.studentProfile.clientSince.replace('{client}', vocabulary.client)} {new Date(data.joinDate).toLocaleDateString('pt-BR')}
                 </p>
               </div>
             </div>
@@ -324,21 +334,21 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <Phone className="w-4 h-4" />
-                WhatsApp
+                {t.studentProfile.whatsapp}
               </button>
               <button
                 onClick={() => setEditModalOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <Edit className="w-4 h-4" />
-                Editar Dados
+                {t.studentProfile.editData}
               </button>
               <button
                 onClick={() => setAbsenceModalOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg text-sm font-medium hover:from-violet-700 hover:to-fuchsia-700 transition-all"
               >
                 <UserX className="w-4 h-4" />
-                Registrar Falta
+                {t.studentProfile.registerAbsence}
               </button>
             </div>
           </div>
@@ -352,99 +362,104 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
           {/* Coluna Esquerda - Dados Físicos & Artísticos */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* Card de Medidas */}
+            {/* Card de Medidas (Apenas se nicho permitir - podemos refinar depois, mas vamos manter por enquanto) */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-r from-violet-100 to-fuchsia-100 rounded-lg flex items-center justify-center">
                   <Ruler className="w-5 h-5 text-violet-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Medidas Corporais</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{t.studentProfile.measurements}</h3>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="text-center p-4 bg-gradient-to-br from-violet-50 to-violet-100 rounded-lg border border-violet-200">
-                  <div className="text-2xl font-bold text-violet-700">{data.measurements.bust}cm</div>
-                  <div className="text-sm text-violet-600 font-medium">Busto</div>
+                  <div className="text-2xl font-bold text-violet-700">{data.measurements?.bust || 0}cm</div>
+                  <div className="text-sm text-violet-600 font-medium">{t.studentProfile.bust}</div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-fuchsia-50 to-fuchsia-100 rounded-lg border border-fuchsia-200">
-                  <div className="text-2xl font-bold text-fuchsia-700">{data.measurements.waist}cm</div>
-                  <div className="text-sm text-fuchsia-600 font-medium">Cintura</div>
+                  <div className="text-2xl font-bold text-fuchsia-700">{data.measurements?.waist || 0}cm</div>
+                  <div className="text-sm text-fuchsia-600 font-medium">{t.studentProfile.waist}</div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg border border-pink-200">
-                  <div className="text-2xl font-bold text-pink-700">{data.measurements.hip}cm</div>
-                  <div className="text-sm text-pink-600 font-medium">Quadril</div>
+                  <div className="text-2xl font-bold text-pink-700">{data.measurements?.hip || 0}cm</div>
+                  <div className="text-sm text-pink-600 font-medium">{t.studentProfile.hip}</div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg border border-indigo-200">
-                  <div className="text-2xl font-bold text-indigo-700">{data.measurements.height}cm</div>
-                  <div className="text-sm text-indigo-600 font-medium">Altura</div>
+                  <div className="text-2xl font-bold text-indigo-700">{data.measurements?.height || 0}cm</div>
+                  <div className="text-sm text-indigo-600 font-medium">{t.studentProfile.height}</div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
-                  <div className="text-2xl font-bold text-purple-700">{data.measurements.shoeSize}</div>
-                  <div className="text-sm text-purple-600 font-medium">Sapato</div>
+                  <div className="text-2xl font-bold text-purple-700">{data.measurements?.shoeSize || 0}</div>
+                  <div className="text-sm text-purple-600 font-medium">{t.studentProfile.shoeSize}</div>
                 </div>
               </div>
             </div>
 
-            {/* Card de Gamification */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-yellow-600" />
+            {businessModel === 'CREDIT' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">{t.studentProfile.achievements}</h3>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Conquistas</h3>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {data.achievements.map((achievement) => {
-                  const IconComponent = achievement.icon
-                  return (
-                    <div key={achievement.id} className={`p-4 rounded-lg border ${achievement.bgColor} border-opacity-20`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg bg-white bg-opacity-50 flex items-center justify-center ${achievement.color}`}>
-                          <IconComponent className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{achievement.name}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{achievement.description}</p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Conquistado em {new Date(achievement.unlockedAt).toLocaleDateString('pt-BR')}
-                          </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {data.achievements?.map((achievement: any) => {
+                    const IconComponent = typeof achievement.icon === 'string' ? Star : achievement.icon
+                    return (
+                      <div key={achievement.id} className={`p-4 rounded-lg border ${achievement.bgColor} border-opacity-20`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-lg bg-white bg-opacity-50 flex items-center justify-center ${achievement.color}`}>
+                            <IconComponent className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{achievement.name}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{achievement.description}</p>
+                            <p className="text-xs text-gray-500 mt-2">
+                            {t.studentProfile.achievedIn} {new Date(achievement.unlockedAt).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Card de Turmas */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-green-100 to-teal-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-green-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Turmas Matriculadas</h3>
-              </div>
-
-              <div className="space-y-4">
-                {data.enrolledClasses.map((classItem) => (
-                  <div key={classItem.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{classItem.name}</h4>
-                      <p className="text-sm text-gray-600">{classItem.style} - {classItem.level}</p>
-                      <p className="text-sm text-gray-500">{classItem.schedule}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{classItem.teacher}</p>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <CheckCircle className="w-3 h-3" />
-                        Ativo
-                      </span>
-                    </div>
+            {(businessModel === 'CREDIT' || (data.enrolledClasses && data.enrolledClasses.length > 0)) && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-r from-green-100 to-teal-100 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-green-600" />
                   </div>
-                ))}
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {businessModel === 'CREDIT' ? t.studentProfile.enrolledClasses : t.studentProfile.recurringServices}
+                  </h3>
+                </div>
+
+                <div className="space-y-4">
+                  {data.enrolledClasses?.map((classItem: any) => (
+                    <div key={classItem.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{classItem.name}</h4>
+                        <p className="text-sm text-gray-600">{classItem.style} - {classItem.level}</p>
+                        <p className="text-sm text-gray-500">{classItem.schedule}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">{classItem.teacher}</p>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <CheckCircle className="w-3 h-3" />
+                          {t.studentProfile.activeStatus}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Coluna Direita - Administrativo */}
@@ -456,7 +471,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Frequência</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{t.studentProfile.frequency}</h3>
               </div>
 
               <div className="h-64">
@@ -491,7 +506,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
 
               <div className="mt-4 text-center">
                 <p className="text-sm text-gray-600">
-                  Média de presença: <span className="font-semibold text-gray-900">
+                  {t.studentProfile.attendanceAverage}: <span className="font-semibold text-gray-900">
                     {Math.round(data.attendanceData.reduce((sum, item) => sum + item.attendance, 0) / data.attendanceData.length)}%
                   </span>
                 </p>
@@ -504,25 +519,27 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
                 <div className="w-10 h-10 bg-gradient-to-r from-emerald-100 to-green-100 rounded-lg flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-emerald-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Financeiro</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {businessModel === 'CREDIT' ? t.studentProfile.packageHistory : t.studentProfile.paymentHistory}
+                  </h3>
               </div>
 
               <div className="space-y-3">
-                {data.paymentHistory.map((payment, index) => (
+                {data.paymentHistory?.map((payment: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div>
                       <p className="font-medium text-gray-900">{payment.month}</p>
                       <p className="text-sm text-gray-600">
-                        Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+                        {t.studentProfile.dueDate}: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
                       </p>
                       {payment.paymentDate && (
                         <p className="text-sm text-gray-600">
-                          Pago em: {new Date(payment.paymentDate).toLocaleDateString('pt-BR')}
+                          {t.studentProfile.paidIn}: {new Date(payment.paymentDate).toLocaleDateString('pt-BR')}
                         </p>
                       )}
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-gray-900">R$ {payment.amount.toFixed(2)}</p>
+                      <p className="font-medium text-gray-900">R$ {Number(payment.amount).toFixed(2)}</p>
                       {getPaymentStatusBadge(payment.status)}
                     </div>
                   </div>
@@ -536,7 +553,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
                 <div className="w-10 h-10 bg-gradient-to-r from-amber-100 to-yellow-100 rounded-lg flex items-center justify-center">
                   <MessageSquare className="w-5 h-5 text-amber-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Observações</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{t.studentProfile.observations}</h3>
               </div>
 
               <div className="space-y-4 max-h-80 overflow-y-auto">
@@ -566,14 +583,14 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar Dados do Aluno</DialogTitle>
+            <DialogTitle>{t.studentProfile.editDataTitle}</DialogTitle>
             <DialogDescription>
-              Atualize as informações pessoais do aluno.
+              {t.studentProfile.editDataDescription.replace('{client}', vocabulary.client)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Nome Completo</Label>
+              <Label htmlFor="edit-name">{t.studentProfile.fullName}</Label>
               <Input
                 id="edit-name"
                 value={editFormData.name}
@@ -582,7 +599,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email">{t.studentProfile.email}</Label>
               <Input
                 id="edit-email"
                 type="email"
@@ -592,7 +609,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-phone">Telefone</Label>
+              <Label htmlFor="edit-phone">{t.studentProfile.phone}</Label>
               <Input
                 id="edit-phone"
                 value={editFormData.phone}
@@ -601,7 +618,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-birth-date">Data de Nascimento</Label>
+              <Label htmlFor="edit-birth-date">{t.studentProfile.birthDate}</Label>
               <Input
                 id="edit-birth-date"
                 type="date"
@@ -612,7 +629,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-bust">Busto (cm)</Label>
+                <Label htmlFor="edit-bust">{t.studentProfile.bust} (cm)</Label>
                 <Input
                   id="edit-bust"
                   type="number"
@@ -625,7 +642,7 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-waist">Cintura (cm)</Label>
+                <Label htmlFor="edit-waist">{t.studentProfile.waist} (cm)</Label>
                 <Input
                   id="edit-waist"
                   type="number"
@@ -641,11 +658,11 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>
-              Cancelar
+              {t.studentProfile.cancel}
             </Button>
             <Button onClick={handleEditSave} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
               <Save className="w-4 h-4" />
-              Salvar Alterações
+              {t.studentProfile.saveChanges}
             </Button>
           </div>
         </DialogContent>
@@ -655,14 +672,14 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
       <Dialog open={absenceModalOpen} onOpenChange={setAbsenceModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Registrar Falta</DialogTitle>
+            <DialogTitle>{t.studentProfile.registerAbsenceTitle}</DialogTitle>
             <DialogDescription>
-              Registre a ausência do aluno em uma aula específica.
+              {t.studentProfile.registerAbsenceDescription.replace('{client}', vocabulary.client).replace('{service}', vocabulary.service)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="absence-date">Data da Falta</Label>
+              <Label htmlFor="absence-date">{t.studentProfile.absenceDate}</Label>
               <Input
                 id="absence-date"
                 type="date"
@@ -672,20 +689,23 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="absence-class">Turma</Label>
+              <Label htmlFor="absence-class">{t.studentProfile.class.replace('{service}', vocabulary.service)}</Label>
               <select
                 id="absence-class"
                 value={absenceFormData.classId}
                 onChange={(e) => setAbsenceFormData({ ...absenceFormData, classId: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="1">Ballet Intermediário - Terça 19h</option>
-                <option value="2">Jazz Avançado - Sábado 14h</option>
-                <option value="3">Contemporâneo - Quarta 20h</option>
+                <option value="">Selecione...</option>
+                {data.enrolledClasses?.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} - {c.schedule}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="absence-reason">Motivo da Falta (Opcional)</Label>
+              <Label htmlFor="absence-reason">{t.studentProfile.absenceReason}</Label>
               <Textarea
                 id="absence-reason"
                 value={absenceFormData.reason}
@@ -698,11 +718,11 @@ const StudentProfile = ({ studentData: propStudentData }: { studentData?: any })
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setAbsenceModalOpen(false)}>
-              Cancelar
+              {t.studentProfile.cancel}
             </Button>
             <Button onClick={handleRegisterAbsence} className="bg-red-600 hover:bg-red-700 text-white gap-2">
               <AlertTriangle className="w-4 h-4" />
-              Registrar Falta
+              {t.studentProfile.register}
             </Button>
           </div>
         </DialogContent>

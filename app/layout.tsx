@@ -3,7 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Toaster } from '@/components/ui/toaster'
+import { Toaster as RadixToaster } from '@/components/ui/toaster'
+import { Toaster as SonnerToaster } from 'sonner'
 import { OrganizationProvider } from '@/components/providers/organization-provider'
 import './globals.css'
 
@@ -46,11 +47,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <OrganizationProvider>
           {children}
-          <Toaster />
+          <RadixToaster />
+          <SonnerToaster position="top-right" richColors />
         </OrganizationProvider>
         <Analytics />
         <SpeedInsights />

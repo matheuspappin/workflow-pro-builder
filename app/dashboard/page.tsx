@@ -50,10 +50,14 @@ import {
   ChartTooltip,
 } from "@/components/ui/chart"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useBusinessMode } from "@/hooks/use-business-mode"
 import { NicheType } from "@/config/niche-dictionary"
 import { getNicheIcon } from "@/lib/niche-utils"
+import { useOrganization } from "@/components/providers/organization-provider"
+import { monetaryBasedNiches } from "@/config/niche-modules"
 
 // Mock data
 const revenueData = [
@@ -67,90 +71,14 @@ const revenueData = [
 
 export default function DashboardPage() {
   const { vocabulary, enabledModules, niche, loading: vocabLoading, language } = useVocabulary()
+  const { isServiceOrderBased, isScheduleBased } = useBusinessMode()
+  const { t } = useOrganization()
+  const { toast } = useToast()
   const [mounted, setMounted] = useState(false)
   const [userName, setUserName] = useState("")
   const [studioSlug, setStudioSlug] = useState("")
-  const [copying, setCopying] = useState(false)
+  const [copyingRole, setCopyingRole] = useState<string | null>(null)
   
-  const TRANSLATIONS = {
-    pt: {
-      live: "ao Vivo",
-      nowIn: "Ver quem está no",
-      now: "agora",
-      gate: "Portaria",
-      validate: "Validar entrada",
-      newOS: "Nova OS",
-      openOS: "Abrir ordem de serviço",
-      aiAnalysis: "Análise IA",
-      insights: "Insights do negócio",
-      invite: "Convite",
-      copyLink: "Copiar Link",
-      active: "Ativos",
-      activeF: "Ativas",
-      monthlyRevenue: "Receita Mensal",
-      overdue: "Inadimplência",
-      revenueVsExpenses: "Faturamento vs Despesas",
-      last6Months: "Últimos 6 meses",
-      revenue: "Receita",
-      expenses: "Despesas",
-      distribution: "Distribuição atual",
-      moduleInactive: "Módulo Financeiro Desativado",
-      activateModule: "Ative o módulo financeiro para ver métricas.",
-      riskAlerts: "Alertas de Risco",
-      lowActivity: "com baixa atividade",
-      last: "Última",
-      risk: "Risco",
-      viewAll: "Ver todos os",
-      upcoming: "Próximas",
-      today: "hoje",
-      freeSchedule: "Agenda livre hoje.",
-      viewFull: "Ver agenda completa",
-      profile: "Perfil dos",
-      ageRange: "Faixa Etária",
-      moduleNotActive: "Módulo de {service} não ativo.",
-      riskNone: "Nenhum {client} em risco."
-    },
-    en: {
-      live: "Live",
-      nowIn: "See who is in the",
-      now: "now",
-      gate: "Gate",
-      validate: "Validate entry",
-      newOS: "New SO",
-      openOS: "Open service order",
-      aiAnalysis: "AI Analysis",
-      insights: "Business insights",
-      invite: "Invite",
-      copyLink: "Copy Link",
-      active: "Active",
-      activeF: "Active",
-      monthlyRevenue: "Monthly Revenue",
-      overdue: "Overdue",
-      revenueVsExpenses: "Revenue vs Expenses",
-      last6Months: "Last 6 months",
-      revenue: "Revenue",
-      expenses: "Expenses",
-      distribution: "Current distribution",
-      moduleInactive: "Financial Module Inactive",
-      activateModule: "Activate the financial module to see metrics.",
-      riskAlerts: "Risk Alerts",
-      lowActivity: "with low activity",
-      last: "Last",
-      risk: "Risk",
-      viewAll: "View all",
-      upcoming: "Upcoming",
-      today: "today",
-      freeSchedule: "Free schedule today.",
-      viewFull: "View full schedule",
-      profile: "Profile of",
-      ageRange: "Age Range",
-      moduleNotActive: "{service} module not active.",
-      riskNone: "No {client} at risk."
-    }
-  }
-
-  const t = TRANSLATIONS[language as 'pt' | 'en'] || TRANSLATIONS.pt
-
   const [dashboardData, setDashboardData] = useState<any>({
     activeStudents: 0,
     activeTeachers: 0,
@@ -176,8 +104,11 @@ export default function DashboardPage() {
         }
         
         const userData = JSON.parse(user)
-        setUserName(userData.name || "Usuario")
-        setStudioSlug(userData.studioSlug || "")
+        setUserName(userData.name || t.common.user)
+        
+        // Tentar pegar o slug de várias fontes possíveis no objeto user
+        const slug = userData.studioSlug || userData.studio_slug || (userData.studio && userData.studio.slug) || ""
+        setStudioSlug(slug)
 
         // Carregar dados reais do Supabase
         const stats = await getDashboardStats()
@@ -191,13 +122,58 @@ export default function DashboardPage() {
     }
 
     loadDashboardData()
-  }, [])
+  }, [t.common.user])
 
-  const handleCopyLink = () => {
-    const link = `${window.location.origin}/s/${studioSlug}/join`
-    navigator.clipboard.writeText(link)
-    setCopying(true)
-    setTimeout(() => setCopying(false), 2000)
+  const handleCopyLink = async (role: 'client' | 'professional' | 'engineer' | 'architect') => {
+    if (!studioSlug) {
+      toast({
+        title: "Erro ao copiar",
+        description: "Slug do estúdio não encontrado. Tente sair e entrar novamente.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const link = `${window.location.origin}/s/${studioSlug}/join?role=${role}`
+    
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(link)
+      } else {
+        // Fallback
+        const textArea = document.createElement("textarea")
+        textArea.value = link
+        textArea.style.position = "fixed"
+        textArea.style.left = "-9999px"
+        textArea.style.top = "0"
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        const successful = document.execCommand('copy')
+        document.body.removeChild(textArea)
+        if (!successful) throw new Error('Falha ao copiar no fallback')
+      }
+
+      setCopyingRole(role)
+      let roleName = vocabulary.provider.toLowerCase()
+      if (role === 'client') roleName = vocabulary.client.toLowerCase()
+      if (role === 'engineer') roleName = 'engenheiro técnico'
+      if (role === 'architect') roleName = 'arquiteto parceiro'
+      if (role === 'architect') roleName = 'arquiteto parceiro'
+
+      toast({
+        title: "Link copiado!",
+        description: `O link de convite para ${roleName} foi copiado.`,
+      })
+      setTimeout(() => setCopyingRole(null), 2000)
+    } catch (err) {
+      console.error('Erro ao copiar link:', err)
+      toast({
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar o link automaticamente.",
+        variant: "destructive",
+      })
+    }
   }
 
   const ClientIcon = getNicheIcon(niche || 'dance', 'client');
@@ -229,24 +205,24 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header title="Dashboard" />
+      <Header title={t.sidebar.dashboard} />
       
       <div className="p-6">
         {/* Quick Actions & Shortcut */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           
           {/* Módulo Aulas/Serviços ao Vivo */}
-          {enabledModules.classes && (
+          {enabledModules.classes && !(niche && monetaryBasedNiches.includes(niche as any)) && (
             <Link href="/dashboard/ao-vivo">
-              <Card className="bg-rose-500 text-white border-none shadow-lg hover:bg-rose-600 transition-all cursor-pointer group relative overflow-hidden h-full">
+              <Card className="bg-red-600 text-white border-none shadow-lg hover:bg-red-700 transition-all cursor-pointer group relative overflow-hidden h-full">
                 <CardContent className="p-6 flex items-center justify-between relative z-10">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center animate-pulse">
                       <Video className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold">{language === 'pt' ? `${vocabulary.services} ${t.live}` : `${t.live} ${vocabulary.services}`}</p>
-                      <p className="text-xs text-rose-100">{t.nowIn} {vocabulary.establishment.toLowerCase()} {t.now}</p>
+                      <p className="text-lg font-bold">{language === 'pt' ? `${vocabulary.services} ${t.dashboard.live}` : `${t.dashboard.live} ${vocabulary.services}`}</p>
+                      <p className="text-xs text-red-100">{t.dashboard.nowIn} {vocabulary.establishment.toLowerCase()} {t.dashboard.now}</p>
                     </div>
                   </div>
                   <ArrowRight className="w-5 h-5 opacity-50 group-hover:translate-x-1 transition-all" />
@@ -259,15 +235,15 @@ export default function DashboardPage() {
           {/* Módulo Scanner (Portaria) */}
           {enabledModules.scanner && (
             <Link href="/dashboard/scanner">
-              <Card className="bg-primary text-primary-foreground border-none shadow-lg hover:bg-primary/90 transition-all cursor-pointer group h-full">
+              <Card className="bg-slate-900 text-white border-none shadow-lg hover:bg-slate-800 transition-all cursor-pointer group h-full">
                 <CardContent className="p-6 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-xl bg-red-600 flex items-center justify-center">
                       <QrCodeIcon className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold">{t.gate}</p>
-                      <p className="text-xs text-primary-foreground/70">{t.validate}</p>
+                      <p className="text-lg font-bold">{t.dashboard.gate}</p>
+                      <p className="text-xs text-slate-400">{t.dashboard.validate}</p>
                     </div>
                   </div>
                   <ArrowRight className="w-5 h-5 opacity-50 group-hover:translate-x-1 transition-all" />
@@ -279,15 +255,15 @@ export default function DashboardPage() {
           {/* Módulo Service Orders (OS) */}
           {enabledModules.service_orders && (
             <Link href="/dashboard/os">
-              <Card className="bg-blue-600 text-white border-none shadow-lg hover:bg-blue-700 transition-all cursor-pointer group h-full">
+              <Card className="bg-orange-600 text-white border-none shadow-lg hover:bg-orange-700 transition-all cursor-pointer group h-full">
                 <CardContent className="p-6 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                       <Wrench className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold">{t.newOS}</p>
-                      <p className="text-xs text-blue-100">{t.openOS}</p>
+                      <p className="text-lg font-bold">{t.dashboard.newOS}</p>
+                      <p className="text-xs text-orange-100">{t.dashboard.openOS}</p>
                     </div>
                   </div>
                   <ArrowRight className="w-5 h-5 opacity-50 group-hover:translate-x-1 transition-all" />
@@ -299,15 +275,15 @@ export default function DashboardPage() {
           {/* Módulo AI Chat (Insights) */}
           {enabledModules.ai_chat && (
             <Link href="/dashboard/chat">
-              <Card className="bg-card border-border shadow-sm hover:shadow-md transition-all cursor-pointer group h-full">
+              <Card className="bg-slate-900 text-white border-none shadow-lg hover:bg-slate-800 transition-all cursor-pointer group h-full">
                 <CardContent className="p-6 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                      <TrendingUp className="w-6 h-6 text-accent" />
+                    <div className="w-12 h-12 rounded-xl bg-red-600 flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold">{t.aiAnalysis}</p>
-                      <p className="text-xs text-muted-foreground">{t.insights}</p>
+                      <p className="text-lg font-bold">{t.dashboard.aiAnalysis}</p>
+                      <p className="text-xs text-slate-400">{t.dashboard.insights}</p>
                     </div>
                   </div>
                   <ArrowRight className="w-5 h-5 opacity-50 group-hover:translate-x-1 transition-all" />
@@ -316,26 +292,109 @@ export default function DashboardPage() {
             </Link>
           )}
 
-          {/* Convite do Studio (Sempre visível se tiver slug) */}
+          {/* Convites (Sempre visível se tiver slug) */}
           {studioSlug && (
-            <Card className="bg-card border-border shadow-sm h-full">
-              <CardContent className="p-6 flex items-center justify-between">
-                <div className="flex items-center gap-4 overflow-hidden w-full">
-                  <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
-                    <Share2 className="w-6 h-6 text-success" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{t.invite}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Button size="icon" variant="ghost" className="h-8 w-full justify-start gap-2 px-2 bg-secondary/50 hover:bg-secondary" onClick={handleCopyLink}>
-                        {copying ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-                        <span className="text-[10px] truncate">{t.copyLink}</span>
-                      </Button>
+            <>
+              {/* Convite para Cliente */}
+              <Card className="bg-card border-border shadow-sm h-full hover:border-red-600/30 transition-colors">
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4 overflow-hidden w-full">
+                    <div className="w-12 h-12 rounded-xl bg-red-600/10 flex items-center justify-center shrink-0">
+                      <User className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{t.dashboard.invite} {vocabulary.client}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-red-600 hover:text-white transition-all" 
+                          onClick={() => handleCopyLink('client')}
+                        >
+                          {copyingRole === 'client' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span className="truncate">{t.dashboard.copyLink}</span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              {/* Convite para Profissional */}
+              <Card className="bg-card border-border shadow-sm h-full hover:border-emerald-500/30 transition-colors">
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4 overflow-hidden w-full">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                      <Briefcase className="w-6 h-6 text-emerald-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{t.dashboard.invite} {vocabulary.provider}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-emerald-500 hover:text-white transition-all" 
+                          onClick={() => handleCopyLink('professional')}
+                        >
+                          {copyingRole === 'professional' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span className="truncate">{t.dashboard.copyLink}</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Convite para Engenheiro Técnico */}
+              <Card className="bg-card border-border shadow-sm h-full hover:border-blue-500/30 transition-colors">
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4 overflow-hidden w-full">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Wrench className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{t.dashboard.invite} Engenheiro</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-blue-500 hover:text-white transition-all" 
+                          onClick={() => handleCopyLink('engineer')}
+                        >
+                          {copyingRole === 'engineer' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span className="truncate">{t.dashboard.copyLink}</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Convite para Arquiteto */}
+              <Card className="bg-card border-border shadow-sm h-full hover:border-indigo-500/30 transition-colors">
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4 overflow-hidden w-full">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                      <Home className="w-6 h-6 text-indigo-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{t.dashboard.invite} Arquiteto</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-indigo-500 hover:text-white transition-all" 
+                          onClick={() => handleCopyLink('architect')}
+                        >
+                          {copyingRole === 'architect' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span className="truncate">{t.dashboard.copyLink}</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
 
@@ -343,78 +402,78 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           
           {/* Card: Clientes Ativos */}
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border border-l-4 border-l-red-600">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <ClientIcon className="w-6 h-6 text-primary" />
+                <div className="w-12 h-12 rounded-xl bg-red-600/10 flex items-center justify-center">
+                  <ClientIcon className="w-6 h-6 text-red-600" />
                 </div>
-                <div className={`flex items-center gap-1 text-sm ${dashboardData.studentGrowth?.startsWith('-') ? 'text-destructive' : 'text-success'}`}>
+                <div className={`flex items-center gap-1 text-sm ${dashboardData.studentGrowth?.startsWith('-') ? 'text-destructive' : 'text-emerald-600'}`}>
                   {dashboardData.studentGrowth?.startsWith('-') ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
                   {loading ? "..." : dashboardData.studentGrowth}
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-2xl font-bold text-card-foreground">
+                <p className="text-2xl font-black text-card-foreground">
                   {loading ? "..." : dashboardData.activeStudents}
                 </p>
-                <p className="text-sm text-muted-foreground">{vocabulary.clients} {t.active}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.clients} {t.common.active}</p>
               </div>
             </CardContent>
           </Card>
 
           {/* Card: Provedores/Equipe */}
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border border-l-4 border-l-emerald-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-                  <ProviderIcon className="w-6 h-6 text-success" />
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <ProviderIcon className="w-6 h-6 text-emerald-500" />
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-2xl font-bold text-card-foreground">
+                <p className="text-2xl font-black text-card-foreground">
                   {loading ? "..." : dashboardData.activeTeachers}
                 </p>
-                <p className="text-sm text-muted-foreground">{vocabulary.providers} {t.active}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.providers} {t.common.active}</p>
               </div>
             </CardContent>
           </Card>
 
           {/* Card: Serviços/Aulas Ativas */}
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border border-l-4 border-l-orange-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                  <ServiceIcon className="w-6 h-6 text-warning" />
+                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                  <ServiceIcon className="w-6 h-6 text-orange-500" />
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-2xl font-bold text-card-foreground">
+                <p className="text-2xl font-black text-card-foreground">
                   {loading ? "..." : dashboardData.activeClasses}
                 </p>
-                <p className="text-sm text-muted-foreground">{vocabulary.services} {t.activeF}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.services} {t.common.activeF}</p>
               </div>
             </CardContent>
           </Card>
 
           {/* Card: Financeiro */}
           {enabledModules.financial && (
-            <Card className="bg-card border-border">
+            <Card className="bg-card border-border border-l-4 border-l-slate-900">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-accent" />
+                  <div className="w-12 h-12 rounded-xl bg-slate-900/10 flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-slate-900" />
                   </div>
-                  <div className={`flex items-center gap-1 text-sm ${dashboardData.revenueGrowth?.startsWith('-') ? 'text-destructive' : 'text-success'}`}>
+                  <div className={`flex items-center gap-1 text-sm ${dashboardData.revenueGrowth?.startsWith('-') ? 'text-destructive' : 'text-emerald-600'}`}>
                     {dashboardData.revenueGrowth?.startsWith('-') ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
                     {loading ? "..." : dashboardData.revenueGrowth}
                   </div>
                 </div>
                 <div className="mt-4">
-                  <p className="text-2xl font-bold text-card-foreground">
+                  <p className="text-2xl font-black text-card-foreground">
                     {loading ? "..." : `${language === 'pt' ? 'R$' : '$'} ${dashboardData.monthlyRevenue.toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}`}
                   </p>
-                  <p className="text-sm text-muted-foreground">{t.monthlyRevenue}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.dashboard.monthlyRevenue}</p>
                 </div>
               </CardContent>
             </Card>
@@ -422,21 +481,21 @@ export default function DashboardPage() {
 
           {/* Card: Inadimplência (Só se financeiro estiver ativo) */}
           {enabledModules.financial && (
-            <Card className="bg-card border-border border-destructive/20 bg-destructive/5">
+            <Card className="bg-card border-border border-destructive/20 bg-destructive/5 border-l-4 border-l-destructive">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
                     <AlertTriangle className="w-6 h-6 text-destructive" />
                   </div>
                   {dashboardData.totalOverdue > 0 && (
-                    <Badge variant="destructive" className="animate-pulse">{language === 'pt' ? 'Alerta' : 'Alert'}</Badge>
+                    <Badge variant="destructive" className="animate-pulse">{t.dashboard.alert}</Badge>
                   )}
                 </div>
                 <div className="mt-4">
-                  <p className="text-2xl font-bold text-destructive">
+                  <p className="text-2xl font-black text-destructive">
                     {loading ? "..." : `${language === 'pt' ? 'R$' : '$'} ${dashboardData.totalOverdue.toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}`}
                   </p>
-                  <p className="text-sm text-muted-foreground font-medium">{t.overdue}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-destructive/70">{t.dashboard.overdue}</p>
                 </div>
               </CardContent>
             </Card>
@@ -449,14 +508,14 @@ export default function DashboardPage() {
           {enabledModules.financial ? (
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">{t.revenueVsExpenses}</CardTitle>
-                <CardDescription>{t.last6Months}</CardDescription>
+                <CardTitle className="text-card-foreground">{t.dashboard.revenueVsExpenses}</CardTitle>
+                <CardDescription>{t.dashboard.last6Months}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={{
-                    receita: { label: t.revenue, color: "#9333ea" },
-                    despesas: { label: t.expenses, color: "#db2777" },
+                    receita: { label: t.dashboard.revenue, color: "#dc2626" },
+                    despesas: { label: t.dashboard.expenses, color: "#ea580c" },
                   }}
                   className="h-[300px]"
                 >
@@ -473,7 +532,7 @@ export default function DashboardPage() {
                               <p className="font-medium text-foreground mb-1">{label}</p>
                               {payload.map((entry, index) => (
                                 <p key={index} className="text-sm" style={{ color: entry.color }}>
-                                  {entry.dataKey === "receita" ? t.revenue : t.expenses}: {language === 'pt' ? 'R$' : '$'} {Number(entry.value).toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}
+                                  {entry.dataKey === "receita" ? t.dashboard.revenue : t.dashboard.expenses}: {language === 'pt' ? 'R$' : '$'} {Number(entry.value).toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}
                                 </p>
                               ))}
                             </div>
@@ -483,16 +542,16 @@ export default function DashboardPage() {
                       <Line
                         type="monotone"
                         dataKey="receita"
-                        stroke="#9333ea"
+                        stroke="#dc2626"
                         strokeWidth={2}
-                        dot={{ fill: "#9333ea" }}
+                        dot={{ fill: "#dc2626" }}
                       />
                       <Line
                         type="monotone"
                         dataKey="despesas"
-                        stroke="#db2777"
+                        stroke="#ea580c"
                         strokeWidth={2}
-                        dot={{ fill: "#db2777" }}
+                        dot={{ fill: "#ea580c" }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -501,9 +560,9 @@ export default function DashboardPage() {
             </Card>
           ) : (
             <Card className="bg-card border-border">
-              <CardHeader><CardTitle>{t.moduleInactive}</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t.dashboard.moduleInactive}</CardTitle></CardHeader>
               <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-                {t.activateModule}
+                {t.dashboard.activateModule}
               </CardContent>
             </Card>
           )}
@@ -513,12 +572,12 @@ export default function DashboardPage() {
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-card-foreground">{vocabulary.clients} {language === 'pt' ? 'por' : 'by'} {vocabulary.category}</CardTitle>
-                <CardDescription>{t.distribution}</CardDescription>
+                <CardDescription>{t.dashboard.distribution}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={{
-                    alunos: { label: vocabulary.clients, color: "#9333ea" },
+                    alunos: { label: vocabulary.clients, color: "#dc2626" },
                   }}
                   className="h-[300px]"
                 >
@@ -533,12 +592,12 @@ export default function DashboardPage() {
                           return (
                             <div className="bg-background border border-border rounded-lg px-3 py-2 shadow-lg">
                               <p className="font-medium text-foreground">{label}</p>
-                              <p className="text-sm text-primary">{payload[0].value} {vocabulary.clients.toLowerCase()}</p>
+                              <p className="text-sm text-red-600">{payload[0].value} {vocabulary.clients.toLowerCase()}</p>
                             </div>
                           )
                         }}
                       />
-                      <Bar dataKey="alunos" fill="#9333ea" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="alunos" fill="#dc2626" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -549,7 +608,7 @@ export default function DashboardPage() {
             <Card className="bg-card border-border">
               <CardHeader><CardTitle>{language === 'pt' ? 'Distribuição' : 'Distribution'}</CardTitle></CardHeader>
               <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-                {t.moduleNotActive.replace('{service}', vocabulary.services.toLowerCase())}
+                {t.dashboard.moduleNotActive.replace('{service}', vocabulary.services.toLowerCase())}
               </CardContent>
             </Card>
           )}
@@ -563,10 +622,10 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-card-foreground flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-warning" />
-                  {t.riskAlerts}
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  {t.dashboard.riskAlerts}
                  </CardTitle>
-                <CardDescription>{vocabulary.clients} {t.lowActivity}</CardDescription>
+                <CardDescription>{vocabulary.clients} {t.dashboard.lowActivity}</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
@@ -579,41 +638,84 @@ export default function DashboardPage() {
                     <div>
                       <p className="font-medium text-foreground">{alert.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {t.last} {vocabulary.service.toLowerCase()}: {alert.lastClass}
+                        {t.dashboard.last} {vocabulary.service.toLowerCase()}: {alert.lastClass}
                       </p>
                     </div>
                     <Badge
                       variant={alert.risk === "alto" ? "destructive" : "secondary"}
-                      className={alert.risk === "alto" ? "" : "bg-warning/20 text-warning-foreground"}
+                      className={alert.risk === "alto" ? "" : "bg-amber-100 text-amber-600 border-none"}
                     >
-                      {t.risk} {alert.risk === "alto" ? (language === 'pt' ? "alto" : "high") : (language === 'pt' ? "médio" : "medium")}
+                      {t.dashboard.risk} {alert.risk === "alto" ? t.common.high : t.common.medium}
                     </Badge>
                   </div>
                 )) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    <CheckCircle className="w-10 h-10 mx-auto mb-3 text-success opacity-20" />
-                    <p>{t.riskNone.replace('{client}', vocabulary.client.toLowerCase())}</p>
+                    <CheckCircle className="w-10 h-10 mx-auto mb-3 text-emerald-500 opacity-20" />
+                    <p>{t.dashboard.riskNone.replace('{client}', vocabulary.client.toLowerCase())}</p>
                   </div>
                 )}
               </div>
               <Link href="/dashboard/alunos">
-                <Button variant="ghost" className="w-full mt-4 text-primary hover:text-primary/80">
-                  {t.viewAll} {vocabulary.clients.toLowerCase()}
+                <Button variant="ghost" className="w-full mt-4 text-red-600 hover:text-red-700 hover:bg-red-50 font-bold uppercase tracking-widest text-[10px]">
+                  {t.dashboard.viewAll} {vocabulary.clients.toLowerCase()}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
             </CardContent>
           </Card>
 
-          {/* Upcoming Classes / Appointments */}
-          {enabledModules.classes ? (
+          {/* Upcoming Classes OR Service Orders (based on Business Mode) */}
+          {isServiceOrderBased ? (
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-card-foreground flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary" />
-                  {t.upcoming} {vocabulary.services}
+                  <Wrench className="w-5 h-5 text-orange-600" />
+                  {t.dashboard.openOS || "OS em Andamento"}
                 </CardTitle>
-                <CardDescription>{vocabulary.services} {t.today}</CardDescription>
+                <CardDescription>{t.dashboard.inProgress || "Serviços sendo executados"}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Mock de OS em andamento */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border-l-4 border-l-orange-500">
+                    <div>
+                      <p className="font-medium text-foreground">OS #1023 - {vocabulary.client} Silva</p>
+                      <p className="text-sm text-muted-foreground">Manutenção Geral</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge className="bg-orange-100 text-orange-600 border-none">
+                        Em Andamento
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border-l-4 border-l-amber-500">
+                    <div>
+                      <p className="font-medium text-foreground">OS #1024 - {vocabulary.client} Santos</p>
+                      <p className="text-sm text-muted-foreground">Troca de Peças</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge className="bg-amber-100 text-amber-600 border-none">
+                        Aguardando
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <Link href="/dashboard/os">
+                  <Button variant="ghost" className="w-full mt-4 text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-bold uppercase tracking-widest text-[10px]">
+                    {t.dashboard.viewAll} OS
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (enabledModules.classes ? (
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-card-foreground flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-red-600" />
+                  {t.dashboard.upcoming} {vocabulary.services}
+                </CardTitle>
+                <CardDescription>{vocabulary.services} {t.dashboard.today}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -628,7 +730,7 @@ export default function DashboardPage() {
                           <p className="text-sm text-muted-foreground">{classItem.teacher}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium text-primary">{classItem.time}</p>
+                          <p className="font-medium text-red-600">{classItem.time}</p>
                           <p className="text-sm text-muted-foreground">
                             {classItem.students} {vocabulary.clients.toLowerCase()}
                           </p>
@@ -637,14 +739,14 @@ export default function DashboardPage() {
                     ))
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
-                      <Calendar className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                      <p>{t.freeSchedule}</p>
+                      <Calendar className="w-10 h-10 mx-auto mb-3 opacity-20 text-red-600" />
+                      <p>{t.dashboard.freeSchedule}</p>
                     </div>
                   )}
                 </div>
                 <Link href="/dashboard/aulas">
-                  <Button variant="ghost" className="w-full mt-4 text-primary hover:text-primary/80">
-                    {t.viewFull}
+                  <Button variant="ghost" className="w-full mt-4 text-red-600 hover:text-red-700 hover:bg-red-50 font-bold uppercase tracking-widest text-[10px]">
+                    {t.dashboard.viewFull}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -652,35 +754,38 @@ export default function DashboardPage() {
             </Card>
           ) : (
             <Card className="bg-card border-border">
-              <CardHeader><CardTitle>{language === 'pt' ? 'Agenda' : 'Schedule'}</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t.dashboard.schedule}</CardTitle></CardHeader>
               <CardContent className="h-[200px] flex items-center justify-center text-muted-foreground">
-                {language === 'pt' ? 'Funcionalidade de agenda não ativa.' : 'Schedule feature not active.'}
+                {t.dashboard.moduleNotActive.replace('{service}', vocabulary.services.toLowerCase())}
               </CardContent>
             </Card>
-          )}
+          ))}
 
           {/* Student Age Distribution */}
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-accent" />
-                {t.profile} {vocabulary.clients}
+                <GraduationCap className="w-5 h-5 text-red-600" />
+                {t.dashboard.profile} {vocabulary.clients}
               </CardTitle>
-              <CardDescription>{t.ageRange}</CardDescription>
+              <CardDescription>{t.dashboard.ageRange}</CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer
                 config={{
-                  Criancas: { label: language === 'pt' ? "Crianças" : "Children", color: "#9333ea" },
-                  Adolescentes: { label: language === 'pt' ? "Adolescentes" : "Teens", color: "#db2777" },
-                  Adultos: { label: language === 'pt' ? "Adultos" : "Adults", color: "#06b6d4" },
+                  Criancas: { label: t.dashboard.children, color: "#dc2626" },
+                  Adolescentes: { label: t.dashboard.teens, color: "#ea580c" },
+                  Adultos: { label: t.dashboard.adults, color: "#0f172a" },
                 }}
                 className="h-[200px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={displayStudentDistribution}
+                      data={displayStudentDistribution.map((item: any, i: number) => ({
+                        ...item,
+                        fill: [ "#dc2626", "#ea580c", "#0f172a" ][i % 3]
+                      }))}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
@@ -690,7 +795,7 @@ export default function DashboardPage() {
                       strokeWidth={0}
                     >
                       {displayStudentDistribution.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                        <Cell key={`cell-${index}`} fill={[ "#dc2626", "#ea580c", "#0f172a" ][index % 3]} />
                       ))}
                     </Pie>
                     <ChartTooltip
@@ -709,16 +814,16 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </ChartContainer>
               <div className="flex flex-wrap justify-center gap-4 mt-4">
-                {displayStudentDistribution.map((item: any) => (
+                {displayStudentDistribution.map((item: any, i: number) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div
                       className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: item.fill }}
+                      style={{ backgroundColor: [ "#dc2626", "#ea580c", "#0f172a" ][i % 3] }}
                     />
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {item.name === "Criancas" ? (language === 'pt' ? 'Crianças' : 'Children') : 
-                       item.name === "Adolescentes" ? (language === 'pt' ? 'Adolescentes' : 'Teens') : 
-                       item.name === "Adultos" ? (language === 'pt' ? 'Adultos' : 'Adults') : item.name} ({item.value}%)
+                      {item.name === "Criancas" ? t.dashboard.children : 
+                       item.name === "Adolescentes" ? t.dashboard.teens : 
+                       item.name === "Adultos" ? t.dashboard.adults : item.name} ({item.value}%)
                     </span>
                   </div>
                 ))}

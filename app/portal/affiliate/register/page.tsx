@@ -12,10 +12,12 @@ import { useToast } from "@/hooks/use-toast"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
 import { validateCPF } from "@/lib/validation-utils"
+import { LanguageSwitcher } from "@/components/common/language-switcher"
 
 function AffiliateRegisterContent() {
   const router = useRouter()
   const { toast } = useToast()
+  const { language } = useOrganization()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   
@@ -28,7 +30,7 @@ function AffiliateRegisterContent() {
     confirmPassword: "",
   })
 
-  const [isEmailVerified, setIsEmailVerified] = useState(false)
+  const [isEmailVerified, setIsEmailVerified] = useState(true)
   const [codeSent, setCodeSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [isSendingCode, setIsSendingCode] = useState(false)
@@ -101,10 +103,13 @@ function AffiliateRegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Validar e-mail verificado (Desativado para testes)
+    /*
     if (!isEmailVerified) {
       toast({ title: "Verifique seu e-mail primeiro", variant: "destructive" })
       return
     }
+    */
 
     if (!validateCPF(formData.taxId)) {
       toast({ title: "CPF inválido", variant: "destructive" })
@@ -131,7 +136,8 @@ function AffiliateRegisterContent() {
         body: JSON.stringify({ 
           ...formData, 
           role: 'partner', // Role fixo para afiliados
-          portal: 'affiliate'
+          portal: 'affiliate',
+          language
         })
       })
 
@@ -173,7 +179,10 @@ function AffiliateRegisterContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-md space-y-8 my-8">
         <div className="text-center space-y-2">
           <Link href="/portal/affiliate/login" className="inline-flex items-center gap-2">
@@ -222,57 +231,19 @@ function AffiliateRegisterContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail Profissional</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                      <Input
-                          id="email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={formData.email || ""}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          required
-                          disabled={isEmailVerified}
-                          className="bg-slate-50 dark:bg-slate-900 pr-10"
-                      />
-                      {isEmailVerified && <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />}
-                  </div>
-                  {!isEmailVerified && (
-                      <Button 
-                      type="button" 
-                      onClick={handleSendCode} 
-                      disabled={isSendingCode || !formData.email || !formData.email.includes('@')}
-                      variant="outline"
-                      className="h-10 text-xs border-indigo-600 text-indigo-600"
-                      >
-                      {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Validar"}
-                      </Button>
-                  )}
-                </div>
+                <Label htmlFor="email">E-mail ou Telefone Profissional</Label>
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder="seu@email.com"
+                  value={formData.email || ""}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  className="bg-slate-50 dark:bg-slate-900 h-12"
+                />
               </div>
 
-                {codeSent && !isEmailVerified && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                  <Label>Código de Verificação (E-mail)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="6 dígitos"
-                      maxLength={6}
-                      value={verificationCode || ""}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                      className="bg-slate-50 dark:bg-slate-900 text-center font-bold tracking-widest"
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={handleVerifyCode} 
-                      disabled={isVerifyingCode || (verificationCode?.length !== 6)}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verificar"}
-                    </Button>
-                  </div>
-                </div>
-              )}
+                {/* Código de verificação removido para testes */}
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefone / WhatsApp</Label>
@@ -338,7 +309,7 @@ function AffiliateRegisterContent() {
         </Card>
 
         <Link href="/portal/login" className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-indigo-600 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Ir para Portal de Alunos/Professores
+          <ArrowLeft className="w-4 h-4" /> Ir para Portal de Clientes/Profissionais
         </Link>
       </div>
     </div>

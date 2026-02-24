@@ -24,12 +24,17 @@ const AVAILABLE_MODULES = [
   { id: 'students', label: 'Gestão de Clientes', description: 'Cadastro e perfil de alunos/pacientes', defaultPrice: 49 },
   { id: 'classes', label: 'Agendamento/Aulas', description: 'Grade de horários e check-in', defaultPrice: 29 },
   { id: 'financial', label: 'Financeiro', description: 'Fluxo de caixa e cobranças', defaultPrice: 89 },
-  { id: 'pos', label: 'PDV / Estoque', description: 'Venda de produtos físicos', defaultPrice: 39 },
+  { id: 'pos', label: 'PDV / Frente de Caixa', description: 'Venda de produtos físicos rápidos', defaultPrice: 39 },
+  { id: 'inventory', label: 'Estoque / Suprimentos', description: 'Controle de produtos e fornecedores', defaultPrice: 59 },
   { id: 'whatsapp', label: 'WhatsApp Automation', description: 'Envio de mensagens automáticas', defaultPrice: 120 },
   { id: 'ai_chat', label: 'IA Chatbot', description: 'Assistente virtual inteligente', defaultPrice: 150 },
   { id: 'scanner', label: 'Scanner de Entrada', description: 'Controle de acesso por QR Code', defaultPrice: 19 },
   { id: 'marketplace', label: 'Marketplace', description: 'Loja virtual integrada', defaultPrice: 59 },
+  { id: 'leads', label: 'CRM / Leads', description: 'Funil de vendas e prospecção', defaultPrice: 79 },
+  { id: 'gamification', label: 'Gamificação', description: 'Sistema de pontos e recompensas', defaultPrice: 45 },
+  { id: 'service_orders', label: 'Ordens de Serviço', description: 'Controle de manutenções e reparos', defaultPrice: 69 },
   { id: 'erp', label: 'ERP Enterprise', description: 'Gestão empresarial completa', defaultPrice: 199 },
+  { id: 'multi_unit', label: 'Multi-unidade', description: 'Gestão de várias filiais', defaultPrice: 150 },
 ]
 
 export function FeatureBuilder() {

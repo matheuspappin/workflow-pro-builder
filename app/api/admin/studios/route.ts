@@ -92,3 +92,34 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { professionalId, studioId } = await request.json()
+
+    if (!professionalId || !studioId) {
+      return NextResponse.json({ error: 'ID do profissional e ID do estúdio são obrigatórios' }, { status: 400 })
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('professionals')
+      .update({ studio_id: studioId, updated_at: new Date().toISOString() })
+      .eq('user_id', professionalId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json(data)
+  } catch (error: any) {
+    logger.error('💥 Erro na API Admin Studios POST para vincular profissional:', error)
+    return NextResponse.json({ error: 'Erro interno ao vincular profissional' }, { status: 500 })
+  }
+}

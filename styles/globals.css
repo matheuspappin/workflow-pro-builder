@@ -124,9 +124,74 @@
     user-select: text !important;
     -webkit-user-select: text !important;
   }
+
+  /* Personalização do Scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #334155; /* slate-700 */
+    border-radius: 20px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #475569; /* slate-600 */
+  }
+
+  /* Suporte para Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
+  }
 }
 
 @layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-fire {
+    scrollbar-width: thin;
+    scrollbar-color: #ef4444 transparent;
+  }
+  .scrollbar-fire::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-fire::-webkit-scrollbar-thumb {
+    background: #ef4444;
+    border-radius: 10px;
+  }
+  .scrollbar-fire::-webkit-scrollbar-thumb:hover {
+    background: #dc2626;
+  }
+
+  .scrollbar-primary {
+    scrollbar-width: thin;
+    scrollbar-color: #3b82f6 transparent;
+  }
+  .scrollbar-primary::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-primary::-webkit-scrollbar-thumb {
+    background: #3b82f6;
+    border-radius: 10px;
+  }
+  .scrollbar-primary::-webkit-scrollbar-thumb:hover {
+    background: #2563eb;
+  }
+
   @keyframes gradient {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -134,6 +199,21 @@
   }
   .animate-gradient {
     animation: gradient 6s ease infinite;
+  }
+
+  @keyframes scan-line {
+    0% {
+      top: 0%;
+    }
+    100% {
+      top: 100%;
+    }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
   }
 }
 

@@ -7,7 +7,7 @@ import { StudentHeader } from "@/components/student/student-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { LayoutDashboard as LayoutDashboardIcon, Calendar as CalendarIcon, CreditCard as CreditCardIcon, User as UserIcon, ArrowLeft, Camera, Edit2, Phone, Calendar, MapPin, Shield, Settings, LogOut, ChevronRight, Loader2 } from "lucide-react"
+import { LayoutDashboard as LayoutDashboardIcon, Calendar as CalendarIcon, CreditCard as CreditCardIcon, User as UserIcon, ArrowLeft, Camera, Edit2, Phone, Calendar, MapPin, Shield, Settings, LogOut, ChevronRight, Loader2, FileText } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -21,10 +21,22 @@ import {
 } from "@/components/ui/dialog"
 
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useOrganization } from "@/components/providers/organization-provider"
 
 export default function StudentProfile() {
   const { toast } = useToast()
   const { vocabulary } = useVocabulary()
+  const { businessModel, niche } = useOrganization()
+  
+  // Nichos que usam Ordens de Serviço (OS)
+  const isServiceOrderBased = ['auto_detail', 'mechanic', 'tech_repair', 'plumbing', 'electrician', 
+    'construction', 'landscaping', 'tailoring', 'cleaning', 'car_wash', 
+    'party_venue', 'logistics', 'dentist', 'clinic', 'beauty', 'aesthetics', 
+    'spa', 'physio', 'nutrition', 'podiatry', 'tanning', 'vet', 'clinic_vet', 
+    'psychology', 'law', 'consulting', 'marketing_agency', 'dev_studio', 
+    'interior_design', 'real_estate', 'insurance', 'travel_agency', 'coworking', 
+    'tattoo', 'photographer', 'event_planning'].includes(niche)
+
   const [student, setStudent] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   
@@ -289,16 +301,25 @@ export default function StudentProfile() {
         </div>
       </main>
 
-      {/* Tab Bar duplicada */}
+      {/* Tab Bar Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t flex items-center justify-around h-16 px-4 z-50">
         <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
           <LayoutDashboardIcon className="w-5 h-5" />
           <span className="text-[10px]">Início</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
-          <CalendarIcon className="w-5 h-5" />
-          <span className="text-[10px]">Aulas</span>
-        </Button>
+        
+        {isServiceOrderBased ? (
+          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+            <FileText className="w-5 h-5" />
+            <span className="text-[10px]">Minhas OS</span>
+          </Button>
+        ) : (
+          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
+            <CalendarIcon className="w-5 h-5" />
+            <span className="text-[10px]">{vocabulary.service}s</span>
+          </Button>
+        )}
+
         <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/payments'}>
           <CreditCardIcon className="w-5 h-5" />
           <span className="text-[10px]">Pagar</span>

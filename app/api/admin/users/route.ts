@@ -3,6 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger';
 
+async function requireAdminRole(userId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('users_internal')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle()
+  return !!data && ['admin', 'super_admin'].includes(data.role)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -10,6 +19,10 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await requireAdminRole(user.id))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { data: users, error } = await supabaseAdmin
@@ -78,6 +91,16 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: currentUser } = await supabaseAdmin
+      .from('users_internal')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (!currentUser || currentUser.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Apenas super administradores podem criar usuários' }, { status: 403 })
     }
 
     const { name, email, password, role, studioId, status = 'active' } = await request.json()

@@ -1,74 +1,163 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useState, useEffect, useCallback } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, CheckCircle2, ArrowRight, Building2 } from "lucide-react"
-import { claimEcosystem } from "@/lib/actions/ecosystem"
+import { Loader2, ArrowRight, Building2, User, Mail, Wrench } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { getSupabaseClient } from "@/lib/supabase"
+import { LanguageSwitcher } from "@/components/common/language-switcher"
 
-export default function InvitePage() {
+interface InviteData {
+  id: string;
+  studio_id: string;
+  email: string;
+  token: string;
+  expires_at: string;
+  metadata?: { professional_type?: string; role?: string };
+  studio: {
+    id: string;
+    name: string;
+  };
+  createdByUser?: {
+    name: string;
+  }
+}
+
+export default function ProfessionalInvitePage() {
   const params = useParams()
   const router = useRouter()
-  const [claiming, setClaiming] = useState(false)
-  const [claimed, setClaimed] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [loadingUser, setLoadingUser] = useState(true)
+  const searchParams = useSearchParams()
+  const [loading, setLoading] = useState(true)
+  const [isAccepting, setIsAccepting] = useState(false)
+  const [inviteData, setInviteData] = useState<InviteData | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [inviteStatus, setInviteStatus] = useState<'loading' | 'valid' | 'invalid' | 'expired' | 'accepted'>('loading')
 
-  useEffect(() => {
-    async function checkUser() {
-      const supabase = getSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoadingUser(false)
-    }
-    checkUser()
-  }, [])
+  const token = params.token as string
+  const supabase = getSupabaseClient()
 
-  const handleClaim = async () => {
-    if (!user) {
-      // Redirecionar para login/registro com return url
-      const returnUrl = encodeURIComponent(`/setup/invite/${params.token}`)
-      router.push(`/register?returnTo=${returnUrl}`)
+  // Auto-accept if user is logged in and coming from redirect
+  const autoAccept = searchParams.get('autoAccept') === 'true'
+
+  const fetchInviteDetails = useCallback(async () => {
+    if (!token) {
+      setInviteStatus('invalid')
+      setLoading(false)
       return
     }
 
-    setClaiming(true)
     try {
-      await claimEcosystem(params.token as string)
-      setClaimed(true)
-      toast.success("Sistema vinculado à sua conta com sucesso!")
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao resgatar convite")
+      const response = await fetch(`/api/invites/professionals?token=${token}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setInviteData(data.invite)
+        setInviteStatus('valid')
+      } else {
+        setInviteStatus('invalid')
+        toast.error(data.error || "Convite inválido ou expirado")
+      }
+    } catch (error) {
+      console.error("Error fetching invite details:", error)
+      setInviteStatus('invalid')
+      toast.error("Erro ao buscar detalhes do convite")
     } finally {
-      setClaiming(false)
+      setLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    async function checkUserAndInvite() {
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUser(user)
+      fetchInviteDetails()
+    }
+    checkUserAndInvite()
+  }, [supabase, fetchInviteDetails])
+
+  const handleAcceptInvite = async () => {
+    if (!inviteData || !currentUser) return
+
+    setIsAccepting(true)
+    try {
+      const response = await fetch('/api/invites/professionals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: inviteData.token,
+          userId: currentUser.id,
+          email: currentUser.email,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        // Atualizar sessão para garantir que os novos metadados (studio_id) estejam disponíveis
+        await supabase.auth.refreshSession()
+        
+        toast.success("Convite aceito com sucesso!")
+        
+        // Redirecionar baseada no tipo de profissional ou role interno
+        const internalRole = inviteData?.metadata?.role;
+        const profType = inviteData?.metadata?.professional_type || 'technician';
+        if (internalRole === 'finance') router.push("/finance")
+        else if (internalRole === 'seller') router.push("/seller")
+        else if (profType === 'engineer' || profType === 'architect') router.push("/solutions/fire-protection/engineer")
+        else router.push("/solutions/fire-protection/technician")
+      } else {
+        toast.error(data.error || "Erro ao aceitar convite")
+        setIsAccepting(false)
+      }
+    } catch (error) {
+      console.error("Error accepting invite:", error)
+      toast.error("Erro ao aceitar convite")
+      setIsAccepting(false)
     }
   }
 
-  if (loadingUser) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>
+  // Auto-accept effect
+  useEffect(() => {
+    if (inviteStatus === 'valid' && currentUser && !isAccepting && autoAccept) {
+        handleAcceptInvite()
+    }
+  }, [inviteStatus, currentUser, autoAccept])
+
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="text-center">
+          <Loader2 className="animate-spin w-10 h-10 text-blue-600 mx-auto mb-4" />
+          <p className="text-sm text-slate-500 animate-pulse font-medium">Validando seu convite...</p>
+        </div>
+      </div>
+    )
   }
 
-  if (claimed) {
+  if (inviteStatus === 'invalid' || inviteStatus === 'expired') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
-        <Card className="w-full max-w-md text-center border-emerald-500/20">
+        <Card className="w-full max-w-md text-center border-destructive/20 shadow-xl">
           <CardHeader>
-            <div className="mx-auto w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+            <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex itemscenter justify-center mb-4">
+              <Wrench className="w-8 h-8 text-destructive" />
             </div>
-            <CardTitle className="text-2xl">Tudo Pronto!</CardTitle>
-            <CardDescription>
-              O sistema agora é seu. Você já pode começar a configurar seu negócio.
+            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white">Convite Inválido</CardTitle>
+            <CardDescription className="text-slate-500 font-medium">
+              Este link de convite expirou, já foi utilizado ou nunca existiu.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/dashboard">
-              <Button className="w-full h-12 text-lg font-bold">
-                Acessar meu Dashboard <ArrowRight className="ml-2 w-4 h-4" />
+            <Link href="/login" className="w-full">
+              <Button className="w-full h-12 text-lg font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+                Voltar para o Login <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
           </CardContent>
@@ -77,48 +166,95 @@ export default function InvitePage() {
     )
   }
 
+  const internalRole = inviteData?.metadata?.role;
+  const professionalTypeLabel = internalRole === 'finance' ? 'Financeiro' : (internalRole === 'seller' ? 'Vendedor' : (internalRole === 'receptionist' ? 'Recepcionista' : (inviteData?.metadata?.professional_type === 'engineer' ? 'Engenheiro' : (inviteData?.metadata?.professional_type === 'architect' ? 'Arquiteto' : 'Técnico'))));
+  // Use generic login/register with returnTo param
+  const returnUrl = encodeURIComponent(`/setup/invite/${token}?autoAccept=true`);
+  
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <Building2 className="w-6 h-6 text-indigo-600" />
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 relative">
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher showIcon />
+      </div>
+      <Card className="w-full max-w-md shadow-2xl border-none rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
+        <div className="h-2 bg-blue-600 w-full" />
+        <CardHeader className="text-center space-y-4 pt-8">
+          <div className="mx-auto w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center shadow-inner">
+            <Building2 className="w-8 h-8 text-blue-600" />
           </div>
-          <div>
-            <CardTitle className="text-2xl">Convite Especial</CardTitle>
-            <CardDescription>
-              Você foi convidado para gerenciar um ecossistema <strong>Workflow AI</strong>.
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Convite Especial</CardTitle>
+            <CardDescription className="text-slate-500 font-medium text-base px-2">
+              Você foi convidado para atuar como <span className="text-blue-600 font-bold">{professionalTypeLabel}</span> no estúdio:
+              <br />
+              <strong className="text-slate-900 dark:text-slate-100 text-lg block mt-1 underline decoration-blue-500/30 underline-offset-4">{inviteData?.studio.name || 'um estúdio'}</strong>.
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="bg-slate-100 dark:bg-slate-900 p-4 rounded-lg text-sm text-center">
-            Este link concede acesso administrativo total ao sistema configurado para você.
+        <CardContent className="space-y-6 pb-8">
+          <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl text-sm text-center text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50 font-medium">
+            Este link permite que você se vincule a esta empresa e acesse seus projetos e ordens de serviço.
           </div>
 
-          {!user ? (
-            <div className="space-y-3">
-              <Button onClick={handleClaim} className="w-full h-12 font-bold">
-                Criar Conta para Aceitar
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                Já tem conta? <Link href={`/login?returnTo=/setup/invite/${params.token}`} className="underline text-indigo-600">Faça login</Link>
-              </p>
+          {!currentUser ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/50 rounded-xl text-center">
+                <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                  Você precisa estar logado para aceitar este convite.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Link href={`/login?returnTo=${returnUrl}`} className="w-full">
+                  <Button variant="outline" className="w-full h-12 font-bold rounded-xl border-slate-200">
+                    Já tenho conta
+                  </Button>
+                </Link>
+                <Link href={`/register?returnTo=${returnUrl}&role=${internalRole || inviteData?.metadata?.professional_type || 'engineer'}${inviteData?.studio?.id ? `&studioId=${inviteData.studio.id}` : ''}`} className="w-full">
+                  <Button className="w-full h-12 font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200">
+                    Criar Conta
+                  </Button>
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold">
-                  {user.email?.[0].toUpperCase()}
+              <div className="flex items-center gap-4 p-4 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800/50 shadow-sm">
+                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                  <User className="w-6 h-6" />
                 </div>
-                <div className="text-sm">
-                  <p className="font-medium">Logado como</p>
-                  <p className="text-muted-foreground">{user.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Logado como</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser.email}</p>
                 </div>
               </div>
-              <Button onClick={handleClaim} disabled={claiming} className="w-full h-12 font-bold bg-indigo-600 hover:bg-indigo-700">
-                {claiming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Aceitar e Vincular à Conta"}
+
+              {inviteData?.createdByUser?.name && (
+                <div className="flex items-center gap-3 px-4 py-2 text-xs text-slate-400 font-medium justify-center">
+                  <Mail className="w-3 h-3" />
+                  Convidado por {inviteData.createdByUser.name}
+                </div>
+              )}
+
+              <Button 
+                onClick={handleAcceptInvite} 
+                disabled={isAccepting} 
+                className="w-full h-14 font-black text-lg bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xl shadow-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                {isAccepting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Vinculando conta...
+                  </>
+                ) : (
+                  <>
+                    Aceitar e Vincular <ArrowRight className="ml-2 w-5 h-5" />
+                  </>
+                )}
               </Button>
+
+              <p className="text-[10px] text-center text-slate-400 px-4">
+                Ao clicar em aceitar, você concorda em compartilhar seu perfil profissional com esta empresa.
+              </p>
             </div>
           )}
         </CardContent>

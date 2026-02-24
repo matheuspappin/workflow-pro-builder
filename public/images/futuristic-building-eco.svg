@@ -1,0 +1,95 @@
+<svg viewBox="0 0 400 420" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="facade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="50%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#64748b" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#475569" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="vegetation" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#166534"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <linearGradient id="solar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="led" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0.3"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="2" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Face lateral esquerda -->
+  <path d="M107 410 L107 50 L130 20 L130 380 Z" fill="url(#side)" filter="url(#shadow)"/>
+
+  <!-- Face frontal -->
+  <path d="M130 380 L130 20 L270 20 L270 380 Z" fill="url(#facade)" filter="url(#shadow)"/>
+
+  <!-- Face lateral direita -->
+  <path d="M270 380 L270 20 L293 50 L293 410 Z" fill="url(#side)" filter="url(#shadow)"/>
+
+  <!-- Faixas janela -->
+  <line x1="145" y1="50" x2="255" y2="50" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+  <line x1="145" y1="92" x2="255" y2="92" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+  <line x1="145" y1="134" x2="255" y2="134" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+  <line x1="145" y1="176" x2="255" y2="176" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+  <line x1="145" y1="218" x2="255" y2="218" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+  <line x1="145" y1="260" x2="255" y2="260" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+  <line x1="145" y1="302" x2="255" y2="302" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+  <line x1="145" y1="344" x2="255" y2="344" stroke="#64748b" stroke-width="0.8" opacity="0.4"/>
+
+  <!-- Vidro central -->
+  <path d="M150 40 L150 350 L250 350 L250 40 Z" fill="url(#glass)" opacity="0.5"/>
+
+  <!-- Vegetação -->
+  <ellipse cx="160" cy="260" rx="18" ry="7" fill="url(#vegetation)" opacity="0.9"/>
+  <ellipse cx="240" cy="230" rx="15" ry="6" fill="url(#vegetation)" opacity="0.85"/>
+
+  <!-- Topo -->
+  <path d="M130 20 L270 20 L293 50 L107 50 Z" fill="url(#top)" filter="url(#shadow)"/>
+
+  <!-- Painéis solares -->
+  <rect x="145" y="25" width="28" height="18" rx="1" fill="url(#solar)" transform="skewX(-5)"/>
+  <rect x="180" y="22" width="30" height="20" rx="1" fill="url(#solar)" transform="skewX(-5)"/>
+  <rect x="238" y="28" width="25" height="16" rx="1" fill="url(#solar)" transform="skewX(5)"/>
+  <rect x="268" y="25" width="22" height="18" rx="1" fill="url(#solar)" transform="skewX(5)"/>
+
+  <!-- Heliporto -->
+  <ellipse cx="200" cy="35" rx="22" ry="12" fill="#64748b" stroke="#94a3b8" stroke-width="1" opacity="0.95"/>
+  <ellipse cx="200" cy="35" rx="16" ry="8" fill="none" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.7"/>
+  <text x="200" y="38" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="bold" font-family="system-ui,sans-serif">H</text>
+  <ellipse cx="197" cy="32" rx="4" ry="2" fill="#f8fafc" stroke="#94a3b8" stroke-width="0.5"/>
+
+  <!-- Jardim topo -->
+  <ellipse cx="155" cy="45" rx="16" ry="6" fill="url(#vegetation)" opacity="0.9"/>
+  <ellipse cx="245" cy="47" rx="14" ry="5" fill="url(#vegetation)" opacity="0.85"/>
+
+  <!-- Antena -->
+  <line x1="200" y1="20" x2="200" y2="-5" stroke="#ef4444" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="200" cy="-5" r="2.5" fill="#ef4444" filter="url(#glow)"/>
+
+  <!-- Faixa LED base -->
+  <path d="M140 385 L260 385" stroke="url(#led)" stroke-width="2" stroke-linecap="round" filter="url(#glow)"/>
+</svg>

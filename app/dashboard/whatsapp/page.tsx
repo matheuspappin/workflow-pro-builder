@@ -55,7 +55,7 @@ import logger from '@/lib/logger'
 import { useVocabulary } from "@/hooks/use-vocabulary"
 
 export default function WhatsAppPage() {
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, t, language } = useVocabulary()
   const { toast } = useToast()
   const [chats, setChats] = useState<any[]>([])
   const [selectedChat, setSelectedChat] = useState<any>(null)
@@ -110,8 +110,8 @@ export default function WhatsAppPage() {
     const currentPlan = systemPlans.find(p => p.id === studioPlan)
     if (studioPlan === 'gratuito' || (currentPlan && !currentPlan.has_whatsapp)) {
       toast({
-        title: "Recurso Premium",
-        description: "A integração com WhatsApp não está disponível no seu plano atual. Faça o upgrade para continuar.",
+        title: t.whatsapp.premiumResource,
+        description: t.whatsapp.premiumDesc,
         variant: "destructive"
       })
       return
@@ -136,7 +136,7 @@ export default function WhatsAppPage() {
             return true
           } else if (data.data?.instance?.state === 'open' || data.data?.instance?.status === 'open') {
             setConnectionStatus('connected')
-            toast({ title: "WhatsApp já conectado", description: "Sua instância já está pronta para uso." })
+            toast({ title: t.whatsapp.connected, description: t.whatsapp.ready })
             setIsFetchingQr(false)
             return true
           }
@@ -155,8 +155,8 @@ export default function WhatsAppPage() {
           if (!finished) {
             setIsFetchingQr(false)
             toast({ 
-              title: "QR Code ainda em geração", 
-              description: "O motor está iniciando. Por favor, aguarde 30 segundos e clique em CONECTAR novamente.", 
+              title: t.whatsapp.qrGenerating, 
+              description: t.whatsapp.qrGeneratingDesc.replace('{connect}', t.whatsapp.connect), 
               variant: "destructive" 
             })
           }
@@ -165,8 +165,8 @@ export default function WhatsAppPage() {
 
     } catch (error: any) {
       toast({ 
-        title: "Erro na conexão", 
-        description: error.message || "Verifique se o Docker está rodando ou configure as chaves no Super Admin.", 
+        title: t.whatsapp.connectionError, 
+        description: error.message || t.whatsapp.connectionErrorDesc, 
         variant: "destructive" 
       })
       setIsFetchingQr(false)
@@ -234,7 +234,7 @@ export default function WhatsAppPage() {
 
       if (error) throw error
 
-      toast({ title: "Configurações salvas", description: "Suas credenciais de API foram atualizadas." })
+      toast({ title: t.whatsapp.settingsSaved, description: t.whatsapp.settingsSavedDesc })
       setIsSettingsModalOpen(false)
       checkConnection() // Re-verificar status com as novas chaves
     } catch (error: any) {
@@ -274,12 +274,12 @@ export default function WhatsAppPage() {
       if (data.success) {
         setConnectionStatus('disconnected')
         setQrCode(null)
-        toast({ title: "Desconectado com sucesso", description: "O WhatsApp foi desvinculado da plataforma." })
+        toast({ title: t.whatsapp.disconnectedSuccess, description: t.whatsapp.disconnectedDesc })
       } else {
         throw new Error(data.error)
       }
     } catch (error: any) {
-      toast({ title: "Erro ao desconectar", description: error.message, variant: "destructive" })
+      toast({ title: t.whatsapp.disconnectError, description: error.message, variant: "destructive" })
     } finally {
       setIsDisconnecting(false)
     }
@@ -394,7 +394,7 @@ export default function WhatsAppPage() {
       }).eq('id', selectedChat.id)
 
     } catch (error) {
-      toast({ title: "Erro ao enviar", description: "Não foi possível enviar a mensagem real via WhatsApp.", variant: "destructive" })
+      toast({ title: t.whatsapp.sendError, description: t.whatsapp.sendErrorDesc, variant: "destructive" })
     }
   }
 
@@ -410,12 +410,12 @@ export default function WhatsAppPage() {
 
       if (error) throw error
 
-      toast({ title: "Conversa excluída", description: "O histórico local foi removido com sucesso." })
+      toast({ title: t.whatsapp.deleteChatSuccess, description: t.whatsapp.deleteLocalHistorySuccess })
       setSelectedChat(null)
       setMessages([])
       loadChats()
     } catch (error) {
-      toast({ title: "Erro ao excluir", description: "Não foi possível remover a conversa.", variant: "destructive" })
+      toast({ title: t.whatsapp.deleteChatError, description: "Não foi possível remover a conversa.", variant: "destructive" })
     }
   }
 
@@ -433,12 +433,12 @@ export default function WhatsAppPage() {
 
       if (error) throw error
 
-      toast({ title: "Contato atualizado", description: "As informações foram salvas com sucesso." })
+      toast({ title: t.whatsapp.contactUpdated, description: t.whatsapp.contactUpdatedDesc })
       setIsEditModalOpen(false)
       loadChats()
       setSelectedChat(prev => ({ ...prev, contact_name: editName, contact_type: editType }))
     } catch (error) {
-      toast({ title: "Erro ao atualizar", description: "Não foi possível salvar as alterações.", variant: "destructive" })
+      toast({ title: t.whatsapp.updateError, description: t.whatsapp.updateErrorDesc, variant: "destructive" })
     }
   }
 
@@ -455,7 +455,7 @@ export default function WhatsAppPage() {
     <ModuleGuard module="whatsapp" showFullError>
       <div className="flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
         <div className="flex-shrink-0">
-          <Header title="WhatsApp Integration" />
+          <Header title={t.whatsapp.title} />
         </div>
         {/* ... restante do código ... */}
       
@@ -469,12 +469,12 @@ export default function WhatsAppPage() {
                 {connectionStatus === 'connected' ? (
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Conectado</span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">{t.whatsapp.connected}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest">Desconectado</span>
+                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest">{t.whatsapp.disconnected}</span>
                   </div>
                 )}
               </div>
@@ -486,7 +486,7 @@ export default function WhatsAppPage() {
                     className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50"
                     onClick={handleLogout}
                     disabled={isDisconnecting}
-                    title="Desconectar WhatsApp"
+                    title={t.whatsapp.disconnectTitle}
                   >
                     {isDisconnecting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <WifiOff className="w-3 h-3" />}
                   </Button>
@@ -496,7 +496,7 @@ export default function WhatsAppPage() {
                   size="sm" 
                   className="h-7 w-7 text-slate-400 hover:text-indigo-600"
                   onClick={() => setIsSettingsModalOpen(true)}
-                  title="Configurações de API"
+                  title={t.whatsapp.apiSettings}
                 >
                   <MoreVertical className="w-4 h-4" />
                 </Button>
@@ -512,7 +512,7 @@ export default function WhatsAppPage() {
                   ) : (
                     <>
                       <QrCodeIcon className="w-3 h-3" />
-                      {connectionStatus === 'connected' ? 'RECONECTAR' : 'CONECTAR'}
+                      {connectionStatus === 'connected' ? t.whatsapp.reconnect : t.whatsapp.connect}
                     </>
                   )}
                 </Button>
@@ -522,7 +522,7 @@ export default function WhatsAppPage() {
 
           <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-4 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg">Conversas</h3>
+              <h3 className="font-bold text-lg">{t.whatsapp.chats}</h3>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400">
                 <Filter className="w-4 h-4" />
               </Button>
@@ -530,7 +530,7 @@ export default function WhatsAppPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input 
-                placeholder="Buscar contato..." 
+                placeholder={t.whatsapp.searchPlaceholder} 
                 className="pl-9 bg-slate-50 dark:bg-slate-800 border-none h-9 text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -543,11 +543,11 @@ export default function WhatsAppPage() {
               {isLoading ? (
                 <div className="p-8 text-center text-slate-400">
                   <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  Carregando...
+                  {t.common.loading}
                 </div>
               ) : chats.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-sm italic">
-                  Nenhuma conversa encontrada.
+                  {t.whatsapp.noChats}
                 </div>
               ) : (
                 chats.filter(c => c.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) || c.remote_jid.includes(searchTerm)).map((chat) => (
@@ -599,12 +599,12 @@ export default function WhatsAppPage() {
                       {getContactBadge(selectedChat.contact_type)}
                     </h4>
                     <div className="text-[10px] text-emerald-500 font-medium flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online via Workflow AI
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> {t.whatsapp.onlineIA}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-500 hover:bg-red-50" onClick={deleteChat} title="Excluir histórico local"><Trash2 className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-500 hover:bg-red-50" onClick={deleteChat} title={t.whatsapp.deleteLocalHistory}><Trash2 className="w-4 h-4" /></Button>
                   <Button variant="ghost" size="icon" className="text-slate-400"><Phone className="w-4 h-4" /></Button>
                   <Button variant="ghost" size="icon" className="text-slate-400"><MoreVertical className="w-4 h-4" /></Button>
                 </div>
@@ -673,7 +673,7 @@ export default function WhatsAppPage() {
                   
                   <div className="relative flex-1">
                     <textarea 
-                      placeholder="Digite sua mensagem..." 
+                      placeholder={t.whatsapp.typeMessage} 
                       className="w-full bg-slate-50 dark:bg-slate-800 border-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-2xl py-3 px-4 text-sm resize-none min-h-[44px] max-h-[120px] transition-all"
                       value={newMessage}
                       rows={1}
@@ -705,10 +705,10 @@ export default function WhatsAppPage() {
                 </form>
                 <div className="flex items-center justify-between mt-3 px-2">
                   <div className="text-[9px] text-slate-400 flex items-center gap-1 font-medium uppercase tracking-tighter">
-                    <div className="w-1 h-1 rounded-full bg-emerald-500" /> IA Ativa para este contato
+                    <div className="w-1 h-1 rounded-full bg-emerald-500" /> {t.whatsapp.activeIA}
                   </div>
                   <Badge variant="outline" className="text-[9px] h-4 font-bold border-indigo-100 text-indigo-600 bg-indigo-50/30">
-                    MODO SECRETARIA
+                    {t.whatsapp.secretaryMode}
                   </Badge>
                 </div>
               </div>
@@ -719,7 +719,7 @@ export default function WhatsAppPage() {
                 <MessageSquare className="w-10 h-10 text-indigo-600" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Central WhatsApp</h3>
-              <p className="max-w-xs text-sm text-slate-500">Selecione uma conversa ao lado para visualizar o histórico e interagir em tempo real com seus {vocabulary.clients.toLowerCase()}.</p>
+              <p className="max-w-xs text-sm text-slate-500">{t.whatsapp.selectChat.replace('{clients}', vocabulary.clients.toLowerCase())}</p>
             </div>
           )}
         </Card>
@@ -732,9 +732,9 @@ export default function WhatsAppPage() {
             <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-2">
               <QrCodeIcon className="w-6 h-6 text-emerald-600" />
             </div>
-            <DialogTitle className="text-2xl font-black">Conectar WhatsApp</DialogTitle>
+            <DialogTitle className="text-2xl font-black">{t.whatsapp.connect}</DialogTitle>
             <DialogDescription>
-              Escaneie o QR Code abaixo com o seu celular para ativar as automações de IA.
+              {t.whatsapp.qrCodeDescription}
             </DialogDescription>
           </DialogHeader>
           
@@ -747,22 +747,22 @@ export default function WhatsAppPage() {
             ) : (
               <div className="w-64 h-64 flex flex-col items-center justify-center space-y-4">
                 <RefreshCw className="w-10 h-10 text-indigo-600 animate-spin" />
-                <p className="text-xs font-bold text-slate-400 animate-pulse">GERANDO SESSÃO SEGURA...</p>
+                <p className="text-xs font-bold text-slate-400 animate-pulse">{t.whatsapp.connecting}</p>
               </div>
             )}
             
             <div className="mt-8 grid grid-cols-1 gap-3 w-full">
               <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
                 <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px]">1</div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400">Abra o <b>WhatsApp</b> no seu celular</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={{ __html: t.whatsapp.step1 }} />
               </div>
               <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
                 <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px]">2</div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400">Vá em <b>Configurações</b> &gt; <b>Aparelhos Conectados</b></p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={{ __html: t.whatsapp.step2 }} />
               </div>
               <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
                 <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px]">3</div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400">Toque em <b>Conectar um Aparelho</b> e aponte a câmera</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={{ __html: t.whatsapp.step3 }} />
               </div>
             </div>
           </div>
@@ -771,15 +771,15 @@ export default function WhatsAppPage() {
               <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/50 rounded-xl flex gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
               <div className="space-y-1">
-                <p className="text-[11px] font-bold text-amber-800 dark:text-amber-400">Dica de Especialista:</p>
+                <p className="text-[11px] font-bold text-amber-800 dark:text-amber-400">{t.whatsapp.expertTip}</p>
                 <p className="text-[10px] text-amber-700 dark:text-amber-500 leading-relaxed">
-                  Para uma conexão estável, certifique-se de que o seu celular não está em modo de economia de energia e tem uma conexão estável com a internet.
+                  {t.whatsapp.expertTipDesc}
                 </p>
               </div>
             </div>
 
             <p className="text-[9px] text-center text-slate-400 uppercase tracking-widest font-bold">
-              O QR Code expira em 60 segundos por segurança.
+              {t.whatsapp.qrCodeExpired}
             </p>
           </div>
         </DialogContent>
@@ -789,7 +789,7 @@ export default function WhatsAppPage() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-[400px] border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black">Editar Contato</DialogTitle>
+            <DialogTitle className="text-xl font-black">{t.whatsapp.editContact}</DialogTitle>
             <DialogDescription>
               Atualize as informações deste contato para facilitar a organização.
             </DialogDescription>
@@ -797,7 +797,7 @@ export default function WhatsAppPage() {
           
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-slate-400">Nome do Contato</Label>
+              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-slate-400">{t.whatsapp.contactName}</Label>
               <Input 
                 id="name" 
                 value={editName} 
@@ -807,7 +807,7 @@ export default function WhatsAppPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="type" className="text-xs font-bold uppercase tracking-widest text-slate-400">Tipo de Perfil</Label>
+              <Label htmlFor="type" className="text-xs font-bold uppercase tracking-widest text-slate-400">{t.whatsapp.profileType}</Label>
               <Select value={editType} onValueChange={setEditType}>
                 <SelectTrigger className="bg-slate-50 dark:bg-slate-800 border-none focus:ring-indigo-500">
                   <SelectValue placeholder="Selecione o tipo" />
@@ -823,8 +823,8 @@ export default function WhatsAppPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="font-bold">Cancelar</Button>
-            <Button onClick={handleUpdateContact} className="bg-indigo-600 hover:bg-indigo-700 font-bold">Salvar Alterações</Button>
+            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="font-bold">{t.common.cancel}</Button>
+            <Button onClick={handleUpdateContact} className="bg-indigo-600 hover:bg-indigo-700 font-bold">{t.whatsapp.saveChanges}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -833,15 +833,15 @@ export default function WhatsAppPage() {
       <Dialog open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen}>
         <DialogContent className="sm:max-w-md border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black">Configurações de API</DialogTitle>
+            <DialogTitle className="text-xl font-black">{t.whatsapp.apiSettings}</DialogTitle>
             <DialogDescription>
-              Use suas próprias credenciais da Evolution API ou deixe em branco para usar o servidor padrão.
+              {t.whatsapp.apiSettingsDesc}
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="api_url" className="text-xs font-bold uppercase tracking-widest text-slate-400">URL da API</Label>
+              <Label htmlFor="api_url" className="text-xs font-bold uppercase tracking-widest text-slate-400">{t.whatsapp.apiUrl}</Label>
               <Input 
                 id="api_url" 
                 value={apiSettings.api_url} 
@@ -851,7 +851,7 @@ export default function WhatsAppPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="api_key" className="text-xs font-bold uppercase tracking-widest text-slate-400">Chave da API (Global API Key)</Label>
+              <Label htmlFor="api_key" className="text-xs font-bold uppercase tracking-widest text-slate-400">{t.whatsapp.apiKey}</Label>
               <Input 
                 id="api_key" 
                 type="password"
@@ -862,7 +862,7 @@ export default function WhatsAppPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="instance_id" className="text-xs font-bold uppercase tracking-widest text-slate-400">ID da Instância (Opcional)</Label>
+              <Label htmlFor="instance_id" className="text-xs font-bold uppercase tracking-widest text-slate-400">{t.whatsapp.instanceId}</Label>
               <Input 
                 id="instance_id" 
                 value={apiSettings.instance_id} 
@@ -870,19 +870,19 @@ export default function WhatsAppPage() {
                 placeholder="df_meu-studio"
                 className="bg-slate-50 dark:bg-slate-800 border-none focus-visible:ring-indigo-500"
               />
-              <p className="text-[10px] text-slate-400 italic">Se vazio, usaremos o identificador único do seu {vocabulary.establishment.toLowerCase()}.</p>
+              <p className="text-[10px] text-slate-400 italic">{t.whatsapp.instanceIdDesc.replace('{establishment}', vocabulary.establishment.toLowerCase())}</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsSettingsModalOpen(false)} className="font-bold text-xs">FECHAR</Button>
+            <Button variant="ghost" onClick={() => setIsSettingsModalOpen(false)} className="font-bold text-xs">{t.common.close.toUpperCase()}</Button>
             <Button 
               onClick={handleSaveApiSettings} 
               disabled={isSavingSettings}
               className="bg-indigo-600 hover:bg-indigo-700 font-bold text-xs"
             >
               {isSavingSettings ? <RefreshCw className="w-3 h-3 animate-spin mr-2" /> : null}
-              SALVAR CONFIGURAÇÕES
+              {t.common.save.toUpperCase()} CONFIGURAÇÕES
             </Button>
           </DialogFooter>
         </DialogContent>

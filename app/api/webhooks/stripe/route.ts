@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
-import { updateERPOrderStatus } from '@/lib/actions/erp'; // Assumindo que esta função existe ou será criada
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
-
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -31,26 +30,148 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case 'checkout.session.completed':
       const session = event.data.object as Stripe.Checkout.Session;
-
       const metadata = session.metadata;
+      
       if (!metadata) {
-        logger.error("Metadata missing in checkout session", session);
+        logger.error("Metadata missing in checkout session", session.id);
         return new NextResponse("Metadata missing", { status: 400 });
       }
 
-      const { store_id, customer_name, customer_email, customer_phone, erp_order_id } = metadata;
+      const { invoice_id, type, studio_id, student_id } = metadata;
 
-      if (!erp_order_id) {
-        logger.error("ERP Order ID missing in metadata", session);
-        return new NextResponse("ERP Order ID missing", { status: 400 });
+      if (type === 'service_order') {
+          logger.info(`✅ Pagamento de OS concluído: ${invoice_id}`);
+          
+          // 1. Atualizar o Pagamento no banco
+          const { error: paymentError } = await supabaseAdmin
+            .from('payments')
+            .update({ 
+                status: 'paid', 
+                payment_date: new Date().toISOString(),
+                payment_method: 'stripe_card'
+            })
+            .eq('service_order_id', invoice_id);
+
+          if (paymentError) logger.error("Erro ao atualizar pagamento da OS:", paymentError);
+
+          // 2. Atualizar a Ordem de Serviço
+          const { error: osError } = await supabaseAdmin
+            .from('service_orders')
+            .update({ payment_status: 'paid' })
+            .eq('id', invoice_id);
+          
+          if (osError) logger.error("Erro ao atualizar status de pagamento na OS:", osError);
+          
+          // 3. Garantir que o student_id está vinculado ao pagamento se não estiver
+          if (student_id) {
+              await supabaseAdmin
+                .from('payments')
+                .update({ student_id: student_id })
+                .eq('service_order_id', invoice_id)
+                .is('student_id', null);
+          }
+      } 
+      else if (type === 'package') {
+          logger.info(`✅ Pagamento de Pacote concluído para o aluno: ${student_id}`);
+          // Lógica para adicionar créditos ao aluno baseada no pacote
+          const { data: pkg } = await supabaseAdmin
+            .from('lesson_packages')
+            .select('lessons_count')
+            .eq('id', invoice_id)
+            .single();
+
+          if (pkg) {
+              const { error: creditError } = await supabaseAdmin.rpc('adjust_student_credits', {
+                  p_student_id: student_id,
+                  p_studio_id: studio_id,
+                  p_amount: pkg.lessons_count
+              });
+              if (creditError) logger.error("Erro ao adicionar créditos via webhook:", creditError);
+          }
       }
+      else if (type === 'pos_sale') {
+          logger.info(`✅ Venda de PDV concluída: ${studio_id}`);
+          const items = JSON.parse(metadata.items_json || '[]');
+          const totalAmount = session.amount_total ? session.amount_total / 100 : 0;
+          const method = metadata.payment_method || 'stripe_card';
 
-      logger.info("Checkout session completed for order:", session.id);
-      logger.info("Customer:", customer_name, customer_email, customer_phone);
-      logger.info("Store ID:", store_id);
-      logger.info("ERP Order ID:", erp_order_id);
+          // 1. Criar o registro de pagamento
+          const { data: payment, error: paymentError } = await supabaseAdmin
+            .from('payments')
+            .insert({
+                studio_id,
+                student_id: student_id || null,
+                amount: totalAmount,
+                status: 'paid',
+                payment_date: new Date().toISOString(),
+                payment_method: method,
+                description: `PDV: ${items.map((i: any) => i.name).join(', ')}`,
+                reference_month: new Date().toISOString().slice(0, 7)
+            })
+            .select()
+            .single();
 
-      await updateERPOrderStatus(store_id, erp_order_id, 'paid');
+          if (paymentError) logger.error("Erro ao criar pagamento de PDV via webhook:", paymentError);
+
+          // 2. Se houver OS, atualizar status
+          const serviceOrderItems = items.filter((i: any) => i.type === 'service_order');
+          if (serviceOrderItems.length > 0) {
+              const osIds = serviceOrderItems.map((i: any) => i.id);
+              await supabaseAdmin
+                .from('service_orders')
+                .update({ payment_status: 'paid' })
+                .in('id', osIds);
+              
+              // Se tiver apenas uma OS, vincula o pagamento a ela
+              if (serviceOrderItems.length === 1 && payment) {
+                  await supabaseAdmin
+                    .from('payments')
+                    .update({ service_order_id: serviceOrderItems[0].id })
+                    .eq('id', payment.id);
+              }
+          }
+
+          // 3. Atualizar estoque para produtos vendidos
+          for (const item of items) {
+              if (item.type === 'product') {
+                  // Buscar saldo atual
+                  const { data: prod } = await supabaseAdmin
+                    .from('products')
+                    .select('quantity')
+                    .eq('id', item.id)
+                    .single();
+                  
+                  if (prod) {
+                      await supabaseAdmin
+                        .from('products')
+                        .update({ quantity: Math.max(0, prod.quantity - item.quantity) })
+                        .eq('id', item.id);
+                      
+                      // Registrar transação de estoque
+                      await supabaseAdmin.from('inventory_transactions').insert({
+                          studio_id,
+                          product_id: item.id,
+                          type: 'sale',
+                          quantity: item.quantity,
+                          reason: 'Venda PDV (Stripe)',
+                          unit_price: item.price
+                      });
+                  }
+              }
+          }
+      }
+      else {
+          // Lógica padrão para mensalidades (student_payment)
+          logger.info(`✅ Pagamento de mensalidade concluído: ${invoice_id}`);
+          await supabaseAdmin
+            .from('payments')
+            .update({ 
+                status: 'paid', 
+                payment_date: new Date().toISOString(),
+                payment_method: 'stripe_card'
+            })
+            .eq('id', invoice_id);
+      }
 
       break;
     default:

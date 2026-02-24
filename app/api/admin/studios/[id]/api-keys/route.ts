@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 // Busca chaves de API de um estúdio
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
@@ -25,7 +25,7 @@ export async function GET(
 // Salva ou atualiza chaves de API
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params

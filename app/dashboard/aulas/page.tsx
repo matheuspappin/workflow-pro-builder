@@ -48,6 +48,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { ModuleGuard } from "@/components/providers/module-guard"
+import { useOrganization } from "@/components/providers/organization-provider"
 import { isLimitReached, PLAN_LIMITS } from "@/lib/plan-limits"
 import { supabase } from "@/lib/supabase"
 
@@ -72,32 +73,32 @@ interface ClassItem {
   isCancelledToday?: boolean
 }
 
-const weekDays = ["Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"]
+const dayKeys = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 const dayToNumber: Record<string, number> = {
-  "Segunda": 1,
-  "Terca": 2,
-  "Quarta": 3,
-  "Quinta": 4,
-  "Sexta": 5,
-  "Sabado": 6
+  "monday": 1,
+  "tuesday": 2,
+  "wednesday": 3,
+  "thursday": 4,
+  "friday": 5,
+  "saturday": 6
 }
 
 export default function ClassesPage() {
   const { toast } = useToast()
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, t, language } = useVocabulary()
+  const { businessModel } = useOrganization()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedDay, setSelectedDay] = useState<string>("Segunda")
-  const [businessModel, setBusinessModel] = useState<'CREDIT' | 'MONETARY'>('CREDIT')
+  const [selectedDay, setSelectedDay] = useState<string>("monday")
   
   useEffect(() => {
     // Sincronizar o dia da semana atual com o selectedDay ao montar
-    const dayNames = ["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"]
+    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
     const todayIndex = currentDate.getDay()
-    // Se for domingo, padrão para segunda, senão usa o dia atual
-    const todayName = todayIndex === 0 ? "Segunda" : dayNames[todayIndex]
-    if (weekDays.includes(todayName)) {
+    // Se for domingo, padrão para monday, senão usa o dia atual
+    const todayName = todayIndex === 0 ? "monday" : dayNames[todayIndex]
+    if (dayKeys.includes(todayName)) {
       setSelectedDay(todayName)
     }
   }, [])
@@ -111,7 +112,7 @@ export default function ClassesPage() {
     name: "",
     modality: "",
     teacherId: "",
-    day: "Segunda",
+    day: "monday",
     time: "18:00",
     duration: "60",
     room: "Sala 1",
@@ -142,15 +143,16 @@ export default function ClassesPage() {
         .from('classes')
         .select(`
           *,
-          teacher:teachers(name)
+          teacher_id:professional_id,
+          teacher:professional_id(name)
         `)
         .eq('studio_id', studioId)
         .order('name')
 
       if (error) throw error
       return data || []
-    } catch (e) {
-      console.error('Erro ao buscar turmas:', e)
+    } catch (e: any) {
+      console.error('Erro ao buscar turmas:', e?.message || e)
       return []
     }
   }
@@ -170,8 +172,8 @@ export default function ClassesPage() {
 
       if (error) throw error
       return data || []
-    } catch (e) {
-      console.error('Erro ao buscar professores:', e)
+    } catch (e: any) {
+      console.error('Erro ao buscar professores:', e?.message || e)
       return []
     }
   }
@@ -191,8 +193,8 @@ export default function ClassesPage() {
 
       if (error) throw error
       return data || []
-    } catch (e) {
-      console.error('Erro ao buscar modalidades:', e)
+    } catch (e: any) {
+      console.error('Erro ao buscar modalidades:', e?.message || e)
       return []
     }
   }
@@ -204,12 +206,17 @@ export default function ClassesPage() {
       const user = JSON.parse(userStr)
       const studioId = user.studio_id || user.studioId
 
-      const { id, ...data } = classData
+      const { id, teacher_id, ...data } = classData
+      
+      const classPayload = {
+        ...data,
+        professional_id: teacher_id || (data as any).professional_id
+      }
       
       if (id) {
         const { data: updated, error } = await supabase
           .from('classes')
-          .update(data)
+          .update(classPayload)
           .eq('id', id)
           .eq('studio_id', studioId)
           .select()
@@ -220,7 +227,7 @@ export default function ClassesPage() {
       } else {
         const { data: inserted, error } = await supabase
           .from('classes')
-          .insert({ ...data, studio_id: studioId })
+          .insert({ ...classPayload, studio_id: studioId })
           .select()
           .single()
         
@@ -278,12 +285,13 @@ export default function ClassesPage() {
       const studioId = user.studio_id || user.studioId
       const today = new Date().toISOString().split('T')[0]
 
-      const [data, teachersData, modalitiesData, sessionsData, studioData] = await Promise.all([
+      const weekDays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+
+      const [data, teachersData, modalitiesData, sessionsData] = await Promise.all([
         getClasses(),
         getTeachers(),
         getModalities(),
         supabase.from('sessions').select('class_id').eq('studio_id', studioId).eq('scheduled_date', today).eq('status', 'cancelled'),
-        supabase.from('studios').select('business_model').eq('id', studioId).single()
       ])
       
       setTeachersList(teachersData)
@@ -291,10 +299,6 @@ export default function ClassesPage() {
       
       if (sessionsData.data) {
         setCancelledToday(sessionsData.data.map(s => s.class_id))
-      }
-
-      if (studioData.data) {
-        setBusinessModel(studioData.data.business_model as 'CREDIT' | 'MONETARY' || 'CREDIT')
       }
 
       console.log('📚 Turmas carregadas:', data)
@@ -320,13 +324,13 @@ export default function ClassesPage() {
           uuid: c.id,
           name: c.name,
           modality: c.dance_style,
-          teacher: c.teacher?.name || `Sem ${vocabulary.provider.toLowerCase()}`,
+          teacher: c.teacher?.name || (language === 'pt' ? `Sem ${vocabulary.provider.toLowerCase()}` : `No ${vocabulary.provider.toLowerCase()}`),
           teacherId: c.teacher_id,
-          day: weekDays.find(d => dayToNumber[d] === mainSchedule.day_of_week) || "Segunda",
+          day: weekDays.find(d => dayToNumber[d] === mainSchedule.day_of_week) || (language === 'pt' ? "Segunda" : "Monday"),
           time: startTime,
           endTime: endTime,
           duration: durationMinutes,
-          room: c.room || "Sala 1",
+          room: c.room || (language === 'pt' ? "Sala 1" : "Room 1"),
           maxStudents: c.max_students || 15,
           enrolledStudents: c.current_students || 0,
           level: c.level || "beginner",
@@ -395,12 +399,12 @@ export default function ClassesPage() {
       loadClasses()
       setIsDialogOpen(false)
       toast({
-        title: "Sucesso",
+        title: t.common.success,
         description: `${vocabulary.service} criada com sucesso!`,
       })
     } catch (error) {
       toast({
-        title: "Erro",
+        title: t.common.error,
         description: `Erro ao criar ${vocabulary.service.toLowerCase()}.`,
         variant: "destructive",
       })
@@ -428,12 +432,12 @@ export default function ClassesPage() {
 
       loadClasses()
       toast({
-        title: "Sucesso",
+        title: t.common.success,
         description: `${vocabulary.service} excluída permanentemente.`,
       })
     } catch (error) {
       toast({
-        title: "Erro",
+        title: t.common.error,
         description: `Erro ao excluir ${vocabulary.service.toLowerCase()}.`,
         variant: "destructive",
       })
@@ -509,7 +513,7 @@ export default function ClassesPage() {
         if (teacher?.phone) {
           fetch('/api/whatsapp/send', {
             method: 'POST',
-            body: JSON.stringify({ to: teacher.phone, message: `⚠️ *AVISO:* ${vocabulary.provider === 'Professor' ? 'Prof.' : vocabulary.provider} *${teacher?.name}*, a ${vocabulary.service.toLowerCase()} *${classItem.name}* foi cancelada na *${studioName}*.`, studioId })
+            body: JSON.stringify({ to: teacher.phone, message: `⚠️ *AVISO:* ${vocabulary.provider} *${teacher?.name}*, a ${vocabulary.service.toLowerCase()} *${classItem.name}* foi cancelada na *${studioName}*.`, studioId })
           }).catch(console.error)
         }
 
@@ -527,12 +531,12 @@ export default function ClassesPage() {
 
       loadClasses()
       toast({
-        title: "Sucesso",
+        title: t.common.success,
         description: `${vocabulary.service} ${newStatus === 'active' ? 'ativada' : 'cancelada'} com sucesso! Notificações enviadas via sistema e WhatsApp.`,
       })
     } catch (error) {
       toast({
-        title: "Erro",
+        title: t.common.error,
         description: `Erro ao alterar status da ${vocabulary.service.toLowerCase()}.`,
         variant: "destructive",
       })
@@ -551,9 +555,9 @@ export default function ClassesPage() {
       setModalitiesList(updatedModalities)
       setIsModalityDialogOpen(false)
       setNewModality({ name: "", description: "" })
-      toast({ title: "Sucesso", description: `${vocabulary.category} criada com sucesso!` })
+      toast({ title: t.common.success, description: `${vocabulary.category} criada com sucesso!` })
     } catch (error) {
-      toast({ title: "Erro", description: `Erro ao criar ${vocabulary.category.toLowerCase()}.`, variant: "destructive" })
+      toast({ title: t.common.error, description: `Erro ao criar ${vocabulary.category.toLowerCase()}.`, variant: "destructive" })
     }
   }
 
@@ -596,12 +600,12 @@ export default function ClassesPage() {
       loadClasses()
       setIsEditDialogOpen(false)
       toast({
-        title: "Sucesso",
+        title: t.common.success,
         description: `${vocabulary.service} atualizada com sucesso!`,
       })
     } catch (error) {
       toast({
-        title: "Erro",
+        title: t.common.error,
         description: `Erro ao atualizar ${vocabulary.service.toLowerCase()}.`,
         variant: "destructive",
       })
@@ -610,19 +614,19 @@ export default function ClassesPage() {
 
   const getStatusBadge = (status: string, enrolled: number, max: number, isCancelledToday?: boolean) => {
     if (isCancelledToday) {
-      return <Badge variant="destructive" className="bg-rose-600 animate-pulse">CANCELADO HOJE</Badge>
+      return <Badge variant="destructive" className="bg-rose-600 animate-pulse">{t.classes.cancelledToday}</Badge>
     }
     const percentage = (enrolled / max) * 100
     if (status === "cheia" || percentage >= 100) {
-      return <Badge variant="destructive">Cheia</Badge>
+      return <Badge variant="destructive">{t.classes.full}</Badge>
     }
     if (status === "cancelada") {
-      return <Badge variant="secondary">Cancelada</Badge>
+      return <Badge variant="secondary">{t.common.cancelled}</Badge>
     }
     if (percentage >= 80) {
-      return <Badge className="bg-warning/20 text-warning-foreground">Quase Cheia</Badge>
+      return <Badge className="bg-warning/20 text-warning-foreground">{t.classes.almostFull}</Badge>
     }
-    return <Badge className="bg-success/20 text-success-foreground">Vagas Disponíveis</Badge>
+    return <Badge className="bg-success/20 text-success-foreground">{t.classes.availableSlots}</Badge>
   }
 
   const totalClassesCount = classes.length
@@ -631,7 +635,7 @@ export default function ClassesPage() {
     (classes.reduce((acc, c) => acc + (c.enrolledStudents / c.maxStudents) * 100, 0) / totalClassesCount)
   ) : 0
 
-  const currentDayIndex = weekDays.indexOf(selectedDay)
+  const currentDayIndex = dayKeys.indexOf(selectedDay)
 
   return (
     <ModuleGuard module="classes" showFullError>
@@ -648,7 +652,7 @@ export default function ClassesPage() {
                   <Calendar className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total de {vocabulary.services}</p>
+                  <p className="text-sm text-muted-foreground">{t.common.totalOf} {vocabulary.services}</p>
                   <p className="text-2xl font-bold text-card-foreground">{loading ? '...' : totalClassesCount}</p>
                 </div>
               </div>
@@ -661,7 +665,7 @@ export default function ClassesPage() {
                   <Users className="w-5 h-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">{vocabulary.clients} Matriculados</p>
+                  <p className="text-sm text-muted-foreground">{vocabulary.clients} {t.common.enrolled}</p>
                   <p className="text-2xl font-bold text-card-foreground">{loading ? '...' : totalStudentsEnrolled}</p>
                 </div>
               </div>
@@ -674,7 +678,7 @@ export default function ClassesPage() {
                   <Clock className="w-5 h-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Ocupação Média</p>
+                  <p className="text-sm text-muted-foreground">{t.common.avgOccupancy}</p>
                   <p className="text-2xl font-bold text-card-foreground">{loading ? '...' : avgOccupancy}%</p>
                 </div>
               </div>
@@ -685,7 +689,7 @@ export default function ClassesPage() {
               <div className="flex items-center justify-center h-full">
                 <Button variant="ghost" size="sm" onClick={() => loadClasses()} disabled={loading}>
                   <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  Atualizar Dados
+                  {t.common.updateData}
                 </Button>
               </div>
             </CardContent>
@@ -698,28 +702,28 @@ export default function ClassesPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSelectedDay(weekDays[Math.max(0, currentDayIndex - 1)])}
+              onClick={() => setSelectedDay(dayKeys[Math.max(0, currentDayIndex - 1)])}
               disabled={currentDayIndex === 0}
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
             <div className="flex gap-1 overflow-x-auto pb-2 sm:pb-0">
-              {weekDays.map((day) => (
+              {dayKeys.map((day) => (
                 <Button
                   key={day}
                   variant={selectedDay === day ? "default" : "ghost"}
                   className={selectedDay === day ? "bg-primary text-primary-foreground" : ""}
                   onClick={() => setSelectedDay(day)}
                 >
-                  {day}
+                  {t.weekDays[day as keyof typeof t.weekDays]}
                 </Button>
               ))}
             </div>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSelectedDay(weekDays[Math.min(weekDays.length - 1, currentDayIndex + 1)])}
-              disabled={currentDayIndex === weekDays.length - 1}
+              onClick={() => setSelectedDay(dayKeys[Math.min(dayKeys.length - 1, currentDayIndex + 1)])}
+              disabled={currentDayIndex === dayKeys.length - 1}
             >
               <ChevronRight className="w-5 h-5" />
             </Button>
@@ -729,20 +733,20 @@ export default function ClassesPage() {
             <div className="flex gap-2">
               <Button variant="outline" className="gap-2" onClick={() => setIsModalityDialogOpen(true)}>
                 <Tag className="w-4 h-4" />
-                Nova {vocabulary.category}
+                {t.classes.newCategory.replace('{category}', vocabulary.category)}
               </Button>
               <DialogTrigger asChild>
                 <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                   <Plus className="w-4 h-4" />
-                  Nova {vocabulary.service}
+                  {t.classes.createNew.replace('{service}', vocabulary.service)}
                 </Button>
               </DialogTrigger>
             </div>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Criar Nova {vocabulary.service}</DialogTitle>
+                <DialogTitle>{t.classes.createNew.replace('{service}', vocabulary.service)}</DialogTitle>
                 <DialogDescription>
-                  Configure os detalhes da nova {vocabulary.service.toLowerCase()}.
+                  {language === 'pt' ? `Configure os detalhes da nova ${vocabulary.service.toLowerCase()}.` : `Configure the details of the new ${vocabulary.service.toLowerCase()}.`}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -805,7 +809,7 @@ export default function ClassesPage() {
                         <SelectValue placeholder="Selecione o dia" />
                       </SelectTrigger>
                       <SelectContent>
-                        {weekDays.map((day) => (
+                        {dayKeys.map((day) => (
                           <SelectItem key={day} value={day}>{day}</SelectItem>
                         ))}
                       </SelectContent>
@@ -848,16 +852,18 @@ export default function ClassesPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="maxStudents">Máximo de {vocabulary.client}s</Label>
-                    <Input
-                      id="maxStudents"
-                      type="number"
-                      value={newClass.maxStudents}
-                      onChange={(e) => setNewClass({ ...newClass, maxStudents: e.target.value })}
-                      className="bg-background"
-                    />
-                  </div>
+                  {businessModel === 'CREDIT' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="maxStudents">Máximo de {vocabulary.clients}</Label>
+                      <Input
+                        id="maxStudents"
+                        type="number"
+                        value={newClass.maxStudents}
+                        onChange={(e) => setNewClass({ ...newClass, maxStudents: e.target.value })}
+                        className="bg-background"
+                      />
+                    </div>
+                  )}
                   {businessModel === 'MONETARY' && (
                     <div className="space-y-2">
                       <Label htmlFor="priceCurrency">Preço ({vocabulary.currencySymbol})</Label>
@@ -889,10 +895,10 @@ export default function ClassesPage() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
+                  {t.common.cancel}
                 </Button>
                 <Button onClick={handleAddClass} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  Criar {vocabulary.service}
+                  {t.classes.createNew.replace('{service}', vocabulary.service)}
                 </Button>
               </div>
             </DialogContent>
@@ -903,9 +909,9 @@ export default function ClassesPage() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Editar {vocabulary.service}</DialogTitle>
+              <DialogTitle>{t.common.edit} {vocabulary.service}</DialogTitle>
               <DialogDescription>
-                Atualize os detalhes da {vocabulary.service.toLowerCase()}.
+                {language === 'pt' ? `Atualize os detalhes da ${vocabulary.service.toLowerCase()}.` : `Update the details of the ${vocabulary.service.toLowerCase()}.`}
               </DialogDescription>
             </DialogHeader>
             {editingClass && (
@@ -995,16 +1001,18 @@ export default function ClassesPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-max">Máximo de {vocabulary.clients}</Label>
-                    <Input
-                      id="edit-max"
-                      type="number"
-                      value={editingClass.maxStudents}
-                      onChange={(e) => setEditingClass({ ...editingClass, maxStudents: Number(e.target.value) })}
-                      className="bg-background"
-                    />
-                  </div>
+                  {businessModel === 'CREDIT' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-max">Máximo de {vocabulary.clients}</Label>
+                      <Input
+                        id="edit-max"
+                        type="number"
+                        value={editingClass.maxStudents}
+                        onChange={(e) => setEditingClass({ ...editingClass, maxStudents: Number(e.target.value) })}
+                        className="bg-background"
+                      />
+                    </div>
+                  )}
                 </div>
                 {businessModel === 'MONETARY' && (
                   <div className="space-y-2">
@@ -1037,10 +1045,10 @@ export default function ClassesPage() {
             )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancelar
+                {t.common.cancel}
               </Button>
               <Button onClick={handleEditClass} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Salvar Alterações
+                {t.common.save}
               </Button>
             </div>
           </DialogContent>
@@ -1080,25 +1088,25 @@ export default function ClassesPage() {
                         <DropdownMenuContent align="end">
                           <Link href={`/dashboard/aulas/${classItem.id}/chamada`}>
                             <DropdownMenuItem className="cursor-pointer">
-                              <UserCheck className="h-4 w-4 mr-2" /> Fazer Chamada
+                              <UserCheck className="h-4 w-4 mr-2" /> {t.classes.attendance}
                             </DropdownMenuItem>
                           </Link>
                           <DropdownMenuItem onClick={() => { setEditingClass(classItem); setIsEditDialogOpen(true); }}>
-                            <Edit className="h-4 w-4 mr-2" /> Editar
+                            <Edit className="h-4 w-4 mr-2" /> {t.common.edit}
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className={classItem.status === 'cancelada' ? 'text-green-600' : 'text-orange-600'}
                             onClick={() => handleDeactivateClass(classItem)}
                           >
                             <RefreshCw className="h-4 w-4 mr-2" /> 
-                            {classItem.status === 'cancelada' ? 'Ativar' : `Cancelar (${vocabulary.service})`}
+                            {classItem.status === 'cancelada' ? t.classes.activate : t.classes.cancelService.replace('{service}', vocabulary.service)}
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-destructive"
                             onClick={() => handleDeleteClass(classItem)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" /> 
-                            Excluir Permanentemente
+                            {t.classes.deletePermanent}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -1122,7 +1130,7 @@ export default function ClassesPage() {
                     </div>
                     <div className="pt-3 border-t border-border">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-muted-foreground">Ocupação</span>
+                        <span className="text-sm text-muted-foreground">{t.classes.occupancy}</span>
                         <span className="text-sm font-medium text-foreground">
                           {classItem.enrolledStudents}/{classItem.maxStudents} {vocabulary.clients.toLowerCase()}
                         </span>
@@ -1143,13 +1151,13 @@ export default function ClassesPage() {
             <Card className="col-span-full bg-card border-border">
               <CardContent className="py-12 text-center">
                 <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Nenhuma {vocabulary.service.toLowerCase()} agendada para {selectedDay}.</p>
+                <p className="text-muted-foreground">{t.classes.noneScheduled.replace('{service}', vocabulary.service.toLowerCase()).replace('{day}', t.weekDays[selectedDay as keyof typeof t.weekDays])}</p>
                 <Button
                   className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground"
                   onClick={() => setIsDialogOpen(true)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Criar Nova {vocabulary.service}
+                  {t.classes.createNew.replace('{service}', vocabulary.service)}
                 </Button>
               </CardContent>
             </Card>
@@ -1160,9 +1168,9 @@ export default function ClassesPage() {
         <Dialog open={isModalityDialogOpen} onOpenChange={setIsModalityDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Criar Nova {vocabulary.category}</DialogTitle>
+              <DialogTitle>{t.classes.newCategory.replace('{category}', vocabulary.category)}</DialogTitle>
               <DialogDescription>
-                Adicione uma nova {vocabulary.category.toLowerCase()} ao seu catálogo.
+                {language === 'pt' ? `Adicione uma nova ${vocabulary.category.toLowerCase()} ao seu catálogo.` : `Add a new ${vocabulary.category.toLowerCase()} to your catalog.`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1189,10 +1197,10 @@ export default function ClassesPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsModalityDialogOpen(false)}>
-                Cancelar
+                {t.common.cancel}
               </Button>
               <Button onClick={handleAddModality} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Criar {vocabulary.category}
+                {t.classes.newCategory.replace('{category}', vocabulary.category)}
               </Button>
             </div>
           </DialogContent>

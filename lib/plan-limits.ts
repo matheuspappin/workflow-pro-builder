@@ -6,7 +6,7 @@ export interface PlanLimits {
   name: string;
   price: number;
   maxStudents: number;
-  maxTeachers: number;
+  maxProfessionals: number; // Alterado de maxTeachers para maxProfessionals
   hasWhatsApp: boolean;
   hasAI: boolean;
   hasFinance: boolean;
@@ -25,7 +25,7 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     name: "Gratuito",
     price: 0,
     maxStudents: 10,
-    maxTeachers: 1,
+    maxProfessionals: 1, // Alterado de maxTeachers para maxProfessionals
     hasWhatsApp: false,
     hasAI: false,
     hasFinance: true,
@@ -42,7 +42,7 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     name: "Pro",
     price: 97,
     maxStudents: 100,
-    maxTeachers: 5,
+    maxProfessionals: 5, // Alterado de maxTeachers para maxProfessionals
     hasWhatsApp: true,
     hasAI: true,
     hasFinance: true,
@@ -55,11 +55,28 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasMarketplace: false,
     hasERP: false,
   },
+  "pro-plus": {
+    name: "Pro+",
+    price: 197,
+    maxStudents: 500,
+    maxProfessionals: 15, // Alterado de maxTeachers para maxProfessionals
+    hasWhatsApp: true,
+    hasAI: true,
+    hasFinance: true,
+    hasMultiUnit: false,
+    hasPOS: true,
+    hasInventory: true,
+    hasGamification: true,
+    hasLeads: true,
+    hasScanner: true,
+    hasMarketplace: true,
+    hasERP: false,
+  },
   "pro+": {
     name: "Pro+",
     price: 197,
     maxStudents: 500,
-    maxTeachers: 15,
+    maxProfessionals: 15, // Alterado de maxTeachers para maxProfessionals
     hasWhatsApp: true,
     hasAI: true,
     hasFinance: true,
@@ -76,7 +93,7 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     name: "Enterprise",
     price: 397,
     maxStudents: 1000000,
-    maxTeachers: 1000000,
+    maxProfessionals: 1000000, // Alterado de maxTeachers para maxProfessionals
     hasWhatsApp: true,
     hasAI: true,
     hasFinance: true,
@@ -95,7 +112,7 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
  * Verifica se um estúdio atingiu o limite de um recurso
  * @param currentCount Quantidade atual do recurso
  * @param plan Nome do plano (gratuito, pro, pro+, enterprise)
- * @param resource Nome do recurso (maxStudents, maxTeachers)
+ * @param resource Nome do recurso (maxStudents, maxProfessionals)
  */
 export function isLimitReached(
   currentCount: number,

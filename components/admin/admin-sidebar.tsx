@@ -19,8 +19,12 @@ import {
   FlaskConical,
   X,
   Handshake,
+  Layers,
+  FireExtinguisher,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useState } from "react"
 
 interface AdminSidebarProps {
   collapsed: boolean
@@ -29,7 +33,7 @@ interface AdminSidebarProps {
   onMobileClose?: () => void
 }
 
-const menuItems = [
+const mainMenuItems = [
   { icon: LayoutDashboard, label: "Visão Geral", href: "/admin" },
   { icon: Building2, label: "Tenants (Empresas)", href: "/admin/studios" },
   { icon: Handshake, label: "Afiliados", href: "/admin/affiliates" },
@@ -42,8 +46,21 @@ const menuItems = [
   { icon: Settings, label: "Configurações Globais", href: "/admin/settings" },
 ]
 
+const verticalizations = [
+  {
+    icon: FireExtinguisher,
+    label: "Fire Control",
+    href: "/admin/verticalizations/fire-protection",
+    color: "text-red-400",
+    badge: "Ativo",
+  },
+]
+
 export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: AdminSidebarProps) {
   const pathname = usePathname()
+  const [verticalizationsOpen, setVerticalizationsOpen] = useState(
+    pathname.startsWith('/admin/verticalizations')
+  )
 
   const handleLogout = async () => {
     try {
@@ -66,9 +83,7 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
       <aside
         className={cn(
           "fixed left-0 top-0 h-full bg-slate-950 text-slate-50 border-r border-slate-800 flex flex-col transition-all duration-300 z-50 lg:z-40",
-          // Mobile Logic
           mobileOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0",
-          // Desktop Logic
           collapsed ? "lg:w-[72px]" : "lg:w-64"
         )}
       >
@@ -92,9 +107,10 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-6 px-2 overflow-y-auto">
+        <nav className="flex-1 py-4 px-2 overflow-y-auto space-y-1">
+          {/* Menu Principal */}
           <ul className="space-y-1">
-            {menuItems.map((item) => {
+            {mainMenuItems.map((item) => {
               const isActive = pathname === item.href
               return (
                 <li key={item.href}>
@@ -115,6 +131,94 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
               )
             })}
           </ul>
+
+          {/* Seção de Verticalizações */}
+          {(!collapsed || mobileOpen) && (
+            <div className="pt-3">
+              <div className="px-3 mb-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                  Verticalizações
+                </p>
+              </div>
+
+              {/* Header clicável para colapsar/expandir */}
+              <button
+                onClick={() => setVerticalizationsOpen(!verticalizationsOpen)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                  pathname.startsWith('/admin/verticalizations')
+                    ? "bg-slate-800 text-slate-100"
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                )}
+              >
+                <Layers className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm font-medium flex-1 text-left">Soluções White-Label</span>
+                <ChevronDown className={cn(
+                  "w-4 h-4 transition-transform duration-200",
+                  verticalizationsOpen ? "rotate-180" : ""
+                )} />
+              </button>
+
+              {verticalizationsOpen && (
+                <ul className="mt-1 ml-4 pl-3 border-l border-slate-800 space-y-0.5">
+                  {/* Link para a central de verticalizações */}
+                  <li>
+                    <Link
+                      href="/admin/verticalizations"
+                      onClick={onMobileClose}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
+                        pathname === '/admin/verticalizations'
+                          ? "bg-indigo-600/20 text-indigo-300 font-semibold"
+                          : "text-slate-500 hover:text-slate-200 hover:bg-slate-900"
+                      )}
+                    >
+                      <Layers className="w-4 h-4" />
+                      <span>Central de Soluções</span>
+                    </Link>
+                  </li>
+                  {verticalizations.map((v) => (
+                    <li key={v.href}>
+                      <Link
+                        href={v.href}
+                        onClick={onMobileClose}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
+                          pathname.startsWith(v.href)
+                            ? "bg-slate-800 text-slate-100 font-semibold"
+                            : "text-slate-500 hover:text-slate-200 hover:bg-slate-900"
+                        )}
+                      >
+                        <v.icon className={cn("w-4 h-4", v.color)} />
+                        <span className="flex-1">{v.label}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-500/70 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                          {v.badge}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Ícone colapsado para verticalizações */}
+          {collapsed && !mobileOpen && (
+            <div className="pt-3">
+              <Link
+                href="/admin/verticalizations"
+                className={cn(
+                  "flex items-center justify-center px-3 py-2.5 rounded-lg transition-all duration-200",
+                  pathname.startsWith('/admin/verticalizations')
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                )}
+                title="Verticalizações"
+              >
+                <Layers className="w-5 h-5" />
+              </Link>
+            </div>
+          )}
         </nav>
 
         {/* Footer */}

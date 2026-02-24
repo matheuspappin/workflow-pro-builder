@@ -18,13 +18,13 @@ import {
   Users,
   Database,
   Loader2,
-  CheckCircle2,
-  AlertCircle
+  Package
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { saveSystemPlan, deleteSystemPlan } from "@/lib/actions/super-admin"
+import { getSystemModules, updateSystemModule } from "@/lib/actions/modules"
 import { MODULE_DEFINITIONS, ModuleKey } from "@/config/modules"
 import {
   Dialog,
@@ -38,11 +38,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import logger from "@/lib/logger"
 
 export default function AdminPlansPage() {
   const { toast } = useToast()
   const [plans, setPlans] = useState<any[]>([])
+  const [modules, setModules] = useState<any[]>([])
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -76,9 +78,13 @@ export default function AdminPlansPage() {
           return res.json()
         })
 
-      const [plansRes, statsRes] = await Promise.all([
+      // Carregar módulos
+      const modulesPromise = getSystemModules()
+
+      const [plansRes, statsRes, modulesRes] = await Promise.all([
         plansPromise,
-        statsPromise
+        statsPromise,
+        modulesPromise
       ])
 
       if (plansRes.error) {
@@ -86,10 +92,11 @@ export default function AdminPlansPage() {
         throw new Error(`Erro ao carregar planos: ${plansRes.error.message || JSON.stringify(plansRes.error)}`)
       }
 
-      logger.info('Dados carregados:', { plans: plansRes.data?.length, stats: statsRes })
+      logger.info('Dados carregados:', { plans: plansRes.data?.length, stats: statsRes, modules: modulesRes?.length })
 
       setPlans(plansRes.data || [])
       setStats(statsRes.stats || {})
+      setModules(modulesRes || [])
     } catch (e: any) {
       logger.error("Erro detalhado loadData:", e)
       toast({ 
@@ -171,6 +178,7 @@ export default function AdminPlansPage() {
       features_text: generateFeaturesText(initialModules), // Gerar features_text inicial
       max_students: 10,
       max_teachers: 1,
+      trial_days: 14, // Default 14 days
       modules: initialModules,
       is_popular: false,
       status: 'active'
@@ -232,7 +240,7 @@ export default function AdminPlansPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir permanentemente este plano?")) return
-
+    
     try {
       const { data: { session } } = await supabase.auth.getSession()
       await deleteSystemPlan(id, session?.access_token)
@@ -241,6 +249,17 @@ export default function AdminPlansPage() {
       toast({ title: "Sucesso", description: "Plano excluído com sucesso!" })
     } catch (e: any) {
       toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" })
+    }
+  }
+
+  const handleModuleUpdate = async (id: string, data: any) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await updateSystemModule(id, data, session?.access_token)
+      setModules(prev => prev.map(m => m.id === id ? { ...m, ...data } : m))
+      toast({ title: "Módulo atualizado", description: "As alterações foram salvas." })
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" })
     }
   }
 
@@ -306,117 +325,184 @@ export default function AdminPlansPage() {
           </Card>
         </div>
 
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Gerenciar Planos</h2>
-            <p className="text-slate-500">Configure as ofertas e preços para os seus clientes</p>
-          </div>
-          <Button 
-            onClick={handleNewPlan}
-            className="bg-indigo-600 hover:bg-indigo-700 gap-2 font-bold uppercase tracking-wider text-xs"
-          >
-            <Plus className="w-4 h-4" /> Novo Plano
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {loading ? (
-            <div className="col-span-full py-20 text-center">
-              <Loader2 className="w-10 h-10 animate-spin mx-auto text-indigo-600 mb-4" />
-              <p className="text-slate-500 font-medium">Carregando planos do sistema...</p>
+        <Tabs defaultValue="plans" className="w-full">
+          <div className="flex justify-between items-center mb-6">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Gerenciar Planos</h2>
+              <p className="text-slate-500">Configure as ofertas e preços para os seus clientes</p>
             </div>
-          ) : plans.map((plan) => (
-            <Card key={plan.id} className={`relative overflow-hidden border-none shadow-xl ${plan.is_popular ? 'ring-2 ring-indigo-500 scale-105 z-10' : 'bg-white dark:bg-slate-900'}`}>
-              {plan.is_popular && (
-                <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-bold uppercase px-3 py-1 rounded-bl-lg">
-                  Mais Popular
-                </div>
-              )}
-              <CardHeader className="pb-4">
-                <div className={`w-12 h-12 rounded-xl bg-${getColor(plan.id)}-500/10 flex items-center justify-center mb-4`}>
-                  {(() => {
-                    const Icon = getIcon(plan.id)
-                    return <Icon className={`w-6 h-6 text-${getColor(plan.id)}-500`} />
-                  })()}
-                </div>
-                <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
-                <div className="mt-2 flex items-baseline">
-                  {plan.id === 'enterprise' ? (
-                    <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Sob Consulta</span>
-                  ) : (
-                    <>
-                      <span className="text-3xl font-bold">R$ {Number(plan.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      <span className="text-slate-400 text-sm ml-1">/mês</span>
-                    </>
-                  )}
-                </div>
-                <CardDescription className="mt-4 leading-relaxed line-clamp-2">
-                  {plan.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Módulos Inclusos:</p>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {Object.entries(getPlanActiveModules(plan)).map(([key, enabled]) => {
-                      if (!enabled) return null;
-                      const moduleDef = MODULE_DEFINITIONS[key as ModuleKey];
-                      return (
-                        <Badge 
-                          key={key} 
-                          variant="secondary" 
-                          className="bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 border-none"
-                        >
-                          {moduleDef?.label || key}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
+            <div className="flex items-center gap-4">
+              <TabsList>
+                <TabsTrigger value="plans">Planos</TabsTrigger>
+                <TabsTrigger value="modules">Módulos</TabsTrigger>
+              </TabsList>
+              <Button 
+                onClick={handleNewPlan}
+                className="bg-indigo-600 hover:bg-indigo-700 gap-2 font-bold uppercase tracking-wider text-xs"
+              >
+                <Plus className="w-4 h-4" /> Novo Plano
+              </Button>
+            </div>
+          </div>
 
-                <div className="space-y-3">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">O que inclui:</p>
-                  {(plan.features || []).map((feature: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                      <div className="w-4 h-4 rounded-full bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-2.5 h-2.5 text-indigo-500" />
-                      </div>
-                      {feature}
+          <TabsContent value="plans" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {loading ? (
+                <div className="col-span-full py-20 text-center">
+                  <Loader2 className="w-10 h-10 animate-spin mx-auto text-indigo-600 mb-4" />
+                  <p className="text-slate-500 font-medium">Carregando planos do sistema...</p>
+                </div>
+              ) : plans.map((plan) => (
+                <Card key={plan.id} className={`relative overflow-hidden border-none shadow-xl ${plan.is_popular ? 'ring-2 ring-indigo-500 scale-105 z-10' : 'bg-white dark:bg-slate-900'}`}>
+                  {plan.is_popular && (
+                    <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-bold uppercase px-3 py-1 rounded-bl-lg">
+                      Mais Popular
                     </div>
-                  ))}
-                </div>
+                  )}
+                  <CardHeader className="pb-4">
+                    <div className={`w-12 h-12 rounded-xl bg-${getColor(plan.id)}-500/10 flex items-center justify-center mb-4`}>
+                      {(() => {
+                        const Icon = getIcon(plan.id)
+                        return <Icon className={`w-6 h-6 text-${getColor(plan.id)}-500`} />
+                      })()}
+                    </div>
+                    <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
+                    <div className="mt-2 flex items-baseline">
+                      {plan.id === 'enterprise' ? (
+                        <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Sob Consulta</span>
+                      ) : (
+                        <>
+                          <span className="text-3xl font-bold">R$ {Number(plan.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-slate-400 text-sm ml-1">/mês</span>
+                        </>
+                      )}
+                    </div>
+                    <CardDescription className="mt-4 leading-relaxed line-clamp-2">
+                      {plan.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Módulos Inclusos:</p>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {Object.entries(getPlanActiveModules(plan)).map(([key, enabled]) => {
+                          if (!enabled) return null;
+                          const moduleDef = MODULE_DEFINITIONS[key as ModuleKey];
+                          return (
+                            <Badge 
+                              key={key} 
+                              variant="secondary" 
+                              className="bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 border-none"
+                            >
+                              {moduleDef?.label || key}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                <div className="flex gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handleEdit(plan)}
-                    className="flex-1 gap-1 text-[10px] font-bold uppercase tracking-wider h-8"
-                  >
-                    <Edit className="w-3 h-3" /> Editar
-                  </Button>
-                  <Button 
-                    variant={plan.status === 'active' ? "ghost" : "default"} 
-                    className={`flex-1 gap-1 text-[10px] font-bold uppercase tracking-wider h-8 ${plan.status === 'active' ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-                    onClick={() => handleToggleStatus(plan.id, plan.status)}
-                  >
-                    {plan.status === 'active' ? (
-                      <><X className="w-3 h-3" /> Desativar</>
-                    ) : (
-                      <><Check className="w-3 h-3" /> Ativar</>
-                    )}
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleDelete(plan.id)}
-                    className="w-8 h-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">O que inclui:</p>
+                      {(plan.features || []).map((feature: string, i: number) => (
+                        <div key={i} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                          <div className="w-4 h-4 rounded-full bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+                            <Check className="w-2.5 h-2.5 text-indigo-500" />
+                          </div>
+                          {feature}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleEdit(plan)}
+                        className="flex-1 gap-1 text-[10px] font-bold uppercase tracking-wider h-8"
+                      >
+                        <Edit className="w-3 h-3" /> Editar
+                      </Button>
+                      <Button 
+                        variant={plan.status === 'active' ? "ghost" : "default"} 
+                        className={`flex-1 gap-1 text-[10px] font-bold uppercase tracking-wider h-8 ${plan.status === 'active' ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                        onClick={() => handleToggleStatus(plan.id, plan.status)}
+                      >
+                        {plan.status === 'active' ? (
+                          <><X className="w-3 h-3" /> Desativar</>
+                        ) : (
+                          <><Check className="w-3 h-3" /> Ativar</>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => handleDelete(plan.id)}
+                        className="w-8 h-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="modules" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {modules.map((module) => (
+                <Card key={module.id} className="border-none shadow-md bg-white dark:bg-slate-900">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant={module.active ? 'default' : 'secondary'} className={module.active ? 'bg-emerald-500' : ''}>
+                        {module.active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                      <Switch 
+                        checked={module.active}
+                        onCheckedChange={(checked) => handleModuleUpdate(module.id, { active: checked })}
+                      />
+                    </div>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                      <Package className="w-5 h-5 text-indigo-500" />
+                      {module.label}
+                    </CardTitle>
+                    <CardDescription>{module.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`price-${module.id}`} className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                        Preço Mensal (R$)
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                        <Input 
+                          id={`price-${module.id}`}
+                          type="number"
+                          value={module.price}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            // Atualização otimista local
+                            setModules(prev => prev.map(m => m.id === module.id ? { ...m, price: val } : m))
+                          }}
+                          onBlur={(e) => handleModuleUpdate(module.id, { price: parseFloat(e.target.value) })}
+                          className="pl-10 font-bold"
+                        />
+                      </div>
+                    </div>
+                    <div className="pt-2">
+                      <p className="text-xs text-slate-500 mb-2">Recursos:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {module.features?.map((f: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-[10px] bg-slate-50 dark:bg-slate-800">
+                            {f}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Informação sobre faturamento */}
         <Card className="border-none shadow-sm bg-indigo-600 text-white overflow-hidden relative">
@@ -507,7 +593,7 @@ export default function AdminPlansPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="max_students" className="text-xs font-bold uppercase tracking-widest text-slate-400">Limite de Alunos</Label>
+                  <Label htmlFor="max_students" className="text-xs font-bold uppercase tracking-widest text-slate-400">Limite de Clientes</Label>
                   <Input 
                     id="max_students" 
                     type="number"
@@ -523,6 +609,19 @@ export default function AdminPlansPage() {
                     type="number"
                     value={editingPlan.max_teachers} 
                     onChange={(e) => setEditingPlan({ ...editingPlan, max_teachers: parseInt(e.target.value) })}
+                    className="bg-slate-50 dark:bg-slate-800 border-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="trial_days" className="text-xs font-bold uppercase tracking-widest text-slate-400">Dias de Teste</Label>
+                  <Input 
+                    id="trial_days" 
+                    type="number"
+                    value={editingPlan.trial_days || 14} 
+                    onChange={(e) => setEditingPlan({ ...editingPlan, trial_days: parseInt(e.target.value) })}
                     className="bg-slate-50 dark:bg-slate-800 border-none"
                   />
                 </div>
@@ -560,7 +659,7 @@ export default function AdminPlansPage() {
                   id="features" 
                   value={editingPlan.features_text} 
                   onChange={(e) => setEditingPlan({ ...editingPlan, features_text: e.target.value })}
-                  placeholder="Até 100 alunos&#10;Até 5 professores&#10;WhatsApp Ilimitado"
+                  placeholder="Até 100 clientes&#10;Até 5 profissionais&#10;WhatsApp Ilimitado"
                   className="bg-slate-50 dark:bg-slate-800 border-none min-h-[120px]"
                 />
               </div>

@@ -23,9 +23,13 @@ import { MODULE_DEFINITIONS, ModuleKey } from "@/config/modules"
 import { supabase } from "@/lib/supabase"
 import logger from "@/lib/logger"
 
+import { useOrganization } from "@/components/providers/organization-provider"
+import { LanguageSwitcher } from "@/components/common/language-switcher"
+
 type Language = 'pt' | 'en';
 
-function Navbar({ lang, setLang }: { lang: Language, setLang: (l: Language) => void }) {
+function Navbar() {
+  const { language: lang } = useOrganization()
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -88,14 +92,7 @@ function Navbar({ lang, setLang }: { lang: Language, setLang: (l: Language) => v
         </nav>
 
         <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="font-bold text-xs px-2 h-8 rounded-lg hover:bg-primary/5 hover:text-primary transition-all border border-white/10"
-            onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
-          >
-            {lang === 'pt' ? '🇺🇸 EN' : '🇧🇷 PT'}
-          </Button>
+          <LanguageSwitcher />
 
           <Link href="/login" className="hidden sm:block">
             <Button variant="ghost" size="sm" className="font-semibold hover:bg-primary/5 hover:text-primary transition-all">
@@ -151,7 +148,7 @@ function HeroSection({ lang }: { lang: Language }) {
       badge: "Nova Versão 2.0: IA Generativa & Apps Nativos",
       title_part1: "A nova era da",
       title_part2: "gestão inteligente",
-      description: "Transforme seu estúdio com agendamentos automáticos, IA preditiva e um ecossistema completo focado em experiência.",
+      description: "Potencialize sua operação com automação inteligente, IA preditiva e um ecossistema modular completo feito para escalar seu faturamento.",
       cta: "Começar Agora Grátis",
       architecture_badge: "Arquitetura Modular",
       modules_title: "Evolua sua gestão com",
@@ -163,7 +160,7 @@ function HeroSection({ lang }: { lang: Language }) {
       badge: "New Version 2.0: Generative AI & Native Apps",
       title_part1: "The new era of",
       title_part2: "intelligent management",
-      description: "Transform your studio with automated scheduling, predictive AI, and a complete ecosystem focused on experience.",
+      description: "Power your operation with intelligent automation, predictive AI, and a complete modular ecosystem built to scale your revenue.",
       cta: "Start Now for Free",
       architecture_badge: "Modular Architecture",
       modules_title: "Evolve your management with",
@@ -508,7 +505,7 @@ function InteractiveDemo({ lang }: { lang: Language }) {
           </p>
         </div>
 
-        <div className="flex justify-center gap-3 mb-16 overflow-x-auto pb-6 px-4 no-scrollbar">
+        <div className="flex justify-center gap-3 mb-16 overflow-x-auto pb-8 px-4 scrollbar-primary">
           {[
             { id: 'dance', icon: Users },
             { id: 'gym', icon: ZapIcon },
@@ -554,7 +551,7 @@ function InteractiveDemo({ lang }: { lang: Language }) {
               <div className="space-y-2">
                 {[
                   { label: t.dashboard, icon: Layout, active: true },
-                  { label: vocabulary.provider === (lang === 'pt' ? 'Professor' : 'Teacher') ? (lang === 'pt' ? 'Meus Alunos' : 'My Students') : vocabulary.clients, icon: Users },
+                  { label: vocabulary.clients, icon: Users },
                   { label: vocabulary.services, icon: Calendar },
                   { label: t.financial, icon: CreditCard },
                   { label: t.reports, icon: BarChart3 },
@@ -831,8 +828,8 @@ function FeatureGrid({ lang }: { lang: Language }) {
 function PricingSection({ lang }: { lang: Language }) {
   const defaultPlans = {
     pt: [
-      { id: 'free', name: 'Gratuito', price: 0, description: 'Ideal para começar sua jornada', features: ['Até 10 alunos', '1 Profissional', 'Gestão básica'], isPopular: false },
-      { id: 'pro', name: 'Pro', price: 297, description: 'Tudo o que você precisa para crescer', features: ['Até 100 alunos', '5 Profissionais', 'WhatsApp Business', 'Gestão Financeira'], isPopular: true },
+      { id: 'free', name: 'Gratuito', price: 0, description: 'Ideal para começar sua jornada', features: ['Até 10 clientes', '1 Profissional', 'Gestão básica'], isPopular: false },
+      { id: 'pro', name: 'Pro', price: 297, description: 'Tudo o que você precisa para crescer', features: ['Até 100 clientes', '5 Profissionais', 'WhatsApp Business', 'Gestão Financeira'], isPopular: true },
       { id: 'pro-plus', name: 'Pro+', price: 197, description: 'O melhor custo-benefício para estúdios médios', features: ['Clientes ilimitados', 'Profissionais ilimitados', 'WhatsApp + IA', 'Financeiro Avançado'], isPopular: false },
       { id: 'enterprise', name: 'Enterprise', price: 0, description: 'Escalabilidade e suporte total', features: ['Tudo ilimitado', 'Multi-unidades', 'Suporte VIP', 'IA Customizada'], isPopular: false },
     ],
@@ -912,13 +909,13 @@ function PricingSection({ lang }: { lang: Language }) {
 
   return (
     <TooltipProvider>
-      <section id="pricing" className="py-32 bg-slate-950 text-white relative overflow-hidden">
+      <section id="pricing" className="py-24 bg-slate-950 text-white relative overflow-hidden">
         {/* Decorative Background */}
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_-20%,_#3b82f620_0%,_transparent_50%)]" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 mix-blend-overlay" />
 
         <div className="container mx-auto px-6 relative z-10">
-          <div className="text-center max-w-3xl mx-auto mb-24">
+          <div className="text-center max-w-3xl mx-auto mb-16">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -932,7 +929,7 @@ function PricingSection({ lang }: { lang: Language }) {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {systemPlans.map((plan, i) => (
               <motion.div
                 key={plan.id}
@@ -941,32 +938,32 @@ function PricingSection({ lang }: { lang: Language }) {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
                 className={cn(
-                  "relative border rounded-[2.5rem] p-10 bg-white/5 backdrop-blur-sm flex flex-col transition-all duration-500 hover:bg-white/10 group",
-                  plan.isPopular ? "border-primary/50 shadow-[0_30px_60px_-15px_rgba(59,130,246,0.3)] scale-105 z-20 bg-white/[0.08]" : "border-white/10 hover:border-white/20"
+                  "relative border rounded-[2rem] p-7 bg-white/5 backdrop-blur-sm flex flex-col transition-all duration-500 hover:bg-white/10 group",
+                  plan.isPopular ? "border-primary/50 shadow-[0_20px_40px_-15px_rgba(59,130,246,0.3)] scale-105 z-20 bg-white/[0.08]" : "border-white/10 hover:border-white/20"
                 )}
               >
                 {plan.isPopular && (
-                  <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
                     {t.recommended}
                   </div>
                 )}
                 
-                <div className="mb-10 text-center md:text-left">
-                  <h3 className={cn("text-2xl font-black mb-3 tracking-tight", plan.isPopular ? "text-primary" : "text-white")}>{plan.name}</h3>
-                  <p className="text-slate-400 text-sm font-medium leading-relaxed">{plan.description}</p>
+                <div className="mb-6 text-center md:text-left">
+                  <h3 className={cn("text-xl font-black mb-2 tracking-tight", plan.isPopular ? "text-primary" : "text-white")}>{plan.name}</h3>
+                  <p className="text-slate-400 text-xs font-medium leading-relaxed">{plan.description}</p>
                 </div>
 
-                <div className="mb-10 text-center md:text-left">
+                <div className="mb-6 text-center md:text-left">
                   {plan.id === 'enterprise' ? (
                     <div className="flex flex-col justify-center md:justify-start">
-                      <span className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{t.contact}</span>
-                      <span className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">{t.exclusive}</span>
+                      <span className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{t.contact}</span>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">{t.exclusive}</span>
                     </div>
                   ) : (
                     <div className="flex items-baseline gap-1 justify-center md:justify-start">
-                      <span className="text-lg font-bold text-slate-400">{lang === 'pt' ? 'R$' : '$'}</span>
-                      <span className="text-6xl font-black tracking-tighter">{plan.price}</span>
-                      <span className="text-slate-400 font-bold">{t.month}</span>
+                      <span className="text-sm font-bold text-slate-400">{lang === 'pt' ? 'R$' : '$'}</span>
+                      <span className="text-5xl font-black tracking-tighter">{plan.price}</span>
+                      <span className="text-slate-400 text-sm font-bold">{t.month}</span>
                     </div>
                   )}
                 </div>
@@ -974,7 +971,7 @@ function PricingSection({ lang }: { lang: Language }) {
                 <Button
                   variant={plan.isPopular ? "default" : "outline"}
                   className={cn(
-                    "w-full mb-10 h-14 rounded-2xl font-black text-lg transition-all duration-300",
+                    "w-full mb-6 h-12 rounded-xl font-black text-base transition-all duration-300",
                     plan.isPopular 
                       ? "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 hover:scale-[1.02]" 
                       : "border-2 border-white/20 hover:bg-white hover:text-black hover:border-white"
@@ -983,13 +980,13 @@ function PricingSection({ lang }: { lang: Language }) {
                   {plan.id === 'free' ? t.start : plan.id === 'enterprise' ? t.talk : t.trial}
                 </Button>
 
-                <ul className="space-y-5 flex-1">
+                <ul className="space-y-3 flex-1">
                   {plan.features.map((feature: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-3 group/item">
-                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5 group-hover/item:scale-110 transition-transform">
-                        <Check className="w-3 h-3 text-primary" />
+                    <li key={idx} className="flex items-start gap-2.5 group/item">
+                      <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5 group-hover/item:scale-110 transition-transform">
+                        <Check className="w-2.5 h-2.5 text-primary" />
                       </div>
-                      <span className="text-sm font-bold text-slate-300 group-hover/item:text-white transition-colors">{feature}</span>
+                      <span className="text-[13px] font-bold text-slate-300 group-hover/item:text-white transition-colors">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -1059,7 +1056,7 @@ function TestimonialsSection({ lang }: { lang: Language }) {
   const t = TRANSLATIONS[lang];
 
   return (
-    <section className="py-32 bg-slate-50 dark:bg-slate-900/30">
+    <section className="py-24 bg-slate-50 dark:bg-slate-900/30">
       <div className="container mx-auto px-6">
         <div className="text-center mb-20">
           <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">{t.title_part1} <span className="text-primary">{t.title_part2}</span></h2>
@@ -1073,19 +1070,19 @@ function TestimonialsSection({ lang }: { lang: Language }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="bg-background p-10 rounded-[2rem] border border-white/10 shadow-sm hover:shadow-xl transition-all duration-500 group"
+              className="bg-background p-8 rounded-[1.5rem] border border-white/10 shadow-sm hover:shadow-xl transition-all duration-500 group"
             >
-              <div className="flex gap-1 mb-8">
-                {[1,2,3,4,5].map(s => <Star key={s} className="w-5 h-5 fill-amber-400 text-amber-400" />)}
+              <div className="flex gap-1 mb-6">
+                {[1,2,3,4,5].map(s => <Star key={s} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
               </div>
-              <p className="text-muted-foreground mb-10 leading-relaxed text-lg font-medium italic">"{testimonial.text}"</p>
-              <div className="flex items-center gap-4 border-t pt-8 border-white/5">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center font-black text-primary text-lg shadow-inner group-hover:scale-110 transition-transform">
+              <p className="text-muted-foreground mb-8 leading-relaxed text-base font-medium italic">"{testimonial.text}"</p>
+              <div className="flex items-center gap-4 border-t pt-6 border-white/5">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-base shadow-inner group-hover:scale-110 transition-transform">
                   {testimonial.avatar}
                 </div>
                 <div>
-                  <div className="font-black text-lg tracking-tight">{testimonial.author}</div>
-                  <div className="text-sm text-muted-foreground font-bold uppercase tracking-widest">{testimonial.role}</div>
+                  <div className="font-black text-base tracking-tight">{testimonial.author}</div>
+                  <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{testimonial.role}</div>
                 </div>
               </div>
             </motion.div>
@@ -1564,11 +1561,11 @@ function Footer({ lang }: { lang: Language }) {
 // --- Main Page Component ---
 
 export default function LandingPage() {
-  const [lang, setLang] = useState<Language>('pt')
+  const { language: lang } = useOrganization()
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 overflow-x-hidden">
-      <Navbar lang={lang} setLang={setLang} />
+      <Navbar />
       <HeroSection lang={lang} />
       <InteractiveDemo lang={lang} />
       <FeatureGrid lang={lang} />

@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
 
 interface AdminHeaderProps {
   title: string
@@ -102,9 +103,11 @@ export function AdminHeader({ title }: AdminHeaderProps) {
               className="cursor-pointer text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30 focus:text-red-600 rounded-xl px-3 py-2.5 transition-all" 
               onClick={async () => {
               try {
+                await supabase.auth.signOut()
                 await fetch('/api/auth/logout', { method: 'POST' })
               } catch (e) {}
               localStorage.removeItem("danceflow_user")
+              localStorage.removeItem("workflow_pro_active_studio")
               window.location.href = "/login"
             }}>
               <LogOut className="w-4 h-4 mr-3" />

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { nicheDictionary, NicheType, VocabularyType } from '@/config/niche-dictionary'
 import { ModuleKey, normalizeModules, MODULE_DEFINITIONS } from '@/config/modules'
 import { supabase } from '@/lib/supabase'
+import { translations, TranslationType } from '@/config/translations'
 import logger from '@/lib/logger';
 
 interface OrganizationState {
@@ -12,9 +13,13 @@ interface OrganizationState {
   enabledModules: Record<ModuleKey, boolean>
   isLoading: boolean
   studioId: string | null
+  studios: any[]
+  businessModel: 'CREDIT' | 'MONETARY'
+  switchStudio: (id: string) => Promise<void>
   language: 'pt' | 'en'
   setLanguage: (lang: 'pt' | 'en') => void
   refresh: () => Promise<void>
+  t: TranslationType
 }
 
 const defaultState: OrganizationState = {
@@ -23,29 +28,90 @@ const defaultState: OrganizationState = {
   enabledModules: normalizeModules({}),
   isLoading: true,
   studioId: null,
+  studios: [],
+  businessModel: 'CREDIT',
+  switchStudio: async () => {},
   language: 'pt',
   setLanguage: () => {},
-  refresh: async () => {}
+  refresh: async () => {},
+  t: translations.pt
 }
 
 const OrganizationContext = createContext<OrganizationState>(defaultState)
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<Omit<OrganizationState, 'refresh' | 'setLanguage'>>({
-    ...defaultState,
-    language: 'pt'
+  const [state, setState] = useState<Omit<OrganizationState, 'refresh' | 'setLanguage' | 'switchStudio'>>(() => {
+    // Inicialização sempre em 'pt' para evitar Hydration Mismatch
+    // O idioma real será carregado no useEffect
+    return {
+      ...defaultState,
+      language: 'pt',
+      vocabulary: nicheDictionary.pt.dance,
+      t: translations.pt,
+      isLoading: true
+    }
   })
 
+  // Carregar idioma do localStorage apenas após montar
   useEffect(() => {
     const savedLang = localStorage.getItem('workflow_pro_lang') as 'pt' | 'en'
-    if (savedLang && (savedLang === 'pt' || savedLang === 'en')) {
-      setState(prev => ({ ...prev, language: savedLang }))
+    if (savedLang && (savedLang === 'pt' || savedLang === 'en') && savedLang !== 'pt') {
+      setState(prev => ({
+        ...prev,
+        language: savedLang,
+        vocabulary: nicheDictionary[savedLang].dance,
+        t: translations[savedLang]
+      }))
     }
   }, [])
 
-  const setLanguage = useCallback((lang: 'pt' | 'en') => {
+  // Sincronizar idioma com localStorage se mudar externamente (opcional, mas bom ter)
+  useEffect(() => {
+    const isClient = typeof window !== 'undefined'
+    if (!isClient) return
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'workflow_pro_lang' && e.newValue) {
+        const newLang = e.newValue as 'pt' | 'en'
+        if (newLang === 'pt' || newLang === 'en') {
+          setState(prev => ({ 
+            ...prev, 
+            language: newLang,
+            t: translations[newLang]
+          }))
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
+  const setLanguage = useCallback(async (lang: 'pt' | 'en') => {
     localStorage.setItem('workflow_pro_lang', lang)
-    setState(prev => ({ ...prev, language: lang }))
+    setState(prev => ({ 
+      ...prev, 
+      language: lang,
+      t: translations[lang]
+    }))
+
+    // Tenta atualizar no Supabase se o usuário estiver logado
+    try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            await supabase.auth.updateUser({
+                data: { language: lang }
+            })
+        }
+    } catch (error) {
+        console.error('Erro ao salvar idioma no perfil:', error)
+    }
+  }, [])
+
+  const switchStudio = useCallback(async (id: string) => {
+    localStorage.setItem('workflow_pro_active_studio', id)
+    // Forçar recarregamento das configurações
+    window.location.reload()
   }, [])
 
   const loadSettings = useCallback(async () => {
@@ -53,102 +119,171 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
       
+      // Detecção de nicho via URL (Bubble context)
+      const isFirePath = typeof window !== 'undefined' && (
+        window.location.pathname.includes('fire-protection') || 
+        window.location.pathname.startsWith('/technician') ||
+        window.location.pathname.startsWith('/engineer')
+      )
+      
+      const urlNiche = isFirePath ? 'fire_protection' : null
+
       if (!user) {
-        setState(prev => ({ ...defaultState, isLoading: false }))
+        setState(prev => ({ 
+          ...defaultState, 
+          niche: urlNiche || prev.niche || 'dance',
+          vocabulary: urlNiche ? nicheDictionary[prev.language || 'pt'][urlNiche] : defaultState.vocabulary,
+          language: prev.language, 
+          isLoading: false 
+        }))
         return
       }
 
       // 0. Super Admin Bypass
       const isSuperAdmin = user.user_metadata?.role === 'super_admin'
 
-      // 1. Tentar obter studio_id
-      let studioId: string | null = user.user_metadata?.studio_id || null; // Priorizar metadados do Auth
-      
-      if (!studioId) { // Se não encontrou nos metadados, tenta as consultas ao banco
+      // PARALLEL FETCHING START
+      // Iniciar buscas independentes em paralelo
+      const studiosPromise = supabase
+        .from('studios')
+        .select('id, name, slug, business_model')
+        .eq('owner_id', user.id);
 
-      // Tentativa A: Staff (users_internal) - Mais comum para admins
-      const { data: internalProfile } = await supabase
-        .from('users_internal')
-        .select('studio_id')
-        .eq('id', user.id)
-        .maybeSingle()
+      // Resolver studioId inicial
+      let studioId: string | null = typeof window !== 'undefined' ? localStorage.getItem('workflow_pro_active_studio') : null;
       
-      if (internalProfile?.studio_id) {
-        studioId = internalProfile.studio_id;
-      } else {
-        // Tentativa B: Professor (teachers)
-        const { data: teacherProfile } = await supabase
-            .from('teachers')
-            .select('studio_id')
-            .eq('user_id', user.id)
-            .maybeSingle()
-          
-        if (teacherProfile?.studio_id) {
-            studioId = teacherProfile.studio_id
-        } else {
-            // Tentativa C: Aluno (students)
-            const { data: studentProfile } = await supabase
-              .from('students')
-              .select('studio_id')
-              .eq('id', user.id)
-              .maybeSingle()
-            
-            if (studentProfile?.studio_id) studioId = studentProfile.studio_id
+      // Fallback para o nome antigo usado no registro se necessário
+      if (!studioId && typeof window !== 'undefined') {
+        const legacyUser = localStorage.getItem('danceflow_user');
+        if (legacyUser) {
+          try {
+            const parsed = JSON.parse(legacyUser);
+            studioId = parsed.studio_id || parsed.studioId;
+          } catch (e) {
+            // ignore json error
+          }
         }
       }
-    }
+      
+      // Se não houver no localStorage, tenta os metadados
+      if (!studioId) {
+        studioId = user.user_metadata?.studio_id || null;
+      }
+
+      // Gestão de idioma
+      const savedLang = typeof window !== 'undefined' ? localStorage.getItem('workflow_pro_lang') as 'pt' | 'en' : 'pt'
+      const metadataLang = user.user_metadata?.language as 'pt' | 'en'
+      const validLang = (metadataLang === 'pt' || metadataLang === 'en') ? metadataLang : 
+                        ((savedLang === 'pt' || savedLang === 'en') ? savedLang : 'pt')
+      
+      if (metadataLang && metadataLang !== state.language) {
+          localStorage.setItem('workflow_pro_lang', metadataLang)
+      }
+
+      // Aguardar studios
+      const { data: userStudios } = await studiosPromise
+      const studios = userStudios || []
+
+      // Se ainda não houver studioId, e o usuário for dono, pega o primeiro
+      if (!studioId && studios.length > 0) {
+        studioId = studios[0].id;
+      }
+      
+      // Se ainda não encontrou, busca nas tabelas de roles em PARALELO
+      if (!studioId) {
+        const [internalResult, teacherResult, studentResult] = await Promise.all([
+          supabase.from('users_internal').select('studio_id').eq('id', user.id).maybeSingle(),
+          supabase.from('teachers').select('studio_id').eq('user_id', user.id).maybeSingle(),
+          supabase.from('students').select('studio_id').eq('id', user.id).maybeSingle()
+        ]);
+
+        if (internalResult.data?.studio_id) {
+          studioId = internalResult.data.studio_id;
+        } else if (teacherResult.data?.studio_id) {
+          studioId = teacherResult.data.studio_id;
+        } else if (studentResult.data?.studio_id) {
+          studioId = studentResult.data.studio_id;
+        }
+      }
 
       if (!studioId) {
-        // Se for super admin e não tiver studio, tenta pegar o primeiro studio ou cria contexto global
         if (isSuperAdmin) {
             logger.info('👑 Super Admin sem estúdio vinculado. Carregando modo global...');
-             // Lógica especial ou apenas continua sem studioId
         } else {
             logger.warn('⚠️ [OrganizationProvider] Usuário sem studio_id vinculado.');
         }
         
-        setState(prev => ({ ...prev, isLoading: false, studioId: studioId || null }))
+        setState(prev => ({ ...prev, isLoading: false, studioId: null, studios: studios }))
         
         if (!isSuperAdmin) return;
       }
 
-      // 2. Buscar configurações
+      // 3. Buscar configurações e modelo de negócio
+      // Se tivermos studioId, podemos buscar settings e business model em paralelo (se necessário)
       let orgSettings = null;
+      let businessModel: 'CREDIT' | 'MONETARY' = 'CREDIT';
+
       if (studioId) {
-          const { data } = await supabase
+          const settingsPromise = supabase
             .from('organization_settings')
             .select('*')
             .eq('studio_id', studioId)
-            .maybeSingle()
-          orgSettings = data;
+            .maybeSingle();
+
+          // Verificar business model
+          let businessModelPromise: Promise<any> | null = null;
+          const activeStudio = studios.find(s => s.id === studioId);
+          
+          if (activeStudio?.business_model) {
+            businessModel = activeStudio.business_model as 'CREDIT' | 'MONETARY';
+          } else {
+            // Busca apenas se não achou no array local
+            businessModelPromise = supabase
+              .from('studios')
+              .select('business_model')
+              .eq('id', studioId)
+              .maybeSingle();
+          }
+
+          const [settingsResult, businessModelResult] = await Promise.all([
+            settingsPromise,
+            businessModelPromise
+          ]);
+
+          orgSettings = settingsResult.data;
+          
+          if (businessModelResult?.data?.business_model) {
+            businessModel = businessModelResult.data.business_model as 'CREDIT' | 'MONETARY';
+          }
       }
 
       const nicheKey = (orgSettings?.niche as NicheType) || 'dance'
-      const vocabulary = nicheDictionary[state.language][nicheKey] || nicheDictionary[state.language].dance
+      
+      const currentLang = validLang
+      const dictionary = nicheDictionary[currentLang] || nicheDictionary.pt
+      
+      const vocabulary = dictionary[nicheKey] || orgSettings?.vocabulary || dictionary.dance
       
       let enabledModules = normalizeModules(orgSettings?.enabled_modules)
       
-      // Super Admin vê tudo ativado
-      if (isSuperAdmin) {
-           Object.keys(MODULE_DEFINITIONS).forEach(key => {
-             // @ts-ignore
-             enabledModules[key as ModuleKey] = true
-           })
-      }
-
-      setState({
+      setState(prev => ({
+        ...prev,
         niche: nicheKey,
         vocabulary,
+        t: translations[currentLang],
+        language: currentLang,
         enabledModules,
         isLoading: false,
-        studioId: studioId
-      })
+        studioId: studioId,
+        studios: studios,
+        businessModel: businessModel
+      }))
 
     } catch (error) {
       logger.error('❌ [OrganizationProvider] Erro fatal:', error)
       setState(prev => ({ ...prev, isLoading: false }))
     }
-  }, [setState])
+  }, [setState, state.language])
 
   useEffect(() => {
     loadSettings()
@@ -157,7 +292,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         loadSettings()
       } else if (event === 'SIGNED_OUT') {
-        setState({ ...defaultState, isLoading: false })
+        setState(prev => ({ 
+          ...defaultState, 
+          language: prev.language, 
+          t: translations[prev.language],
+          isLoading: false,
+          businessModel: 'CREDIT'
+        }))
+        localStorage.removeItem('workflow_pro_active_studio')
       }
     })
 
@@ -192,7 +334,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   }, [state.studioId, loadSettings])
 
   return (
-    <OrganizationContext.Provider value={{ ...state, setLanguage, refresh: loadSettings }}>
+    <OrganizationContext.Provider value={{ ...state, setLanguage, switchStudio, refresh: loadSettings }}>
       {children}
     </OrganizationContext.Provider>
   )

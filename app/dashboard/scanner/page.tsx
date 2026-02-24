@@ -25,7 +25,7 @@ import { useVocabulary } from "@/hooks/use-vocabulary"
 
 
 export default function AdminScannerPage() {
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, t } = useVocabulary()
   const { toast } = useToast()
   const [adminData, setAdminData] = useState<any>(null)
   const [isScanning, setIsScanning] = useState(false)
@@ -44,7 +44,7 @@ export default function AdminScannerPage() {
     // Verificar se estamos em ambiente seguro (Camera só funciona em localhost ou HTTPS)
     const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     if (!isSecure) {
-      setCameraError("Atenção: A câmera pode não abrir pois este site não está usando HTTPS. No celular, use localhost ou uma URL segura.")
+      setCameraError(t.scanner.cameraError)
     }
 
     return () => {
@@ -81,7 +81,7 @@ export default function AdminScannerPage() {
       const devices = await Html5Qrcode.getCameras();
       
       if (!devices || devices.length === 0) {
-        throw new Error("Nenhuma câmera encontrada no dispositivo.");
+        throw new Error(t.scanner.cameraNotFound);
       }
 
       // 4. SELEÇÃO DA MELHOR CÂMERA
@@ -122,30 +122,30 @@ export default function AdminScannerPage() {
       processScan(manualCode);
     } else {
       toast({
-        title: "Dica de Simulação",
-        description: "Digite um código manual (ex: danceflow_attendance_ID) para simular o scan.",
+        title: t.scanner.simulationTip,
+        description: t.scanner.simulate,
       });
     }
   };
 
   const handleScannerError = (err: any) => {
     logger.error("❌ Erro no scanner:", err);
-    let msg = "Não foi possível acessar a câmera.";
+    let msg = t.scanner.cameraAccessError;
     
     if (err.name === 'NotAllowedError' || err.toString().includes('Permission denied')) {
-      msg = "Permissão Negada: Clique no ícone de cadeado na barra de endereços e mude 'Câmera' para 'Permitir'.";
+      msg = t.scanner.cameraPermission;
     } else if (err.name === 'NotReadableError' || err.toString().includes('Could not start video source')) {
-      msg = "Câmera travada. Tente fechar outras abas do navegador ou reiniciar o Chrome.";
+      msg = t.scanner.cameraLocked;
     } else if (err.name === 'SecurityError') {
-      msg = "Erro de Segurança: A câmera só funciona em sites com HTTPS ou no Localhost.";
+      msg = t.scanner.cameraSecurity;
     } else if (err.toString().includes('NotFoundError')) {
-      msg = "Câmera não encontrada.";
+      msg = t.scanner.cameraNotFound;
     }
     
     setCameraError(msg);
     setIsScanning(false);
     toast({
-      title: "Falha na Câmera",
+      title: t.scanner.cameraFailure,
       description: msg,
       variant: "destructive"
     });
@@ -203,8 +203,8 @@ export default function AdminScannerPage() {
     if (!attendanceId) {
       logger.debug('❌ [DEBUG] Falha: Nenhum formato reconhecido para', cleanedCode);
       toast({
-        title: "Código Inválido",
-        description: `Formato não reconhecido: ${cleanedCode}`,
+        title: t.scanner.invalidCode,
+        description: t.scanner.formatNotRecognized.replace('{code}', cleanedCode),
         variant: "destructive"
       });
       return;
@@ -212,8 +212,8 @@ export default function AdminScannerPage() {
 
     if (attendanceId === 'pending') {
       toast({
-        title: "Agendamento Pendente",
-        description: "Aguarde um instante e tente novamente.",
+        title: t.scanner.pendingSchedule,
+        description: t.scanner.waitAndTry,
         variant: "destructive"
       })
       return
@@ -232,25 +232,56 @@ export default function AdminScannerPage() {
 
       const data = await response.json()
 
+      // Lógica de Ativos (Assets)
+      if (data.type === 'asset') {
+          if (data.status === 'expired') {
+            setLastResult({
+                type: 'error',
+                student: data.studentName,
+                class: data.className,
+                message: data.message
+            });
+            if (window.navigator.vibrate) window.navigator.vibrate(500);
+          } else if (data.status === 'warning') {
+            setLastResult({
+                type: 'warning',
+                student: data.studentName,
+                class: data.className,
+                message: data.message
+            });
+             if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
+          } else {
+             setLastResult({
+                type: 'success',
+                student: data.studentName,
+                class: data.className,
+                message: data.message
+            });
+             if (window.navigator.vibrate) window.navigator.vibrate([50, 50]);
+          }
+          setLoading(false);
+          return;
+      }
+
       if (data.success) {
         setLastResult({
           type: 'success',
           student: data.studentName,
           class: data.className,
-          message: 'Presença validada com sucesso!'
+          message: t.scanner.successMessage
         })
         if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100])
       } else {
         setLastResult({
           type: 'error',
-          message: data.error || 'Erro ao validar presença.'
+          message: data.error || t.scanner.validationError
         })
         if (window.navigator.vibrate) window.navigator.vibrate(500)
       }
     } catch (error: any) {
       setLastResult({
         type: 'error',
-        message: 'Falha na conexão com o servidor.'
+        message: t.scanner.connError
       })
     } finally {
       setLoading(false)
@@ -260,7 +291,7 @@ export default function AdminScannerPage() {
   return (
     <ModuleGuard module="scanner" showFullError>
       <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
-        <Header title="Scanner de Portaria" />
+        <Header title={t.scanner.title} />
         
         <main className="flex-1 p-6 max-w-lg mx-auto w-full space-y-6">
           <div className="flex items-center gap-4">
@@ -269,16 +300,16 @@ export default function AdminScannerPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <h2 className="text-2xl font-bold tracking-tight">Portaria</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{t.scanner.gate}</h2>
           </div>
 
           <Card className="border-none shadow-2xl overflow-hidden bg-white dark:bg-slate-900">
             <CardHeader className="text-center pb-2">
               <CardTitle className="text-primary flex items-center justify-center gap-2">
                 <QrCodeIcon className="w-6 h-6" />
-                Validar Entrada
+                {t.scanner.validateEntry}
               </CardTitle>
-              <CardDescription>Escaneie o QR Code do {vocabulary.client.toLowerCase()} ou digite o código manual.</CardDescription>
+              <CardDescription>{t.scanner.scanDesc.replace('{client}', vocabulary.client)}</CardDescription>
             </CardHeader>
             <CardContent className="p-6 flex flex-col items-center gap-6">
               
@@ -298,14 +329,14 @@ export default function AdminScannerPage() {
                         className="bg-primary hover:bg-primary/90 font-bold px-10 h-14 text-lg shadow-lg shadow-primary/20"
                         onClick={startScanner}
                       >
-                        Abrir Câmera
+                        {t.scanner.openCamera}
                       </Button>
                       <Button 
                         variant="ghost"
                         className="text-slate-400 text-xs hover:text-primary"
                         onClick={handleSimulateScan}
                       >
-                        Simular Scanner (Usar código manual)
+                        {t.scanner.simulate}
                       </Button>
                     </div>
                   </div>
@@ -321,7 +352,7 @@ export default function AdminScannerPage() {
                      </div>
 
                      <p className="relative z-10 text-white font-bold bg-black/60 px-4 py-2 rounded-full backdrop-blur-md mt-4 text-[10px] uppercase tracking-wider">
-                        Aponte para o QR Code
+                        {t.scanner.pointToQr}
                      </p>
                      
                      <Button 
@@ -329,7 +360,7 @@ export default function AdminScannerPage() {
                       className="absolute bottom-4 z-10 text-white hover:bg-white/10 bg-black/40 border border-white/20"
                       onClick={stopScanner}
                      >
-                       Fechar Câmera
+                       {t.scanner.closeCamera}
                      </Button>
                   </div>
                 )}
@@ -339,23 +370,32 @@ export default function AdminScannerPage() {
               {loading && (
                 <div className="flex flex-col items-center gap-2 py-4">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                  <p className="text-sm font-medium animate-pulse">Validando acesso...</p>
+                  <p className="text-sm font-medium animate-pulse">{t.scanner.validating}</p>
                 </div>
               )}
 
               {lastResult && !loading && (
                 <div className={`w-full p-4 rounded-2xl border flex items-center gap-4 animate-in fade-in zoom-in duration-300 ${
-                  lastResult.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+                  lastResult.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 
+                  lastResult.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                  'bg-rose-50 border-rose-200 text-rose-800'
                 }`}>
                   {lastResult.type === 'success' ? (
                     <CheckCircle2 className="w-8 h-8 text-emerald-500 shrink-0" />
+                  ) : lastResult.type === 'warning' ? (
+                    <AlertCircle className="w-8 h-8 text-amber-500 shrink-0" />
                   ) : (
                     <XCircle className="w-8 h-8 text-rose-500 shrink-0" />
                   )}
                   <div className="flex-1">
-                    <p className="font-black text-[10px] uppercase tracking-widest">{lastResult.type === 'success' ? 'ACESSO PERMITIDO' : 'ACESSO BLOQUEADO'}</p>
+                    <p className="font-black text-[10px] uppercase tracking-widest">
+                        {lastResult.type === 'success' ? t.scanner.accessAllowed : 
+                         lastResult.type === 'warning' ? 'ATENÇÃO' :
+                         t.scanner.accessBlocked}
+                    </p>
                     {lastResult.student && <p className="font-bold text-lg leading-tight">{lastResult.student}</p>}
                     <p className="text-xs opacity-90">{lastResult.message}</p>
+                    {lastResult.class && <p className="text-xs opacity-70 mt-1">{lastResult.class}</p>}
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => { setLastResult(null); startScanner(); }}>
                     <RefreshCw className="w-5 h-5" />
@@ -366,16 +406,16 @@ export default function AdminScannerPage() {
               {/* Busca Manual Profissional */}
               {!isScanning && !loading && !lastResult && (
                 <div className="w-full space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <p className="text-[10px] text-center uppercase tracking-widest font-bold text-slate-400">Ou digite o código manualmente</p>
+                  <p className="text-[10px] text-center uppercase tracking-widest font-bold text-slate-400">{t.scanner.manualCode}</p>
                   <div className="flex gap-2">
                     <Input 
-                      placeholder="danceflow_attendance_..." 
+                      placeholder={t.scanner.manualPlaceholder} 
                       className="h-12 text-sm font-mono bg-slate-50"
                       value={manualCode}
                       onChange={e => setManualCode(e.target.value)}
                     />
                     <Button size="lg" className="h-12 px-6" onClick={() => processScan(manualCode)}>
-                      Validar
+                      {t.scanner.validate}
                     </Button>
                   </div>
                 </div>
@@ -387,7 +427,7 @@ export default function AdminScannerPage() {
             <CardContent className="p-4 flex gap-3 text-left">
               <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
-                O sistema verifica automaticamente se o {vocabulary.client.toLowerCase()} possui créditos disponíveis antes de liberar a entrada.
+                {t.scanner.autoCheck.replace('{client}', vocabulary.client.toLowerCase())}
               </p>
             </CardContent>
           </Card>

@@ -84,9 +84,10 @@ export async function guardModule(moduleKey: ModuleKey) {
   }
 
   // Check if it's super_admin to bypass module check
-  const isSuperAdmin = config.user.user_metadata?.role === 'super_admin'
+  // Removido bypass para respeitar as configurações do builder
+  // const isSuperAdmin = config.user.user_metadata?.role === 'super_admin'
 
-  if (!isSuperAdmin && !config.enabledModules[moduleKey]) {
+  if (!config.enabledModules[moduleKey]) {
     logger.error(`❌ Acesso bloqueado: Módulo [${moduleKey}] está desativado para o estúdio ${config.studioId}`)
     throw new Error(`O módulo ${moduleKey} não está ativo para sua conta.`)
   }

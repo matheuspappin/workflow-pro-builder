@@ -4,7 +4,8 @@ import { NextResponse } from 'next/server'
 
 // REMOVED local createClient
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
 
   try {
@@ -25,7 +26,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
           user:user_id(email, user_metadata)
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -42,7 +43,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
 
   try {
@@ -63,7 +65,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { data, error } = await supabase
       .from('support_tickets')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 

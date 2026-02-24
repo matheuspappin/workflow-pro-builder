@@ -6,8 +6,9 @@ import logger from '@/lib/logger';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: studioId } = await params
   const cookieStore = cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,8 +27,6 @@ export async function GET(
   if (!user || user.user_metadata?.role !== 'superadmin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
-
-  const studioId = params.id
 
   // Use service role for admin access to bypass RLS
   const supabaseAdmin = createClient(

@@ -60,6 +60,16 @@ export class CreditPaymentStrategy implements PaymentStrategy {
 
     if (updateError) return { success: false, error: updateError.message };
 
+    // If there were service orders, update their payment status
+    const serviceOrderItems = context.items.filter(i => i.type === 'service_order');
+    if (serviceOrderItems.length > 0) {
+      const osIds = serviceOrderItems.map(i => i.id);
+      await this.supabase
+        .from('service_orders')
+        .update({ payment_status: 'paid' })
+        .in('id', osIds);
+    }
+
     // Record usage
     // We should record each item or a bulk usage.
     // For simplicity, we'll record one usage entry per transaction or per item.

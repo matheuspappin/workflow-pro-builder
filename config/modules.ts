@@ -9,7 +9,7 @@ export const MODULE_DEFINITIONS = {
   },
   students: { 
     label: 'Gestão de Alunos/Clientes', 
-    default: true,
+    default: false,
     features: [
       'Cadastro e perfil de alunos',
       'Histórico de aulas e pagamentos',
@@ -18,7 +18,7 @@ export const MODULE_DEFINITIONS = {
   },
   classes: { 
     label: 'Gestão de Aulas/Serviços', 
-    default: true,
+    default: false,
     features: [
       'Criação e agendamento de aulas',
       'Controle de frequência',
@@ -126,7 +126,7 @@ export const MODULE_DEFINITIONS = {
   },
   service_orders: {
     label: 'Ordens de Serviço (OS)',
-    default: true,
+    default: false,
     features: [
       'Controle de consertos e manutenções',
       'Assinatura digital do cliente',

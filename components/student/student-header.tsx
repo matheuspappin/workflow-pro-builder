@@ -104,9 +104,13 @@ export function StudentHeader({ student }: StudentHeaderProps) {
 
   const handleLogout = async () => {
     try {
+      await supabase.auth.signOut()
       await fetch('/api/auth/logout', { method: 'POST' })
-    } catch (e) {}
+    } catch (e) {
+      console.error("Erro ao realizar logout:", e)
+    }
     localStorage.removeItem("danceflow_user")
+    localStorage.removeItem("workflow_pro_active_studio")
     
     // Redireciona para o login específico do estúdio se possível
     if (student?.studioSlug) {

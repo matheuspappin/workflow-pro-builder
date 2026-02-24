@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
 
 import { useVocabulary } from "@/hooks/use-vocabulary"
 
@@ -22,13 +23,24 @@ interface TeacherHeaderProps {
 
 export function TeacherHeader({ teacher }: TeacherHeaderProps) {
   const router = useRouter()
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, niche } = useVocabulary()
+  const isFireProtection = niche === 'fire_protection'
   
   const handleLogout = async () => {
     try {
+      await supabase.auth.signOut()
       await fetch('/api/auth/logout', { method: 'POST' })
-    } catch (e) {}
+    } catch (e) {
+      console.error("Erro ao realizar logout:", e)
+    }
     localStorage.removeItem("danceflow_user")
+    localStorage.removeItem("workflow_pro_active_studio")
+    
+    if (isFireProtection) {
+      window.location.href = "/solutions/fire-protection/login"
+      return
+    }
+    
     window.location.href = "/login"
   }
 
@@ -44,7 +56,9 @@ export function TeacherHeader({ teacher }: TeacherHeaderProps) {
           </Avatar>
           <div className="flex flex-col">
             <span className="text-sm font-black leading-tight tracking-tight">{teacher?.name?.split(' ')[0]}</span>
-            <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">{vocabulary.provider}</span>
+            <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">
+              {isFireProtection ? 'Engenheiro' : vocabulary.provider}
+            </span>
           </div>
           
           <nav className="hidden md:flex items-center gap-1 ml-4 border-l border-slate-100 dark:border-slate-800 pl-4">
@@ -53,9 +67,10 @@ export function TeacherHeader({ teacher }: TeacherHeaderProps) {
                 <LayoutDashboard className="h-3.5 w-3.5 text-indigo-600" /> Dashboard
               </Button>
             </Link>
-            <Link href="/teacher/classes">
+            <Link href={isFireProtection ? "/teacher/projetos" : "/teacher/classes"}>
               <Button variant="ghost" size="sm" className="gap-2 h-8 text-xs font-bold text-slate-600">
-                <Calendar className="h-3.5 w-3.5 text-indigo-600" /> Minhas {vocabulary.service}s
+                <Calendar className="h-3.5 w-3.5 text-indigo-600" /> 
+                {isFireProtection ? "Meus Projetos" : `Minhas ${vocabulary.service}s`}
               </Button>
             </Link>
             <Link href="/teacher/financeiro">

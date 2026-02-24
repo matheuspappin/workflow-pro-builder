@@ -8,7 +8,7 @@ export interface PaymentItem {
   priceInCredits: number;
   priceInCurrency: number;
   quantity: number;
-  type: 'product' | 'service' | 'package';
+  type: 'product' | 'service' | 'package' | 'service_order';
 }
 
 export interface PaymentContext {

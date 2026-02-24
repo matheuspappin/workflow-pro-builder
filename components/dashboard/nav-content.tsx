@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useBusinessMode } from "@/hooks/use-business-mode"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import logger from "@/lib/logger"
@@ -29,131 +30,251 @@ import {
   LifeBuoy,
   Wrench,
   Languages,
+  Trophy,
+  Layers,
+  Package,
+  FireExtinguisher,
+  HardHat,
+  FileText,
+  TrendingDown,
+  BarChart3,
+  Receipt,
 } from "lucide-react"
-import { getNicheIcon } from "@/lib/niche-utils"
+import { getNicheIcon, getNicheBranding } from "@/lib/niche-utils"
 import { useOrganization } from "@/components/providers/organization-provider"
 import { Button } from "@/components/ui/button"
+import { monetaryBasedNiches, getBusinessConcept } from "@/config/niche-modules"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ChevronDown, Building } from "lucide-react"
 
 interface NavContentProps {
   collapsed?: boolean
   onNavigate?: () => void
   isAffiliate?: boolean
+  isSeller?: boolean
+  isFinance?: boolean
 }
 
-export function NavContent({ collapsed = false, onNavigate, isAffiliate = false }: NavContentProps) {
+export function NavContent({ collapsed = false, onNavigate, isAffiliate = false, isSeller = false, isFinance = false }: NavContentProps) {
   const pathname = usePathname()
-  const { vocabulary, enabledModules, niche, loading: vocabLoading } = useVocabulary()
-  const { language, setLanguage } = useOrganization()
+  const { vocabulary, enabledModules, niche, loading: vocabLoading, t, language } = useVocabulary()
+  const { setLanguage, studios, studioId, switchStudio, businessModel } = useOrganization()
+  const { isScheduleBased, isServiceOrderBased } = useBusinessMode()
+  const activeStudio = studios.find(s => s.id === studioId)
+  const concept = getBusinessConcept((niche as any) || 'dance')
+  const isFireProtection = niche === 'fire_protection'
+  const branding = getNicheBranding(niche || 'dance')
 
   const dashboardMenuItems = [
     {
       id: 'dashboard',
       icon: LayoutDashboard,
-      label: language === 'pt' ? "Dashboard" : "Dashboard",
+      label: t.sidebar.dashboard,
       href: "/dashboard"
     },
     {
       id: 'ao-vivo',
       icon: Video,
-      label: language === 'pt' ? `${vocabulary.services} ao Vivo` : `Live ${vocabulary.services}`,
+      label: `${vocabulary.services} ${t.sidebar.live}`,
       href: "/dashboard/ao-vivo",
       module: 'classes'
     },
     {
       id: 'scanner',
       icon: QrCodeIcon,
-      label: language === 'pt' ? "Scanner Portaria" : "Gate Scanner",
+      label: t.sidebar.scanner.replace('{establishment}', branding.name),
       href: "/dashboard/scanner",
       module: 'scanner'
     },
     {
       id: 'pos',
       icon: ShoppingCart,
-      label: language === 'pt' ? "PDV (Vendas)" : "POS (Sales)",
-      href: "/dashboard/estoque",
-      module: 'pos'
+      label: t.sidebar.pos,
+      href: "/dashboard/vendas",
+      module: 'pos' 
     },
     {
       id: 'students',
-      icon: getNicheIcon(niche || 'dance', 'client'),
-      label: `${vocabulary.clients}`,
+      icon: Users,
+      label: vocabulary.clients,
       href: "/dashboard/alunos",
       module: 'students'
     },
     {
       id: 'leads',
       icon: TrendingUp,
-      label: language === 'pt' ? "Leads (CRM)" : "Leads (CRM)",
+      label: t.sidebar.leads,
       href: "/dashboard/leads",
       module: 'leads'
     },
     {
       id: 'teachers',
-      icon: getNicheIcon(niche || 'dance', 'provider'),
-      label: `${vocabulary.providers}`,
+      icon: GraduationCap,
+      label: vocabulary.providers,
       href: "/dashboard/professores",
       module: 'classes'
     },
     {
       id: 'classes',
-      icon: getNicheIcon(niche || 'dance', 'service'),
-      label: `${vocabulary.services}`,
+      icon: Calendar,
+      label: vocabulary.services,
       href: "/dashboard/aulas",
       module: 'classes'
     },
     {
+      id: 'service-orders',
+      icon: Wrench,
+      label: t.sidebar.service_orders.replace('{services}', vocabulary.services),
+      href: "/dashboard/os",
+      module: 'service_orders'
+    },
+    {
+      id: 'projects',
+      icon: HardHat,
+      label: t.sidebar.projects,
+      href: "/dashboard/projetos",
+      module: 'service_orders'
+    },
+    {
       id: 'financial',
       icon: DollarSign,
-      label: language === 'pt' ? "Financeiro" : "Financial",
+      label: t.sidebar.financial,
       href: "/dashboard/financeiro",
       module: 'financial'
     },
     {
       id: 'whatsapp',
       icon: Phone,
-      label: "WhatsApp",
+      label: t.sidebar.whatsapp,
       href: "/dashboard/whatsapp",
       module: 'whatsapp'
     },
     {
-      id: 'erp',
+      id: 'inventory',
+      icon: Package,
+      label: t.sidebar.inventory,
+      href: "/dashboard/estoque",
+      module: 'inventory'
+    },
+    {
+      id: 'gamification',
+      icon: Trophy,
+      label: t.sidebar.gamification,
+      href: "/dashboard/gamification",
+      module: 'gamification'
+    },
+    {
+      id: 'multi-unit',
       icon: Globe,
-      label: "ERP Enterprise",
+      label: t.sidebar.multi_unit,
+      href: "/dashboard/multi-unit",
+      module: 'multi_unit'
+    },
+    {
+      id: 'erp',
+      icon: Layers,
+      label: t.sidebar.erp,
       href: "/dashboard/erp",
       module: 'erp'
     },
     {
-      id: 'service-orders',
-      icon: Wrench,
-      label: language === 'pt' ? "Ordens de Serviço" : "Service Orders",
-      href: "/dashboard/os",
-      module: 'service_orders'
-    },
-    {
       id: 'marketplace',
       icon: ShoppingBag,
-      label: "Marketplace",
+      label: t.sidebar.marketplace,
       href: "/dashboard/marketplace",
       module: 'marketplace'
     },
     {
       id: 'ai_chat',
       icon: MessageSquare,
-      label: language === 'pt' ? "Chat IA" : "AI Chat",
+      label: t.sidebar.ai_chat,
       href: "/dashboard/chat",
       module: 'ai_chat'
     },
     {
       id: 'settings',
       icon: Settings,
-      label: language === 'pt' ? "Configurações" : "Settings",
+      label: t.sidebar.settings,
       href: "/dashboard/configuracoes"
     },
     {
       id: 'support',
       icon: LifeBuoy,
-      label: language === 'pt' ? "Suporte" : "Support",
-      href: "/dashboard/support"
+      label: t.sidebar.support,
+      href: "/dashboard/suporte"
+    },
+  ]
+
+  const sellerMenuItems = [
+    {
+      id: 'seller-dashboard',
+      icon: LayoutDashboard,
+      label: t.sidebar.dashboard,
+      href: "/seller"
+    },
+    {
+      id: 'seller-clients',
+      icon: Users,
+      label: vocabulary.clients,
+      href: "/seller/clients"
+    },
+    {
+      id: 'seller-os',
+      icon: Wrench,
+      label: t.sidebar.service_orders.replace('{services}', vocabulary.services),
+      href: "/seller/os"
+    },
+    {
+      id: 'seller-support',
+      icon: LifeBuoy,
+      label: t.sidebar.support,
+      href: "/seller/support"
+    },
+  ]
+
+  const financeMenuItems = [
+    {
+      id: 'finance-dashboard',
+      icon: LayoutDashboard,
+      label: t.sidebar.dashboard,
+      href: "/finance"
+    },
+    {
+      id: 'finance-funcionarios',
+      icon: Users,
+      label: "Pagamentos Funcionários",
+      href: "/finance/funcionarios"
+    },
+    {
+      id: 'finance-notas',
+      icon: Receipt,
+      label: "Notas Fiscais",
+      href: "/finance/notas"
+    },
+    {
+      id: 'finance-lancamentos',
+      icon: FileText,
+      label: "Lançamentos",
+      href: "/finance/lancamentos"
+    },
+    {
+      id: 'finance-inadimplencia',
+      icon: TrendingDown,
+      label: "Inadimplência",
+      href: "/finance/inadimplencia"
+    },
+    {
+      id: 'finance-relatorios',
+      icon: BarChart3,
+      label: "Relatórios",
+      href: "/finance/relatorios"
     },
   ]
 
@@ -161,120 +282,325 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
     {
       id: 'affiliate-dashboard',
       icon: LayoutDashboard,
-      label: "Dashboard",
+      label: t.sidebar.dashboard,
       href: "/portal/affiliate/dashboard"
+    },
+    {
+      id: 'affiliate-profile',
+      icon: User2,
+      label: t.common.myAccount,
+      href: "/portal/affiliate/profile"
+    },
+    {
+      id: 'affiliate-ecosystems',
+      icon: Sparkles,
+      label: "Meus Ecossistemas",
+      href: "/portal/affiliate/ecosystems"
     },
     {
       id: 'affiliate-settings',
       icon: Settings,
-      label: language === 'pt' ? "Configurações" : "Settings",
+      label: t.sidebar.settings,
       href: "/portal/affiliate/settings"
-    },
-    {
-      id: 'affiliate-support',
-      icon: LifeBuoy,
-      label: language === 'pt' ? "Suporte" : "Support",
-      href: "/dashboard/support" 
     },
   ]
 
-  const menuItems = isAffiliate ? affiliateMenuItems : dashboardMenuItems;
+  let menuItems = dashboardMenuItems;
+  if (isAffiliate) menuItems = affiliateMenuItems;
+  if (isSeller) menuItems = sellerMenuItems;
+  if (isFinance) menuItems = financeMenuItems;
 
   const handleLogout = async () => {
     try {
+      // 1. Sign out do Supabase no cliente
+      await supabase.auth.signOut()
+      
+      // 2. Chama a API para limpar cookies no servidor
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch (e) {
-      logger.error('Erro ao limpar cookie de sessão:', e)
+      logger.error('Erro ao realizar logout:', e)
     }
+    
+    // 3. Limpa localStorage
     localStorage.removeItem("danceflow_user")
-    window.location.href = isAffiliate ? "/portal/affiliate/login" : "/login"
+    localStorage.removeItem("workflow_pro_active_studio")
+
+    // 4. Redirecionamento total para limpar estado do Next.js
+    if (isAffiliate) {
+      window.location.href = "/portal/affiliate/login"
+      return
+    }
+
+    if (niche === 'fire_protection') {
+      window.location.href = "/solutions/fire-protection/login"
+      return
+    }
+
+    window.location.href = "/login"
   }
 
   // A lógica de módulos PRO e BASE_MODULES só se aplica ao dashboard principal
-  const BASE_MODULES = ['dashboard', 'settings']
+  const BASE_MODULES = ['dashboard', 'settings', 'support']
 
-  const processedItems = menuItems.map(item => {
-    // Se for o portal de afiliado, nenhum item deve ser desabilitado ou ter o tag "PRO"
-    if (isAffiliate) {
-      return { ...item, isDisabled: false };
-    }
+  // ALTERAÇÃO: Filtramos os itens para mostrar apenas o que está ativo no builder
+  const filteredItems = menuItems.filter(item => {
+    // 1. Se for o portal de afiliado, mostra tudo
+    if (isAffiliate) return true;
 
     const moduleKey = (item as any).module
-    const isDisabled = moduleKey && !BASE_MODULES.includes(item.id) && enabledModules[moduleKey as keyof typeof enabledModules] === false
-    return { ...item, isDisabled }
+    
+    // 2. Itens sem módulo ou módulos base sempre aparecem
+    if (!moduleKey || BASE_MODULES.includes(item.id)) {
+      return true;
+    }
+
+    // 3. Só mostra se o módulo estiver explicitamente ativo nas configurações da organização
+    const isModuleEnabled = enabledModules[moduleKey as keyof typeof enabledModules] === true
+    
+    // Regras de adaptação para Modo Monetário baseadas no conceito do nicho
+    if (concept.hiddenModules.includes(item.id) || concept.hiddenModules.includes(moduleKey)) {
+      return false;
+    }
+
+    // Fallback de segurança para Gamificação se estiver em modo MONETARY
+    if (moduleKey === 'gamification' && businessModel === 'MONETARY') {
+      return false;
+    }
+
+    return isModuleEnabled
   })
 
+  // Reordenação baseada em prioridade do conceito
+  const activeItems = [...filteredItems].sort((a, b) => {
+    const priorityA = concept.priorityModules.indexOf(a.id);
+    const priorityB = concept.priorityModules.indexOf(b.id);
+    
+    if (priorityA !== -1 && priorityB !== -1) return priorityA - priorityB;
+    if (priorityA !== -1) return -1;
+    if (priorityB !== -1) return 1;
+    return 0;
+  });
+
+  // Módulos não selecionados são BLOQUEADOS (não aparecem nem no marketplace se não forem habilitados)
+  const marketplaceItems: any[] = [] // Desativado conforme pedido: bloquear o que não foi escolhido
+
+  const fireProtectionGroups = [
+    {
+      label: "Operacional",
+      itemIds: ['dashboard', 'scanner', 'students', 'teachers', 'service-orders', 'inventory', 'classes'],
+    },
+    {
+      label: "Comercial",
+      itemIds: ['pos', 'leads', 'whatsapp', 'ai_chat'],
+    },
+    {
+      label: "Gestão",
+      itemIds: ['financial', 'projects', 'erp', 'settings', 'support'],
+    },
+  ]
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-950 text-white border-r border-white/10">
       {/* Logo */}
-      <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
-        <Link href={isAffiliate ? "/portal/affiliate/dashboard" : "/dashboard"} className="flex items-center gap-2" onClick={onNavigate}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-primary-foreground" />
+      <div className="flex flex-col border-b border-white/10">
+        <div className="h-16 flex items-center px-4">
+          <Link href={isAffiliate ? "/portal/affiliate/dashboard" : "/dashboard"} className="flex items-center gap-2" onClick={onNavigate}>
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-red-600/20",
+              branding.gradient ? `bg-gradient-to-br ${branding.gradient}` : "bg-gradient-to-br from-red-600 to-orange-600"
+            )}>
+              <branding.icon className="w-5 h-5 text-white" />
+            </div>
+            {!collapsed && (
+              <span className="text-lg font-black tracking-tighter">
+                {branding.name}<span className="text-red-600">
+                  {branding.accentName}
+                </span>
+              </span>
+            )}
+          </Link>
+        </div>
+
+        {/* Studio Switcher */}
+        {!isAffiliate && !collapsed && studios.length > 0 && (
+          <div className="px-3 pb-3">
+            {studios.length > 1 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between px-3 h-10 border-white/10 bg-white/5 hover:bg-white/10 text-white">
+                    <div className="flex items-center gap-2 truncate">
+                      <Building className="w-4 h-4 text-red-500 flex-shrink-0" />
+                      <span className="truncate text-xs font-bold uppercase tracking-widest">{activeStudio?.name || t.sidebar.selectStudio}</span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 opacity-50 flex-shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[200px] bg-slate-900 border-white/10 text-white">
+                  <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t.sidebar.switchStudio}</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  {studios.map(studio => (
+                    <DropdownMenuItem 
+                      key={studio.id} 
+                      onClick={() => switchStudio(studio.id)}
+                      className={cn("gap-2 cursor-pointer hover:bg-white/5 focus:bg-white/5", studio.id === studioId && "bg-red-600/10 text-red-500 font-bold")}
+                    >
+                      <Building className="w-3 h-3" />
+                      <span className="truncate">{studio.name}</span>
+                      {studio.id === studioId && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.8)]" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2 px-3 h-10 rounded-md border border-white/10 bg-white/5 text-slate-400">
+                <Building className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <span className="truncate text-xs font-bold uppercase tracking-widest">{studios[0].name}</span>
+              </div>
+            )}
           </div>
-          {!collapsed && (
-            <span className="text-lg font-bold">
-              Workflow <span className="text-primary">Pro</span>
-            </span>
-          )}
-        </Link>
+        )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 overflow-y-auto">
-        <ul className="space-y-1">
-          {processedItems.map((item) => {
-            const isActive = pathname === item.href
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors group relative",
-                    isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    item.isDisabled && "opacity-80"
+        {isFireProtection ? (
+          <div className="space-y-4">
+            {fireProtectionGroups.map((group, gi) => {
+              const groupItems = activeItems.filter(item => group.itemIds.includes(item.id))
+              if (groupItems.length === 0) return null
+              return (
+                <div key={group.label}>
+                  {!collapsed && (
+                    <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-white/25">
+                      {group.label}
+                    </p>
                   )}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span className="text-sm font-medium">{item.label}{item.isDisabled && " PRO"}</span>}
+                  {gi > 0 && collapsed && <div className="my-2 border-t border-white/10" />}
+                  <div className="space-y-0.5">
+                    {groupItems.map((item) => {
+                      const isActive = pathname === item.href
+                      return (
+                        <Link
+                          key={item.id + item.href}
+                          href={item.href}
+                          onClick={onNavigate}
+                          className={cn(
+                            "flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group relative",
+                            isActive
+                              ? "bg-red-600 text-white shadow-lg shadow-red-600/20 font-bold"
+                              : "text-slate-400 hover:bg-white/5 hover:text-white",
+                            collapsed && "justify-center"
+                          )}
+                          title={collapsed ? item.label : undefined}
+                        >
+                          <div className="flex items-center gap-3">
+                            <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-slate-500 group-hover:text-red-500")} />
+                            {!collapsed && <span className="text-sm tracking-tight">{item.label}</span>}
+                          </div>
+                          {isActive && !collapsed && (
+                            <div className="w-1 h-4 bg-white rounded-full" />
+                          )}
+                        </Link>
+                      )
+                    })}
                   </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {activeItems.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <li key={item.id + item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group relative",
+                      isActive
+                        ? "bg-red-600 text-white shadow-lg shadow-red-600/20 font-bold"
+                        : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-slate-500 group-hover:text-red-500")} />
+                      {!collapsed && <span className="text-sm tracking-tight">{item.label}</span>}
+                    </div>
+                    {isActive && !collapsed && (
+                      <div className="w-1 h-4 bg-white rounded-full" />
+                    )}
+                  </Link>
+                </li>
+              )
+            })}
 
-                  {item.isDisabled && !collapsed && (
-                    <div className="flex items-center bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                      <Lock className="w-2.5 h-2.5 mr-1" />
-                      PRO
+            {/* Seção Marketplace para módulos não ativos */}
+            {!isAffiliate && marketplaceItems.length > 0 && (
+              <>
+                <div className="mt-6 mb-2 px-3">
+                  <div className="h-px bg-sidebar-border w-full mb-4" />
+                  {!collapsed && (
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      <ShoppingBag className="w-3 h-3" />
+                      {t.sidebar.marketplaceUpgrades}
                     </div>
                   )}
+                </div>
+                
+                {marketplaceItems.map((item) => {
+                  const isActive = pathname === item.href
+                  return (
+                    <li key={item.id + item.href}>
+                      <Link
+                        href="/dashboard/marketplace"
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors group relative",
+                          "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground opacity-80"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <item.icon className="w-5 h-5 flex-shrink-0" />
+                          {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+                        </div>
 
-                  {item.isDisabled && collapsed && (
-                    <div className="absolute top-1 right-1 bg-amber-500 rounded-full p-0.5 border border-background">
-                      <Lock className="w-2 h-2 text-white" />
-                    </div>
-                  )}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+                        {!collapsed && (
+                          <div className="flex items-center bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                            <Lock className="w-2.5 h-2.5 mr-1" />
+                            PRO
+                          </div>
+                        )}
+
+                        {collapsed && (
+                          <div className="absolute top-1 right-1 bg-amber-500 rounded-full p-0.5 border border-background">
+                            <Lock className="w-2 h-2 text-white" />
+                          </div>
+                        )}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </>
+            )}
+          </ul>
+        )}
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t border-sidebar-border space-y-1">
+      <div className="p-2 border-t border-white/10 space-y-1">
         <button
           onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full",
-            "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full group",
+            "text-slate-400 hover:bg-white/5 hover:text-white"
           )}
         >
-          <Languages className="w-5 h-5 flex-shrink-0" />
+          <Languages className="w-5 h-5 flex-shrink-0 group-hover:text-red-500 transition-colors" />
           {!collapsed && (
-            <span className="text-sm font-medium">
-              {language === 'pt' ? '🇺🇸 English' : '🇧🇷 Português'}
+            <span className="text-xs font-bold uppercase tracking-widest">
+              {language === 'pt' ? t.sidebar.english : t.sidebar.portuguese}
             </span>
           )}
         </button>
@@ -282,12 +608,12 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false 
         <button
           onClick={handleLogout}
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full",
-            "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full group",
+            "text-slate-400 hover:bg-red-500/10 hover:text-red-500"
           )}
         >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">{language === 'pt' ? 'Sair' : 'Logout'}</span>}
+          <LogOut className="w-5 h-5 flex-shrink-0 group-hover:scale-110 transition-transform" />
+          {!collapsed && <span className="text-xs font-bold uppercase tracking-widest">{t.sidebar.logout}</span>}
         </button>
       </div>
     </div>

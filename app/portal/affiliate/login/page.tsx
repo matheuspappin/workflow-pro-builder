@@ -10,10 +10,14 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Sparkles, Zap, Eye, EyeOff, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { LanguageSwitcher } from "@/components/common/language-switcher"
+
+import { useOrganization } from "@/components/providers/organization-provider"
 
 function AffiliateLoginContent() {
   const router = useRouter()
   const { toast } = useToast()
+  const { language } = useOrganization()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -29,7 +33,7 @@ function AffiliateLoginContent() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, portal: 'affiliate' }) // Importante: Definir portal como 'affiliate'
+        body: JSON.stringify({ ...formData, portal: 'affiliate', language }) // Importante: Definir portal como 'affiliate'
       })
 
       const data = await response.json()
@@ -74,7 +78,10 @@ function AffiliateLoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex relative">
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 to-purple-800 p-12 flex-col justify-between">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
@@ -134,11 +141,11 @@ function AffiliateLoginContent() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
+                  <Label htmlFor="email">E-mail ou WhatsApp</Label>
                   <Input
                     id="email"
-                    type="email"
-                    placeholder="seu@email.com"
+                    type="text"
+                    placeholder="seu@email.com ou (00) 00000-0000"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required

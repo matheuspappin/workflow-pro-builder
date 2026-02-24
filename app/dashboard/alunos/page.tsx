@@ -73,6 +73,7 @@ import {
 import { DynamicMetadataForm } from "@/components/niche/dynamic-metadata-form"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { ModuleGuard } from "@/components/providers/module-guard"
+import { useOrganization } from "@/components/providers/organization-provider"
 import { pluralize } from "@/lib/pluralize"
 
 interface Student {
@@ -99,7 +100,8 @@ const modalities = ["Ballet", "Jazz", "Hip Hop", "Contemporaneo", "Salsa"]
 
 function StudentsContent() {
   const { toast } = useToast()
-  const { schemas, vocabulary } = useVocabulary()
+  const { schemas, vocabulary, t, language } = useVocabulary()
+  const { businessModel } = useOrganization()
   const searchParams = useSearchParams()
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
@@ -273,8 +275,8 @@ function StudentsContent() {
     } catch (error) {
       console.error('Erro ao carregar alunos:', error?.message || error)
       toast({
-        title: "Erro",
-        description: `Não foi possível carregar a lista de ${vocabulary.clients.toLowerCase()}.`,
+        title: t.common.error,
+        description: t.students.errorLoadingStudents.replace('{clients}', vocabulary.clients.toLowerCase()),
         variant: "destructive",
       })
     } finally {
@@ -285,10 +287,16 @@ function StudentsContent() {
   const filteredStudents = students.filter((student) => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "ativo" && (student.credits ?? 0) > 0) ||
-      (statusFilter === "baixo" && (student.credits ?? 0) > 0 && (student.credits ?? 0) <= 2) ||
-      (statusFilter === "inativo" && (student.credits ?? 0) === 0)
+    
+    let matchesStatus = statusFilter === "all"
+    if (statusFilter === "ativo") {
+      matchesStatus = businessModel === 'CREDIT' ? (student.credits ?? 0) > 0 : student.status === 'ativo'
+    } else if (statusFilter === "baixo") {
+      matchesStatus = businessModel === 'CREDIT' && (student.credits ?? 0) > 0 && (student.credits ?? 0) <= 2
+    } else if (statusFilter === "inativo") {
+      matchesStatus = businessModel === 'CREDIT' ? (student.credits ?? 0) === 0 : student.status === 'inativo'
+    }
+
     const matchesModality = modalityFilter === "all" || student.modality === modalityFilter
     return matchesSearch && matchesStatus && matchesModality
   })
@@ -296,8 +304,8 @@ function StudentsContent() {
   const handleAddStudent = async () => {
     if (!newStudent.name || !newStudent.email || !newStudent.phone) {
       toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios.",
+        title: t.common.error,
+        description: t.finance.fillFields,
         variant: "destructive",
       })
       return
@@ -306,8 +314,11 @@ function StudentsContent() {
     // Verificar limite do plano
     if (isLimitReached(students.length, studioPlan, 'maxStudents')) {
       toast({
-        title: "Limite de Plano Atingido",
-        description: `Seu plano atual (${studioPlan}) permite até ${PLAN_LIMITS[studioPlan].maxStudents} ${vocabulary.clients.toLowerCase()}. Faça o upgrade para continuar.`,
+        title: t.students.planLimitReachedTitle,
+        description: t.students.planLimitReachedDesc
+          .replace('{plan}', studioPlan)
+          .replace('{limit}', PLAN_LIMITS[studioPlan].maxStudents.toString())
+          .replace('{clients}', vocabulary.clients.toLowerCase()),
         variant: "destructive",
       })
       // Opcional: router.push("/dashboard/faturamento")
@@ -328,7 +339,7 @@ function StudentsContent() {
       const savedStudent = await saveStudent(studentData)
 
       if (!savedStudent) {
-        throw new Error(`O ${vocabulary.client.toLowerCase()} não pôde ser salvo. Verifique se os dados estão corretos.`)
+        throw new Error(t.common.errorSavingDesc.replace('{client}', vocabulary.client.toLowerCase()))
       }
 
       // Recarregar lista de ${vocabulary.clients}
@@ -337,15 +348,15 @@ function StudentsContent() {
       setNewStudent({ name: "", email: "", phone: "", monthlyFee: "", metadata: {} })
       setIsDialogOpen(false)
       toast({
-        title: `${vocabulary.client} adicionado!`,
-        description: `${savedStudent.name} foi cadastrado com sucesso.`,
+        title: t.students.clientAddedTitle.replace('{client}', vocabulary.client),
+        description: t.students.clientAddedDesc.replace('{name}', savedStudent.name),
       })
     } catch (error: any) {
       console.error('Erro ao salvar aluno (completo):', error)
       const message = error.message || (typeof error === 'string' ? error : '')
       toast({
-        title: "Erro ao salvar",
-        description: message || "Verifique se o e-mail já está cadastrado ou se os campos estão corretos.",
+        title: t.students.errorSavingTitle,
+        description: message || t.students.errorSavingDesc,
         variant: "destructive",
       })
     }
@@ -360,53 +371,66 @@ function StudentsContent() {
     if (isExpired && credits > 0) {
       return (
         <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200">
-          <AlertTriangle className="w-3 h-3 mr-1" /> Congelado
+          <AlertTriangle className="w-3 h-3 mr-1" /> {t.students.frozen}
         </Badge>
       );
     }
 
     if (credits > 0) {
-      return <Badge className="bg-success/20 text-success-foreground hover:bg-success/30"><CheckCircle className="w-3 h-3 mr-1" />Ativo</Badge>
+      return <Badge className="bg-success/20 text-success-foreground hover:bg-success/30"><CheckCircle className="w-3 h-3 mr-1" />{t.common.active}</Badge>
     } else {
-      return <Badge variant="secondary">Inativo</Badge>
+      return <Badge variant="secondary">{t.common.inactive}</Badge>
     }
   }
 
   const getPaymentBadge = (status: string) => {
     switch (status) {
       case "pago":
-        return <Badge className="bg-success/20 text-success-foreground hover:bg-success/30">Pago</Badge>
+        return <Badge className="bg-success/20 text-success-foreground hover:bg-success/30">{t.common.paid}</Badge>
       case "pendente":
-        return <Badge className="bg-warning/20 text-warning-foreground hover:bg-warning/30">Pendente</Badge>
+        return <Badge className="bg-warning/20 text-warning-foreground hover:bg-warning/30">{t.common.pending}</Badge>
       case "atrasado":
-        return <Badge variant="destructive">Atrasado</Badge>
+        return <Badge variant="destructive">{t.finance.overdue}</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
   }
 
   const stats = [
-    { label: `Total de ${vocabulary.clients}`, value: students.length, icon: Users },
-    { label: `${vocabulary.clients} Ativos`, value: students.filter(s => (s.credits ?? 0) > 0).length, color: "text-success" },
-    { label: "Baixo Crédito", value: students.filter(s => (s.credits ?? 0) > 0 && (s.credits ?? 0) <= 2).length, color: "text-warning" },
-    { label: "Inativos", value: students.filter(s => (s.credits ?? 0) === 0).length, color: "text-muted-foreground" },
+    { label: `${t.common.total} de ${vocabulary.clients}`, value: students.length, icon: Users },
+    { 
+      label: `${vocabulary.clients} ${t.common.active}`, 
+      value: students.filter(s => businessModel === 'CREDIT' ? (s.credits ?? 0) > 0 : s.status === 'ativo').length, 
+      color: "text-success" 
+    },
+    ...(businessModel === 'CREDIT' ? [{ 
+      label: t.students.lowCredit, 
+      value: students.filter(s => (s.credits ?? 0) > 0 && (s.credits ?? 0) <= 2).length, 
+      color: "text-warning" 
+    }] : []),
+    { 
+      label: t.common.inactive, 
+      value: students.filter(s => businessModel === 'CREDIT' ? (s.credits ?? 0) === 0 : s.status === 'inativo').length, 
+      color: "text-muted-foreground" 
+    },
   ]
 
   const handleSendEmail = (student: Student) => {
-    window.open(`mailto:${student.email}?subject=Workflow AI - Contato&body=Ola ${student.name},`)
+    const studioName = localStorage.getItem("danceflow_user") ? JSON.parse(localStorage.getItem("danceflow_user")!).studioName : vocabulary.establishment
+    window.open(`mailto:${student.email}?subject=${studioName} - Contato&body=Ola ${student.name},`)
     toast({
-      title: "Email",
-      description: `Abrindo email para ${student.name}`,
+      title: t.common.emailLabel || "Email",
+      description: `${t.common.loading.replace('...', '')} email para ${student.name}`,
     })
   }
 
   const handleWhatsApp = (student: Student) => {
     const phone = student.phone.replace(/\D/g, "")
-    const studioName = localStorage.getItem("danceflow_user") ? JSON.parse(localStorage.getItem("danceflow_user")!).studioName : "nossa empresa"
+    const studioName = localStorage.getItem("danceflow_user") ? JSON.parse(localStorage.getItem("danceflow_user")!).studioName : vocabulary.establishment
     window.open(`https://wa.me/55${phone}?text=Olá ${student.name}, aqui é da *${studioName}*!`, "_blank")
     toast({
-      title: "WhatsApp",
-      description: `Abrindo WhatsApp para ${student.name}`,
+      title: t.studentProfile.whatsapp,
+      description: `${t.common.loading.replace('...', '')} WhatsApp para ${student.name}`,
     })
   }
 
@@ -424,8 +448,8 @@ function StudentsContent() {
       const message = `Olá *${student.name}*! 👋\n\nSeu acesso ao Portal do ${vocabulary.client} da *${studioName}* está liberado! ✨\n\nNo portal você poderá:\n✅ Ver seu saldo de créditos\n✅ Confirmar presença em ${vocabulary.services.toLowerCase()}\n✅ Ver seu histórico de pagamentos\n\n🚀 *Acesse agora:* ${loginLink}\n\nSeja bem-vindo(a)!`
 
       toast({
-        title: "Enviando Acesso...",
-        description: `Preparando mensagem para ${student.name}`,
+        title: `${t.students.sendAccess.split(' ')[0]}...`,
+        description: t.students.addStudentDesc.replace('{client}', student.name),
       })
 
       const response = await fetch('/api/whatsapp/send', {
@@ -442,8 +466,8 @@ function StudentsContent() {
 
       if (data.success) {
         toast({
-          title: "Acesso Enviado!",
-          description: `O link foi enviado com sucesso para ${student.name} via WhatsApp.`,
+          title: t.common.success,
+          description: t.students.clientUpdatedDesc.replace('{name}', student.name),
         })
       } else {
         throw new Error(data.error)
@@ -451,8 +475,8 @@ function StudentsContent() {
     } catch (error: any) {
       console.error('Erro ao enviar acesso:', error)
       toast({
-        title: "Erro ao Enviar",
-        description: "Não foi possível enviar via WhatsApp automaticamente. Abrindo manual...",
+        title: t.common.error,
+        description: t.students.errorUpdatingStatus.replace('{client}', vocabulary.client.toLowerCase()),
         variant: "destructive",
       })
       // Fallback para link direto se o bot falhar
@@ -473,14 +497,16 @@ function StudentsContent() {
       await loadStudents()
 
       toast({
-        title: newStatus === "active" ? `${vocabulary.client} Reativado` : `${vocabulary.client} Desativado`,
-        description: `${student.name} foi ${newStatus === "active" ? "reativado" : "desativado"}.`,
+        title: newStatus === "active" ? t.students.clientReactivated.replace('{client}', vocabulary.client) : t.students.clientDeactivated.replace('{client}', vocabulary.client),
+        description: t.students.clientStatusUpdated
+          .replace('{name}', student.name)
+          .replace('{status}', newStatus === "active" ? (language === 'pt' ? 'reativado' : 'reactivated') : (language === 'pt' ? 'desativado' : 'deactivated')),
       })
     } catch (error) {
       console.error('Erro ao alterar status do aluno:', error)
       toast({
-        title: "Erro",
-        description: `Não foi possível alterar o status do ${vocabulary.client.toLowerCase()}.`,
+        title: t.common.error,
+        description: t.students.errorUpdatingStatus.replace('{client}', vocabulary.client.toLowerCase()),
         variant: "destructive",
       })
     }
@@ -498,14 +524,14 @@ function StudentsContent() {
       setDeleteConfirmOpen(false)
       setStudentToDelete(null)
       toast({
-        title: `${vocabulary.client} excluído`,
-        description: `O registro do ${vocabulary.client.toLowerCase()} foi removido permanentemente.`,
+        title: t.students.clientDeleted.replace('{client}', vocabulary.client),
+        description: t.students.clientDeletedDesc.replace('{client}', vocabulary.client.toLowerCase()),
       })
     } catch (error) {
       console.error('Erro ao excluir aluno:', error)
       toast({
-        title: "Erro ao excluir",
-        description: `Não foi possível excluir o ${vocabulary.client.toLowerCase()}. Verifique se ele possui vínculos ativos.`,
+        title: t.common.error,
+        description: t.students.errorDeletingClient.replace('{client}', vocabulary.client.toLowerCase()),
         variant: "destructive",
       })
     }
@@ -513,7 +539,15 @@ function StudentsContent() {
 
   const handleExport = () => {
     const csv = [
-      ["Nome", "Email", "Telefone", "Modalidade", "Status", "Mensalidade", "Pagamento"].join(","),
+      [
+        t.common.fullName, 
+        t.common.emailLabel || "Email", 
+        t.common.phoneLabel || "Telefone", 
+        vocabulary.category, 
+        t.common.status, 
+        t.students.currentMonthlyFee, 
+        t.common.paid
+      ].join(","),
       ...filteredStudents.map(s => [s.name, s.email, s.phone, s.modality, s.status, s.monthlyFee, s.paymentStatus].join(","))
     ].join("\n")
 
@@ -526,8 +560,8 @@ function StudentsContent() {
     URL.revokeObjectURL(url)
 
     toast({
-      title: "Exportado!",
-      description: `Lista de ${vocabulary.clients.toLowerCase()} exportada com sucesso.`,
+      title: t.students.exported,
+      description: t.students.listExported.replace('{clients}', vocabulary.clients.toLowerCase()),
     })
   }
 
@@ -566,8 +600,8 @@ function StudentsContent() {
         },
         {
           id: 2,
-          name: 'Aluno Pontual',
-          description: 'Presença em 5 aulas consecutivas',
+          name: 'Cliente Pontual',
+          description: `Presença em 5 ${vocabulary.services.toLowerCase()} consecutivas`,
           icon: 'Star',
           color: 'text-yellow-500',
           bgColor: 'bg-yellow-50',
@@ -644,9 +678,22 @@ function StudentsContent() {
     setAgendaModalOpen(true)
   }
 
-  const handleViewPayments = (student: Student) => {
+  const [studentPayments, setStudentPayments] = useState<any[]>([])
+
+  const handleViewPayments = async (student: Student) => {
     setSelectedStudent(student)
     setPaymentsModalOpen(true)
+    
+    // Buscar histórico real
+    if (student.uuid) {
+      try {
+        const payments = await getStudentPayments(student.uuid, { limit: 12, studioId: student.studio_id })
+        setStudentPayments(payments)
+      } catch (e) {
+        console.error('Erro ao carregar pagamentos:', e)
+        setStudentPayments([])
+      }
+    }
   }
 
   const handleEditStudent = async () => {
@@ -668,15 +715,15 @@ function StudentsContent() {
       setIsEditDialogOpen(false)
       setEditStudent(null)
       toast({
-        title: `${vocabulary.client} atualizado!`,
-        description: `${editStudent.name} foi atualizado com sucesso.`,
+        title: t.students.clientUpdatedTitle.replace('{client}', vocabulary.client),
+        description: t.students.clientUpdatedDesc.replace('{name}', editStudent.name),
       })
     } catch (error: any) {
       console.error('Erro ao atualizar aluno:', error)
       const message = error.message || (typeof error === 'string' ? error : '')
       toast({
-        title: "Erro ao atualizar",
-        description: message || `Não foi possível atualizar os dados do ${vocabulary.client.toLowerCase()}.`,
+        title: t.students.errorUpdatingTitle,
+        description: message || t.students.errorUpdatingDesc.replace('{client}', vocabulary.client.toLowerCase()),
         variant: "destructive",
       })
     }
@@ -735,7 +782,7 @@ function StudentsContent() {
 
       if (data.success) {
         toast({
-          title: "Sucesso!",
+          title: t.common.success,
           description: `${data.message} Novo saldo: ${data.new_balance}`,
         })
         setAdjustAmount(0)
@@ -762,14 +809,14 @@ function StudentsContent() {
         })
       } else {
         toast({
-          title: "Erro",
+          title: t.common.error,
           description: data.message,
           variant: "destructive"
         })
       }
     } catch (e: any) {
       toast({
-        title: "Erro técnico",
+        title: t.students.technicalError,
         description: e.message,
         variant: "destructive"
       })
@@ -804,7 +851,7 @@ function StudentsContent() {
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar por nome ou email..."
+                    placeholder={t.students.searchPlaceholder}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9 bg-background"
@@ -822,18 +869,20 @@ function StudentsContent() {
                   ) : (
                     <RefreshCw className="w-4 h-4 mr-2" />
                   )}
-                  {loading ? 'Atualizando...' : 'Atualizar'}
+                  {loading ? t.common.updating : t.common.update}
                 </Button>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[150px] bg-background">
                     <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Status" />
+                    <SelectValue placeholder={t.common.status} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="ativo">Ativos</SelectItem>
-                    <SelectItem value="baixo">Baixo Crédito</SelectItem>
-                    <SelectItem value="inativo">Inativos</SelectItem>
+                    <SelectItem value="all">{t.common.all}</SelectItem>
+                    <SelectItem value="ativo">{t.common.active}</SelectItem>
+                    {businessModel === 'CREDIT' && (
+                      <SelectItem value="baixo">{t.students.lowCredit}</SelectItem>
+                    )}
+                    <SelectItem value="inativo">{t.common.inactive}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={modalityFilter} onValueChange={setModalityFilter}>
@@ -841,13 +890,13 @@ function StudentsContent() {
                     <SelectValue placeholder={vocabulary.category} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas {pluralize(vocabulary.category)}</SelectItem>
+                    <SelectItem value="all">{t.common.allF} {pluralize(vocabulary.category)}</SelectItem>
                     {dbModalities.length > 0 ? (
                       dbModalities.map((mod) => (
                         <SelectItem key={mod.id} value={mod.name}>{mod.name}</SelectItem>
                       ))
                     ) : (
-                      <p className="p-2 text-sm text-muted-foreground italic text-center">Nenhuma cadastrada</p>
+                      <p className="p-2 text-sm text-muted-foreground italic text-center">{t.common.notRegistered}</p>
                     )}
                   </SelectContent>
                 </Select>
@@ -856,35 +905,35 @@ function StudentsContent() {
               <div className="flex gap-2">
                 <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
                   <Download className="w-4 h-4" />
-                  Exportar
+                  {t.common.export}
                 </Button>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                       <Plus className="w-4 h-4" />
-                      Novo {vocabulary.client}
+                      {t.students.addStudent.replace('{client}', vocabulary.client)}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Adicionar Novo {vocabulary.client}</DialogTitle>
+                      <DialogTitle>{t.students.addStudentTitle.replace('{client}', vocabulary.client)}</DialogTitle>
                       <DialogDescription>
-                        Preencha os dados do novo {vocabulary.client.toLowerCase()} para realizar a matricula.
+                        {t.students.addStudentDesc.replace('{client}', vocabulary.client.toLowerCase())}
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name">Nome Completo *</Label>
+                        <Label htmlFor="name">{t.students.fullNameLabel}</Label>
                         <Input
                           id="name"
                           value={newStudent.name}
                           onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-                          placeholder="Nome do {vocabulary.client.toLowerCase()}"
+                          placeholder={t.students.addStudentDesc.replace('{client}', vocabulary.client.toLowerCase())}
                           className="bg-background"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email *</Label>
+                        <Label htmlFor="email">{t.students.emailLabel}</Label>
                         <Input
                           id="email"
                           type="email"
@@ -895,7 +944,7 @@ function StudentsContent() {
                         />
                       </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone *</Label>
+                      <Label htmlFor="phone">{t.students.phoneLabel}</Label>
                       <Input
                         id="phone"
                         value={newStudent.phone}
@@ -905,7 +954,7 @@ function StudentsContent() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="monthlyFee">Mensalidade ({vocabulary.service}) (R$)</Label>
+                      <Label htmlFor="monthlyFee">{t.students.monthlyFeeLabel.replace('{service}', vocabulary.service)}</Label>
                       <Input
                         id="monthlyFee"
                         type="number"
@@ -927,10 +976,10 @@ function StudentsContent() {
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                        Cancelar
+                        {t.students.cancelButton}
                       </Button>
                       <Button onClick={handleAddStudent} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                        Adicionar {vocabulary.client}
+                        {t.students.addClientButton.replace('{client}', vocabulary.client)}
                       </Button>
                     </div>
                   </DialogContent>
@@ -952,12 +1001,12 @@ function StudentsContent() {
                   <TableRow>
                     <TableHead>{vocabulary.client}</TableHead>
                     <TableHead>{vocabulary.category}</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Créditos</TableHead>
-                    <TableHead>Última {vocabulary.service}</TableHead>
-                    <TableHead>Mensalidade</TableHead>
-                    <TableHead>Pagamento</TableHead>
-                    <TableHead className="text-right">Acoes</TableHead>
+                <TableHead>{t.common.status}</TableHead>
+                {businessModel === 'CREDIT' && <TableHead>{t.finance.credits}</TableHead>}
+                <TableHead>Última {vocabulary.service}</TableHead>
+                <TableHead>{t.students.currentMonthlyFee}</TableHead>
+                <TableHead>{t.students.paymentStatus}</TableHead>
+                <TableHead className="text-right">{t.common.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -976,11 +1025,13 @@ function StudentsContent() {
                         <Badge variant="outline">{student.modality}</Badge>
                       </TableCell>
                       <TableCell>{getStatusBadge(student.credits, student.expiryDate)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 font-bold">
-                          {student.credits ?? 0} {vocabulary.services.toLowerCase()}
-                        </Badge>
-                      </TableCell>
+                      {businessModel === 'CREDIT' && (
+                        <TableCell>
+                          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 font-bold">
+                            {student.credits ?? 0} {vocabulary.services.toLowerCase()}
+                          </Badge>
+                        </TableCell>
+                      )}
                       <TableCell className="text-muted-foreground">{student.lastClass}</TableCell>
                       <TableCell className="text-foreground">R$ {student.monthlyFee}</TableCell>
                       <TableCell>{getPaymentBadge(student.paymentStatus)}</TableCell>
@@ -994,21 +1045,21 @@ function StudentsContent() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleViewProfile(student)}>
                               <User className="w-4 h-4 mr-2" />
-                              Ver Perfil 360º de {vocabulary.client}
+                              {t.students.viewProfile.replace('{client}', vocabulary.client)}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleSendAcesso(student)}>
                               <Phone className="w-4 h-4 mr-2 text-emerald-500" />
-                              Enviar Acesso WhatsApp
+                              {t.students.sendAccess}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { 
                               setEditStudent(student); 
                               setIsEditDialogOpen(true); 
                               if (student.uuid) loadStudentCredits(student.uuid, student.studio_id);
-                            }}>Editar</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleViewAgenda(student)}>Ver Agenda</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleViewPayments(student)}>Histórico de Pagamentos</DropdownMenuItem>
+                            }}>{t.common.edit}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewAgenda(student)}>{t.students.viewSchedule}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewPayments(student)}>{t.students.paymentHistory}</DropdownMenuItem>
                             <DropdownMenuItem className="text-warning" onClick={() => handleDeactivate(student)}>
-                              {student.status === "ativo" ? "Desativar" : "Reativar"}
+                              {student.status === "ativo" ? t.students.deactivate : t.students.reactivate}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive font-bold" 
@@ -1018,7 +1069,7 @@ function StudentsContent() {
                               }}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
-                              Excluir Permanentemente
+                              {t.common.permanentDelete}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1048,15 +1099,15 @@ function StudentsContent() {
         }}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Editar {vocabulary.client}</DialogTitle>
+              <DialogTitle>{t.students.editStudentTitle.replace('{client}', vocabulary.client)}</DialogTitle>
               <DialogDescription>
-                Atualize os dados do {vocabulary.client.toLowerCase()}.
+                {t.students.editStudentDesc.replace('{client}', vocabulary.client.toLowerCase())}
               </DialogDescription>
             </DialogHeader>
             {editStudent && (
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-name">Nome Completo</Label>
+                  <Label htmlFor="edit-name">{t.common.fullName}</Label>
                   <Input
                     id="edit-name"
                     value={editStudent.name}
@@ -1065,7 +1116,7 @@ function StudentsContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-email">Email</Label>
+                  <Label htmlFor="edit-email">{t.common.emailLabel || 'Email'}</Label>
                   <Input
                     id="edit-email"
                     type="email"
@@ -1075,7 +1126,7 @@ function StudentsContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-phone">Telefone</Label>
+                  <Label htmlFor="edit-phone">{t.common.phoneLabel || 'Telefone'}</Label>
                   <Input
                     id="edit-phone"
                     value={editStudent.phone}
@@ -1084,7 +1135,7 @@ function StudentsContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-fee">Mensalidade (R$)</Label>
+                  <Label htmlFor="edit-fee">{t.students.monthlyFeeLabel.replace('({service}) ', '')}</Label>
                   <Input
                     id="edit-fee"
                     type="number"
@@ -1104,11 +1155,11 @@ function StudentsContent() {
 
                 <div className="pt-4 border-t border-border mt-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Créditos de {vocabulary.service}</h4>
+                    <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">{t.students.creditsOfService.replace('{service}', vocabulary.service)}</h4>
                     <Badge variant="outline" className="bg-indigo-50 text-indigo-700 font-bold">
-                      {studentCredits ? `${studentCredits.remaining} disponíveis` : 
-                       editStudent.credits !== undefined ? `${editStudent.credits} disponíveis` : 
-                       '0 disponíveis'}
+                      {studentCredits ? `${studentCredits.remaining} ${t.students.available}` : 
+                       editStudent.credits !== undefined ? `${editStudent.credits} ${t.students.available}` : 
+                       `0 ${t.students.available}`}
                     </Badge>
                   </div>
                   
@@ -1116,7 +1167,7 @@ function StudentsContent() {
                     <div className="flex gap-2">
                       <Input
                         type="number"
-                        placeholder="Quantidade"
+                        placeholder={t.students.quantityPlaceholder}
                         value={adjustAmount === 0 ? "" : adjustAmount}
                         onChange={(e) => setAdjustAmount(Math.abs(parseInt(e.target.value) || 0))}
                         className="bg-background"
@@ -1131,7 +1182,7 @@ function StudentsContent() {
                           disabled={isAdjusting || adjustAmount <= 0}
                         >
                           {isAdjusting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
-                          Add
+                          {t.students.add}
                         </Button>
                         <Button 
                           type="button"
@@ -1142,12 +1193,12 @@ function StudentsContent() {
                           disabled={isAdjusting || adjustAmount <= 0}
                         >
                           {isAdjusting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1" />}
-                          Remover
+                          {t.students.remove}
                         </Button>
                       </div>
                     </div>
                     <p className="text-[10px] text-muted-foreground italic">
-                      * O ajuste é imediato e envia uma notificação para o {vocabulary.client.toLowerCase()}.
+                      * {t.students.immediateAdjustment.replace('{client}', vocabulary.client.toLowerCase())}
                     </p>
                   </div>
                 </div>
@@ -1155,10 +1206,10 @@ function StudentsContent() {
             )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancelar
+                {t.students.cancelButton}
               </Button>
               <Button onClick={handleEditStudent} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Salvar Alteracoes
+                {t.students.saveChanges}
               </Button>
             </div>
           </DialogContent>
@@ -1168,9 +1219,11 @@ function StudentsContent() {
         <Dialog open={agendaModalOpen} onOpenChange={setAgendaModalOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Agenda - {selectedStudent?.name}</DialogTitle>
+              <DialogTitle>{t.students.scheduleTitle.replace('{name}', selectedStudent?.name || '')}</DialogTitle>
               <DialogDescription>
-                Próximas {vocabulary.services.toLowerCase()} e horários do {vocabulary.client.toLowerCase()}.
+                {t.students.scheduleDesc
+                  .replace('{services}', vocabulary.services.toLowerCase())
+                  .replace('{client}', vocabulary.client.toLowerCase())}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1184,11 +1237,11 @@ function StudentsContent() {
                     <div key={i} className={`p-4 bg-gradient-to-r ${i === 0 ? 'from-violet-50 to-fuchsia-50' : i === 1 ? 'from-blue-50 to-cyan-50' : 'from-green-50 to-teal-50'} rounded-lg border border-opacity-20`}>
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="font-semibold">{c.name}</h4>
-                        <Badge className="bg-green-100 text-green-800">{i === 0 ? `Próxima ${vocabulary.service.toLowerCase()}` : 'Confirmado'}</Badge>
+                        <Badge className="bg-green-100 text-green-800">{i === 0 ? t.students.nextClass.replace('{service}', vocabulary.service.toLowerCase()) : t.students.confirmed}</Badge>
                       </div>
                       <div className="space-y-1 text-sm">
-                        <p>⏰ {c.schedule?.[0]?.start_time || 'Horário'}</p>
-                        <p>📍 {c.room || 'Sala principal'} - {c.teacher?.name || vocabulary.provider}</p>
+                        <p>⏰ {c.schedule?.[0]?.start_time || t.common.date}</p>
+                        <p>📍 {c.room || (language === 'pt' ? 'Sala Principal' : 'Main Room')} - {c.teacher?.name || vocabulary.provider}</p>
                       </div>
                     </div>
                   ))}
@@ -1202,9 +1255,9 @@ function StudentsContent() {
         <Dialog open={paymentsModalOpen} onOpenChange={setPaymentsModalOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Pagamentos - {selectedStudent?.name}</DialogTitle>
+              <DialogTitle>{t.students.paymentTitle.replace('{name}', selectedStudent?.name || '')}</DialogTitle>
               <DialogDescription>
-                Histórico completo de mensalidades e pagamentos.
+                {t.students.paymentDesc}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1213,52 +1266,61 @@ function StudentsContent() {
                   {/* Status Atual */}
                   <div className="grid grid-cols-2 gap-4 p-4 bg-gradient-to-r from-violet-50 to-fuchsia-50 rounded-lg">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-violet-700">R$ {selectedStudent.monthlyFee}</p>
-                      <p className="text-sm text-violet-600">Mensalidade atual</p>
+                      <p className="text-2xl font-bold text-violet-700">{language === 'en' ? '$' : 'R$'} {selectedStudent.monthlyFee}</p>
+                      <p className="text-sm text-violet-600">{t.students.currentMonthlyFee}</p>
                     </div>
                     <div className="text-center">
                       <p className={`text-2xl font-bold ${selectedStudent.paymentStatus === 'pago' ? 'text-green-700' : 'text-red-700'}`}>
-                        {selectedStudent.paymentStatus === 'pago' ? 'Em dia' : 'Pendente'}
+                        {selectedStudent.paymentStatus === 'pago' ? t.common.upToDate : t.common.pending}
                       </p>
-                      <p className="text-sm text-gray-600">Status de pagamento</p>
+                      <p className="text-sm text-gray-600">{t.students.paymentStatus}</p>
                     </div>
                   </div>
 
                   {/* Histórico Detalhado */}
                   <div className="space-y-3">
-                    <h4 className="font-semibold text-gray-900">Histórico de Pagamentos</h4>
-                    {[
-                      { month: 'Janeiro 2026', amount: selectedStudent.monthlyFee, status: 'pago', date: '2026-01-05' },
-                      { month: 'Dezembro 2025', amount: selectedStudent.monthlyFee, status: 'pago', date: '2025-12-03' },
-                      { month: 'Novembro 2025', amount: selectedStudent.monthlyFee, status: 'pago', date: '2025-11-02' },
-                      { month: 'Outubro 2025', amount: selectedStudent.monthlyFee - 20, status: 'pago', date: '2025-10-28' },
-                      { month: 'Setembro 2025', amount: selectedStudent.monthlyFee, status: 'atrasado', date: null },
-                      { month: 'Agosto 2025', amount: selectedStudent.monthlyFee, status: 'pago', date: '2025-08-01' },
-                    ].map((payment, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="font-medium text-gray-900">{payment.month}</p>
-                            <Badge className={
-                              payment.status === 'pago'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }>
-                              {payment.status === 'pago' ? 'Pago' : 'Em atraso'}
-                            </Badge>
+                    <h4 className="font-semibold text-gray-900">{t.students.paymentHistory}</h4>
+                    {studentPayments.length > 0 ? (
+                      studentPayments.map((payment, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-gray-900">
+                                  {payment.description || (payment.reference_month ? 
+                                    new Date(payment.reference_month + '-02').toLocaleDateString(language === 'en' ? 'en-US' : 'pt-BR', { month: 'long', year: 'numeric' }) : 
+                                    'Pagamento Avulso')
+                                  }
+                                </p>
+                                {payment.service_order && (
+                                  <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100">
+                                    OS #{payment.service_order.tracking_code}
+                                  </Badge>
+                                )}
+                              </div>
+                              <Badge className={
+                                payment.status === 'paid'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }>
+                                {payment.status === 'paid' ? t.students.paid : t.students.overdue}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              {payment.payment_date
+                                ? `${t.students.paidIn} ${new Date(payment.payment_date).toLocaleDateString(language === 'en' ? 'en-US' : 'pt-BR')}`
+                                : `${t.students.pendingPayment} - Venc: ${new Date(payment.due_date).toLocaleDateString()}`
+                              }
+                            </p>
                           </div>
-                          <p className="text-sm text-gray-600">
-                            {payment.date
-                              ? `Pago em ${new Date(payment.date).toLocaleDateString('pt-BR')}`
-                              : 'Pagamento pendente'
-                            }
-                          </p>
+                          <div className="text-right ml-4">
+                            <p className="font-semibold text-lg text-gray-900">{language === 'en' ? '$' : 'R$'} {payment.amount}</p>
+                          </div>
                         </div>
-                        <div className="text-right ml-4">
-                          <p className="font-semibold text-lg text-gray-900">R$ {payment.amount}</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground py-4">Nenhum pagamento registrado.</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1269,7 +1331,7 @@ function StudentsContent() {
         <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
             <div className="h-[90vh] overflow-auto">
-              {selectedStudent && <StudentProfile studentData={selectedStudent} />}
+              {selectedStudent && <StudentProfile studentData={selectedStudent} businessModel={businessModel} />}
             </div>
           </DialogContent>
         </Dialog>
@@ -1278,16 +1340,16 @@ function StudentsContent() {
         <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
+              <AlertDialogTitle>{t.common.confirmDelete}</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta ação não pode ser desfeita. Isso excluirá permanentemente o {vocabulary.client.toLowerCase()}
-                <span className="font-bold"> {studentToDelete?.name} </span> e todos os dados associados.
+                {t.common.irreversibleAction} {t.students.clientDeletedDesc.replace('{client}', vocabulary.client.toLowerCase())}
+                <span className="font-bold"> {studentToDelete?.name} </span>.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setStudentToDelete(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setStudentToDelete(null)}>{t.common.cancel}</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteStudent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Confirmar Exclusão
+                {t.common.confirm}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1299,9 +1361,9 @@ function StudentsContent() {
 }
 
 export default function StudentsPage() {
-  const { vocabulary } = useVocabulary()
+  const { vocabulary, t } = useVocabulary()
   return (
-    <Suspense fallback={<div className="p-6">Carregando {vocabulary.clients.toLowerCase()}...</div>}>
+    <Suspense fallback={<div className="p-6">{t.common.loading.replace('...', '')} {vocabulary.clients.toLowerCase()}...</div>}>
       <StudentsContent />
     </Suspense>
   )

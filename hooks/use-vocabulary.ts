@@ -2,19 +2,44 @@
 
 import { useOrganization } from '@/components/providers/organization-provider'
 import { pluralize } from '@/lib/pluralize'
+import { usePathname } from 'next/navigation'
+
+import { translations, TranslationType } from '@/config/translations'
 
 /**
  * Hook legado refatorado para usar o OrganizationProvider central.
  * Mantém compatibilidade com o código que já usa useVocabulary.
  */
 export function useVocabulary() {
+  const pathname = usePathname()
   const { 
-    vocabulary, 
+    vocabulary: orgVocabulary, 
     niche, 
     enabledModules, 
     isLoading,
     language
   } = useOrganization()
+
+  // Verifica se está em área de portal (aluno/profissional/afiliado)
+  const isPortal = pathname?.startsWith('/portal') || 
+                   pathname?.startsWith('/s/') || 
+                   pathname?.startsWith('/student') || 
+                   pathname?.startsWith('/teacher')
+
+  // Vocabulário padrão para portais
+  const standardVocabulary = {
+    name: 'Geral',
+    client: 'Cliente',
+    provider: 'Profissional',
+    service: 'Serviço',
+    establishment: 'Empresa',
+    category: 'Categoria'
+  }
+
+  // Usa vocabulário padrão nos portais, EXCETO se for nicho fire_protection que tem vocabulário próprio nos portais
+  const shouldForceStandard = isPortal && niche !== 'fire_protection'
+  
+  const vocabulary = shouldForceStandard ? standardVocabulary : orgVocabulary
 
   // Traduções para Inglês se o idioma for 'en'
   const translatedVocab = language === 'en' ? {
@@ -26,14 +51,25 @@ export function useVocabulary() {
     category: translateToEnglish(vocabulary.category)
   } : vocabulary
 
+  // Correção para evitar pluralização incorreta de termos como "Tutor"
+  const pluralClients = language === 'pt' && vocabulary.client === 'Tutor' 
+    ? 'Tutores' 
+    : pluralize(translatedVocab.client)
+
+  const pluralProviders = language === 'pt' && vocabulary.provider === 'Tutor'
+    ? 'Tutores'
+    : pluralize(translatedVocab.provider)
+
   // Adiciona versões plurais automaticamente
   const pluralVocabulary = {
     ...translatedVocab,
-    clients: pluralize(translatedVocab.client),
-    providers: pluralize(translatedVocab.provider),
+    clients: pluralClients,
+    providers: pluralProviders,
     services: pluralize(translatedVocab.service),
     establishments: pluralize(translatedVocab.establishment)
   }
+  
+  const t = translations[language as 'pt' | 'en'] || translations.pt
 
   return { 
     vocabulary: pluralVocabulary, 
@@ -41,15 +77,16 @@ export function useVocabulary() {
     schemas: {}, 
     enabledModules, 
     loading: isLoading,
-    language
+    language,
+    t
   }
 }
 
 // Helper simples para tradução de termos de vocabulário
 function translateToEnglish(term: string): string {
   const dictionary: Record<string, string> = {
-    'Aluno': 'Student',
-    'Professor': 'Teacher',
+    'Aluno': 'Client',
+    'Professor': 'Professional',
     'Aula': 'Class',
     'Estúdio': 'Studio',
     'Modalidade': 'Category',
@@ -59,7 +96,7 @@ function translateToEnglish(term: string): string {
     'Consultório': 'Office',
     'Especialidade': 'Specialty',
     'Membro': 'Member',
-    'Instrutor': 'Instructor',
+    'Instrutor': 'Professional',
     'Treino': 'Workout',
     'Academia': 'Gym',
     'Médico': 'Doctor',
@@ -85,7 +122,7 @@ function translateToEnglish(term: string): string {
     'Podólogo': 'Podiatrist',
     'Atendimento': 'Service',
     'Atendente': 'Attendant',
-    'Tutor': 'Owner',
+    'Tutor': 'Professional',
     'Tosador': 'Groomer',
     'Banho/Tosa': 'Grooming',
     'Pet Shop': 'Pet Shop',
@@ -95,7 +132,7 @@ function translateToEnglish(term: string): string {
     'Diária': 'Day use',
     'Creche': 'Daycare',
     'Atividade': 'Activity',
-    'Adestrador': 'Trainer',
+    'Adestrador': 'Professional',
     'Centro': 'Center',
     'Hóspede': 'Guest',
     'Cuidador': 'Caretaker',
@@ -103,7 +140,7 @@ function translateToEnglish(term: string): string {
     'Hotel': 'Hotel',
     'Acomodação': 'Accommodation',
     'Artes Marciais': 'Martial Arts',
-    'Sensei': 'Sensei',
+    'Sensei': 'Professional',
     'Dojo': 'Dojo',
     'Atleta': 'Athlete',
     'Coach': 'Coach',
@@ -111,8 +148,8 @@ function translateToEnglish(term: string): string {
     'Box': 'Box',
     'Natação': 'Swimming',
     'Escola': 'School',
-    'Personal Trainer': 'Personal Trainer',
-    'Personal': 'Trainer',
+    'Personal Trainer': 'Professional',
+    'Personal': 'Professional',
     'Consultoria': 'Consultancy',
     'Foco': 'Focus',
     'Beach Tennis': 'Beach Tennis',
@@ -120,89 +157,89 @@ function translateToEnglish(term: string): string {
     'Escola de Música': 'Music School',
     'Instrumento': 'Instrument',
     'Escola de Idiomas': 'Language School',
-    'Teacher': 'Teacher',
+    'Teacher': 'Professional',
     'Idioma': 'Language',
     'Ateliê de Arte': 'Art Studio',
     'Workshop': 'Workshop',
     'Ateliê': 'Studio',
     'Técnica': 'Technique',
     'Gastronomia': 'Gastronomy',
-    'Chef': 'Chef',
+    'Chef': 'Professional',
     'Culinária': 'Cooking',
     'Fotografia (Escola)': 'Photography (School)',
-    'Fotógrafo': 'Photographer',
+    'Fotógrafo': 'Professional',
     'Curso': 'Course',
     'Estética Automotiva': 'Auto Detailing',
     'Oficina Mecânica': 'Auto Repair',
-    'Mecânico': 'Mechanic',
+    'Mecânico': 'Professional',
     'Reparo': 'Repair',
     'Oficina': 'Shop',
     'Lava-jato': 'Car Wash',
-    'Lavador': 'Washer',
+    'Lavador': 'Professional',
     'Lavagem': 'Wash',
     'Serviços de Limpeza': 'Cleaning Services',
     'Limpeza': 'Cleaning',
     'Empresa': 'Company',
     'Design de Interiores': 'Interior Design',
-    'Designer': 'Designer',
+    'Designer': 'Professional',
     'Projeto': 'Project',
     'Escritório': 'Office',
     'Espaço de Eventos': 'Event Space',
     'Contratante': 'Contractor',
-    'Organizador': 'Organizer',
+    'Organizador': 'Professional',
     'Evento': 'Event',
     'Espaço': 'Space',
     'Fotógrafo (Studio)': 'Photographer (Studio)',
     'Ensaio': 'Shoot',
     'Coworking': 'Coworking',
     'Coworker': 'Coworker',
-    'Gestor': 'Manager',
+    'Gestor': 'Professional',
     'Reserva': 'Booking',
     'Tattoo & Piercing': 'Tattoo & Piercing',
-    'Tatuador': 'Tattoo Artist',
+    'Tatuador': 'Professional',
     'Assistência Técnica': 'Tech Support',
-    'Técnico': 'Technician',
+    'Técnico': 'Professional',
     'Assistência': 'Support',
     'Aparelho': 'Device',
     'Advocacia': 'Law',
-    'Advogado': 'Lawyer',
+    'Advogado': 'Professional',
     'Processo': 'Process',
     'Área': 'Area',
     'Psicologia': 'Psychology',
-    'Psicólogo': 'Psychologist',
+    'Psicólogo': 'Professional',
     'Abordagem': 'Approach',
     'Clube do Vinho': 'Wine Club',
     'Sócio': 'Member',
-    'Sommelier': 'Sommelier',
+    'Sommelier': 'Professional',
     'Degustação': 'Tasting',
     'Clube': 'Club',
     'Cervejaria': 'Brewery',
-    'Mestre': 'Master',
+    'Mestre': 'Professional',
     'Cafeteria/Barista': 'Coffee Shop/Barista',
-    'Barista': 'Barista',
+    'Barista': 'Professional',
     'Grão': 'Bean',
     'Confeitaria': 'Bakery',
-    'Confeiteiro': 'Baker',
+    'Confeiteiro': 'Professional',
     'Encomenda': 'Order',
     'Produto': 'Product',
     'Imobiliária': 'Real Estate',
-    'Corretor': 'Realtor',
+    'Corretor': 'Professional',
     'Visita': 'Visit',
     'Imóvel': 'Property',
-    'Consultor': 'Consultant',
+    'Consultor': 'Professional',
     'Reunião': 'Meeting',
     'Agência de Marketing': 'Marketing Agency',
-    'Analista': 'Analyst',
+    'Analista': 'Professional',
     'Campanha': 'Campaign',
     'Agência': 'Agency',
     'Canal': 'Channel',
     'Desenvolvimento': 'Development',
-    'Dev': 'Developer',
+    'Dev': 'Professional',
     'Sprint': 'Sprint',
     'Tech': 'Tech',
     'Organização de Eventos': 'Event Planning',
     'Agência de Viagens': 'Travel Agency',
-    'Agente': 'Agent',
+    'Agente': 'Professional',
     'Roteiro': 'Itinerary',
     'Destino': 'Destination',
     'Corretora de Seguros': 'Insurance Broker',
@@ -211,22 +248,22 @@ function translateToEnglish(term: string): string {
     'Corretora': 'Brokerage',
     'Ramo': 'Branch',
     'Paisagismo': 'Landscaping',
-    'Paisagista': 'Landscaper',
+    'Paisagista': 'Professional',
     'Manutenção': 'Maintenance',
-    'Encanador': 'Plumber',
-    'Eletricista': 'Electrician',
+    'Encanador': 'Professional',
+    'Eletricista': 'Professional',
     'Instalação': 'Installation',
     'Construção Civil': 'Construction',
-    'Engenheiro': 'Engineer',
+    'Engenheiro': 'Professional',
     'Obra': 'Construction Site',
     'Etapa': 'Stage',
     'Logística': 'Logistics',
-    'Entregador': 'Delivery person',
+    'Entregador': 'Professional',
     'Entrega': 'Delivery',
     'Transportadora': 'Carrier',
     'Rota': 'Route',
     'Alfaiataria/Costura': 'Tailoring/Sewing',
-    'Costureiro(a)': 'Tailor',
+    'Costureiro(a)': 'Professional',
     'Ajuste': 'Adjustment',
     'Peça': 'Garment',
     'Aulas Particulares': 'Tutoring',
@@ -241,7 +278,15 @@ function translateToEnglish(term: string): string {
     'Auto Escola': 'Driving School',
     'CFC': 'Driving School',
     'Categoria': 'Category',
-    'Aula Prática': 'Driving Class'
+    'Aula Prática': 'Driving Class',
+    'Centro Esportivo': 'Sports Center',
+    'Atleta': 'Athlete',
+    'Treino': 'Workout',
+    'Esporte': 'Sport',
+    'Clínica Veterinária': 'Veterinary Clinic',
+    'Tutor': 'Owner',
+    'Veterinário': 'Veterinarian',
+    'Consulta': 'Appointment'
   }
   return dictionary[term] || term
 }
