@@ -86,7 +86,7 @@ function RegisterContent() {
         const { data, error } = plansData
         if (error) throw error
         
-        let mappedPlans = []
+        let mappedPlans: { id: string; name: string; price: string; description: string; features: string[]; isPopular: boolean }[] = []
         if (data && data.length > 0) {
           mappedPlans = data.map(p => ({
             id: p.id,

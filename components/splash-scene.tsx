@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useMemo, Suspense } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { Float, useTexture, Billboard } from "@react-three/drei"
 import * as THREE from "three"
 
@@ -279,7 +279,8 @@ const splashFragmentShader = `
 
 function TouchSplashParticles({ rippleRef }: { rippleRef: React.RefObject<RippleState> }) {
   const count = 70
-  const { directions, speeds, sizes } = useMemo(() => {
+  const { positions, directions, speeds, sizes } = useMemo(() => {
+    const pos = new Float32Array(count * 3)
     const dirs = new Float32Array(count * 3)
     const spd = new Float32Array(count)
     const sz = new Float32Array(count)
@@ -292,7 +293,7 @@ function TouchSplashParticles({ rippleRef }: { rippleRef: React.RefObject<Ripple
       spd[i] = 0.8 + Math.random() * 1.4
       sz[i] = 0.015 + Math.random() * 0.035
     }
-    return { directions: dirs, speeds: spd, sizes: sz }
+    return { positions: pos, directions: dirs, speeds: spd, sizes: sz }
   }, [])
 
   const ref = useRef<THREE.Points>(null)
@@ -313,10 +314,10 @@ function TouchSplashParticles({ rippleRef }: { rippleRef: React.RefObject<Ripple
   return (
     <points ref={ref}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={new Float32Array(count * 3)} itemSize={3} />
-        <bufferAttribute attach="attributes-aDirection" count={count} array={directions} itemSize={3} />
-        <bufferAttribute attach="attributes-aSpeed" count={count} array={speeds} itemSize={1} />
-        <bufferAttribute attach="attributes-aSize" count={count} array={sizes} itemSize={1} />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aDirection" args={[directions, 3]} />
+        <bufferAttribute attach="attributes-aSpeed" args={[speeds, 1]} />
+        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
       </bufferGeometry>
       <shaderMaterial
         ref={matRef}
@@ -409,11 +410,11 @@ function CosmicDust({ mouseRef }: { mouseRef?: React.RefObject<{ x: number; y: n
   return (
     <points ref={ref}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-aOscDir" count={count} array={oscDirs} itemSize={3} />
-        <bufferAttribute attach="attributes-aPhase" count={count} array={phases} itemSize={1} />
-        <bufferAttribute attach="attributes-aDrift" count={count} array={drifts} itemSize={3} />
-        <bufferAttribute attach="attributes-aColorMix" count={count} array={colorMix} itemSize={1} />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aOscDir" args={[oscDirs, 3]} />
+        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
+        <bufferAttribute attach="attributes-aDrift" args={[drifts, 3]} />
+        <bufferAttribute attach="attributes-aColorMix" args={[colorMix, 1]} />
       </bufferGeometry>
       <shaderMaterial
         ref={materialRef}
@@ -618,7 +619,7 @@ function Water3DSphere({ mouseRef, rippleRef, logoTargetRef }: {
   })
 
   const { clock } = useThree()
-  const handlePointerDown = (e: THREE.Event) => {
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
     const mesh = meshRef.current
     if (!mesh || !rippleRef) return
@@ -752,9 +753,9 @@ function WaterLeakStreams() {
   return (
     <points>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-aPhase" count={count} array={phases} itemSize={1} />
-        <bufferAttribute attach="attributes-aBaseDir" count={count} array={baseDirs} itemSize={3} />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
+        <bufferAttribute attach="attributes-aBaseDir" args={[baseDirs, 3]} />
       </bufferGeometry>
       <shaderMaterial
         ref={matRef}
@@ -770,7 +771,8 @@ function WaterLeakStreams() {
 
 function WaterDripLeak() {
   const count = 45
-  const { starts, phases, speeds } = useMemo(() => {
+  const { positions, starts, phases, speeds } = useMemo(() => {
+    const pos = new Float32Array(count * 3)
     const starts = new Float32Array(count * 3)
     const phases = new Float32Array(count)
     const speeds = new Float32Array(count)
@@ -784,7 +786,7 @@ function WaterDripLeak() {
       phases[i] = Math.random() * 4
       speeds[i] = 0.4 + Math.random() * 0.5
     }
-    return { starts, phases, speeds }
+    return { positions: pos, starts, phases, speeds }
   }, [])
 
   const matRef = useRef<THREE.ShaderMaterial>(null)
@@ -796,10 +798,10 @@ function WaterDripLeak() {
   return (
     <points>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={new Float32Array(count * 3)} itemSize={3} />
-        <bufferAttribute attach="attributes-aStartPos" count={count} array={starts} itemSize={3} />
-        <bufferAttribute attach="attributes-aPhase" count={count} array={phases} itemSize={1} />
-        <bufferAttribute attach="attributes-aSpeed" count={count} array={speeds} itemSize={1} />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aStartPos" args={[starts, 3]} />
+        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
+        <bufferAttribute attach="attributes-aSpeed" args={[speeds, 1]} />
       </bufferGeometry>
       <shaderMaterial
         ref={matRef}
@@ -913,12 +915,7 @@ function ParticleField({ theme }: { theme: Theme }) {
   return (
     <points ref={ref}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={count}
-          array={positions}
-          itemSize={3}
-        />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
         size={0.03}

@@ -267,6 +267,9 @@ importers:
       '@types/react-signature-canvas':
         specifier: ^1.0.7
         version: 1.0.7
+      '@types/three':
+        specifier: ^0.183.1
+        version: 0.183.1
       baseline-browser-mapping:
         specifier: ^2.9.19
         version: 2.9.19

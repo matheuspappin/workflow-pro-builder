@@ -17,9 +17,10 @@ function createSSRClient(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = createSSRClient(request)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -43,7 +44,7 @@ export async function GET(
         milestones:service_order_milestones(id, title, status, order_index, completed_at, category),
         comments:service_order_comments(id, content, created_at, is_internal)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .in('professional_id', professionalIds)
       .single()
 
@@ -60,9 +61,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = createSSRClient(request)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -83,7 +85,7 @@ export async function PATCH(
     const { data: existing } = await supabaseAdmin
       .from('service_orders')
       .select('id, status, studio_id, project_type')
-      .eq('id', params.id)
+      .eq('id', id)
       .in('professional_id', professionalIds)
       .single()
 
@@ -121,7 +123,7 @@ export async function PATCH(
     const { data: updated, error } = await supabaseAdmin
       .from('service_orders')
       .update(updatePayload)
-      .eq('id', params.id)
+      .eq('id', id)
       .in('professional_id', professionalIds)
       .select(`
         *,
@@ -150,7 +152,7 @@ export async function PATCH(
     if (status && status !== existing.status) {
       await supabaseAdmin.from('service_order_history').insert({
         studio_id: existing.studio_id,
-        service_order_id: params.id,
+        service_order_id: id,
         previous_status: existing.status,
         new_status: status,
         notes: observations || `Status atualizado pelo técnico`,

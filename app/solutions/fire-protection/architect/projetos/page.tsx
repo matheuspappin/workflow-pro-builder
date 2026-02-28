@@ -46,7 +46,7 @@ import { toast } from "sonner"
 
 const BASE_PATH = "/solutions/fire-protection/architect/projetos"
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   pending_acceptance: { label: "Aguardando Aceite", color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock },
   open:              { label: "Aberto",             color: "bg-blue-100 text-blue-700 border-blue-200",   icon: ClipboardList },
   in_progress:       { label: "Em Andamento",       color: "bg-violet-100 text-violet-700 border-violet-200",      icon: BarChart3 },

@@ -34,7 +34,7 @@ interface VerticalizationStatus {
   modules: Record<string, boolean>
 }
 
-const ICON_MAP: Record<string, React.ElementType> = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FireExtinguisher, Music, Leaf, Layers, Shield, Users, Building2, Globe,
 }
 
@@ -183,7 +183,7 @@ export default function EcosystemStatusPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-4">
                         <div className={cn('w-11 h-11 rounded-xl border flex items-center justify-center', v.icon_bg)}>
-                          <IconComp className={cn('w-5 h-5', v.icon_color)} />
+                          <IconComp className={cn('w-5 h-5', v.icon_color ?? 'text-slate-400')} />
                         </div>
                         <span className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border', statusCfg.className)}>
                           <StatusIcon className="w-3 h-3" />

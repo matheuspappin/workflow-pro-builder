@@ -51,7 +51,7 @@ import { toast } from "sonner"
 
 const PROJECTS_PATH = "/solutions/fire-protection/engineer/projetos"
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   pending_acceptance: { label: "Aguardando Aceite", color: "bg-amber-100 text-amber-700", icon: Clock },
   open:              { label: "Aberto",             color: "bg-blue-100 text-blue-700",   icon: ClipboardCheck },
   in_progress:       { label: "Em Andamento",       color: "bg-red-100 text-red-700",     icon: HardHat },
@@ -72,7 +72,7 @@ const STATUS_TRANSITIONS: Record<string, { label: string; next: string; color: s
   ],
 }
 
-function InfoItem({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
+function InfoItem({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3">
       <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 mt-0.5">

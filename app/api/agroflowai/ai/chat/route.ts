@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     const isAdmin = context?.is_admin || false
     if (!isAdmin) {
-      contextContent = contextContent.replace(/\(EXCLUSIVO ADMIN\).*?(?=\n\n|\n-|$)/gs, '(oculto)')
+      contextContent = contextContent.replace(/\(EXCLUSIVO ADMIN\)[\s\S]*?(?=\n\n|\n-|$)/g, '(oculto)')
     }
 
     let apiKey = process.env.GOOGLE_AI_API_KEY

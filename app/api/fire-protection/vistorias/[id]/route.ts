@@ -3,9 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const studioId = searchParams.get('studioId')
 
@@ -23,7 +24,7 @@ export async function GET(
         comments:service_order_comments(id, content, is_internal, created_at),
         documents:service_order_documents(id, title, file_url, file_type)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('studio_id', studioId)
       .eq('project_type', 'vistoria')
       .single()
@@ -39,9 +40,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const {
       studio_id,
@@ -78,7 +80,7 @@ export async function PATCH(
     const { data: vistoria, error } = await supabaseAdmin
       .from('service_orders')
       .update(updatePayload)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('studio_id', studio_id)
       .select(`
         *,
@@ -108,7 +110,7 @@ export async function PATCH(
     if (previous_status && status) {
       await supabaseAdmin.from('service_order_history').insert({
         studio_id,
-        service_order_id: params.id,
+        service_order_id: id,
         previous_status,
         new_status: status,
         notes: observations || null,
@@ -123,9 +125,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const studioId = searchParams.get('studioId')
 
@@ -136,7 +139,7 @@ export async function DELETE(
     const { error } = await supabaseAdmin
       .from('service_orders')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('studio_id', studioId)
       .eq('project_type', 'vistoria')
 

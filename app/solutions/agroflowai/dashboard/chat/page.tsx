@@ -68,7 +68,7 @@ function useStudioId() {
     async function load() {
       try {
         const user = getLocalUser('agroflowai')
-        const id = user?.studioId || user?.studio_id ?? null
+        const id = (user?.studioId || user?.studio_id) ?? null
         if (!cancelled) setStudioId(id)
       } finally {
         if (!cancelled) setLoading(false)

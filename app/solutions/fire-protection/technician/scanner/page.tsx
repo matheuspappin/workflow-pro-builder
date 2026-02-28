@@ -44,7 +44,7 @@ interface Asset {
   customer?: { name: string; phone?: string }
 }
 
-function getExpirationStatus(date?: string): { label: string; color: string; icon: React.ElementType } {
+function getExpirationStatus(date?: string): { label: string; color: string; icon: React.ComponentType<{ className?: string }> } {
   if (!date) return { label: "Sem validade", color: "text-slate-500", icon: Info }
   const exp = new Date(date)
   const now = new Date()

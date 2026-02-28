@@ -20,7 +20,7 @@ const AGRO_SESSION_KEY = getSessionKey('agroflowai')
 
 type RoleId = 'super_admin' | 'admin' | 'student' | 'teacher' | 'engineer' | 'finance'
 
-const profiles: { id: RoleId; label: string; icon: React.ElementType; description?: string }[] = [
+const profiles: { id: RoleId; label: string; icon: React.ComponentType<{ className?: string }>; description?: string }[] = [
   { id: 'super_admin', label: 'Administrador do Sistema', icon: Shield, description: 'Super Admin / Painel Workflow Pro' },
   { id: 'admin', label: 'Empresa / Consultoria', icon: Building2 },
   { id: 'finance', label: 'Financeiro', icon: DollarSign },

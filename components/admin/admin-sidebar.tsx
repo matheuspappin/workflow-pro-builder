@@ -51,7 +51,7 @@ import { useState, useEffect } from "react"
 import { clearLocalUser } from "@/lib/constants/storage-keys"
 
 // Mapa de ícones por nome (igual ao usado nas páginas de verticalização)
-const ICON_MAP: Record<string, React.ElementType> = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FireExtinguisher, Shield, Stethoscope, Wrench, Hammer, Truck, Car,
   Scissors, Dumbbell, ChefHat, Leaf, Music, Camera, Home, BookOpen,
   GraduationCap, ShoppingCart, Briefcase, Package, Heart, Globe, Layers,

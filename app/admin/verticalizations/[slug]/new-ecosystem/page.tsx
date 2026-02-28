@@ -29,7 +29,7 @@ import { pluralize } from "@/lib/pluralize"
 import { cn } from "@/lib/utils"
 
 // ─── Mapa de ícones ─────────────────────────────────────────────────────────
-const ICON_MAP: Record<string, React.ElementType> = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FireExtinguisher, Shield, Stethoscope, Wrench, Hammer, Truck, Car,
   Scissors, Dumbbell, ChefHat, Leaf, Music, Camera, Home, BookOpen,
   GraduationCap, ShoppingCart, Briefcase, Package, Heart, Globe, Layers,

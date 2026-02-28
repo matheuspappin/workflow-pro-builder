@@ -48,7 +48,7 @@ interface Ordem {
   }>
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+const statusConfig: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   open:         { label: "Em Aberto",     color: "bg-amber-100 text-amber-700",   icon: Clock },
   in_progress:  { label: "Em Andamento",  color: "bg-blue-100 text-blue-700",     icon: Wrench },
   finished:     { label: "Concluída",     color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },

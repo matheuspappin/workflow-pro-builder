@@ -39,6 +39,7 @@ interface CatalogItem {
 interface CartItem extends CatalogItem {
   quantity: number
   subtotal: number
+  unit_price?: number
 }
 
 interface Customer {
@@ -472,7 +473,7 @@ export default function PDVPage() {
       if (existing) {
         return prev.map((c) =>
           c.id === item.id && c.item_type === item.item_type
-            ? { ...c, quantity: c.quantity + 1, subtotal: (c.quantity + 1) * c.unit_price }
+            ? { ...c, quantity: c.quantity + 1, subtotal: (c.quantity + 1) * (c.unit_price ?? c.price) }
             : c
         )
       }
@@ -486,7 +487,7 @@ export default function PDVPage() {
         if (c.id !== id || c.item_type !== type) return [c]
         const qty = c.quantity + delta
         if (qty <= 0) return []
-        return [{ ...c, quantity: qty, subtotal: qty * c.unit_price }]
+        return [{ ...c, quantity: qty, subtotal: qty * (c.unit_price ?? c.price) }]
       })
     )
   }
@@ -530,7 +531,7 @@ export default function PDVPage() {
             name: i.name,
             item_type: i.item_type,
             quantity: i.quantity,
-            unit_price: i.unit_price,
+            unit_price: i.unit_price ?? i.price,
             is_default: i.is_default ?? false,
           })),
           payment_method: payMethod,
@@ -808,7 +809,7 @@ export default function PDVPage() {
                               <input
                                 type="number"
                                 className="text-xs font-bold text-slate-700 dark:text-slate-300 w-14 bg-transparent border-b border-dashed border-slate-300 dark:border-white/20 focus:outline-none focus:border-red-400"
-                                value={item.unit_price}
+                                value={item.unit_price ?? item.price}
                                 min={0}
                                 step={0.01}
                                 onChange={(e) => updatePrice(item.id, item.item_type, Number(e.target.value))}
