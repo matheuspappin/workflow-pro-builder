@@ -82,6 +82,15 @@ export default function ShopPage() {
         sku: item.product.sku
       }))
 
+      const line_items = cart.map(item => ({
+        price_data: {
+          currency: 'brl',
+          product_data: { name: item.product.name },
+          unit_amount: Math.round(item.product.selling_price * 100),
+        },
+        quantity: item.qty,
+      }))
+
       const checkoutSession = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: {

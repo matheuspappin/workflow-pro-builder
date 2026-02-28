@@ -75,7 +75,7 @@ export default function TechnicianServiceOrderDetailsPage() {
         const data = await getServiceOrderById(id)
 
         // Validar se a OS pertence a este técnico
-        if (!data || data.professional_id !== professionalId) {
+        if (!data || (data as { professional_id?: string })?.professional_id !== professionalId) {
           toast.error("Ordem de Serviço não encontrada ou você não tem acesso.")
           router.push("/technician/os-list")
           return
@@ -176,7 +176,7 @@ export default function TechnicianServiceOrderDetailsPage() {
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <CalendarIcon className="w-4 h-4 text-slate-400 mt-1" />
+                    <Calendar className="w-4 h-4 text-slate-400 mt-1" />
                     <div>
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Data de Abertura</p>
                       <p className="text-sm font-bold">

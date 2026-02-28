@@ -5,6 +5,7 @@ import { getAuthenticatedClient, getAdminClient } from "@/lib/server-utils"
 import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
 import logger from "@/lib/logger"
+import { maskEmail, maskId } from "@/lib/sanitize-logs"
 
 /**
  * Interface para retorno detalhado da verificação de admin
@@ -53,7 +54,7 @@ export async function checkSuperAdminDetailed(accessToken?: string): Promise<Adm
     }
 
     // Debug
-    logger.debug(`🔍 checkSuperAdminDetailed: Verificando user ${user.id} (${user.email})`)
+    logger.debug('🔍 checkSuperAdminDetailed: Verificando usuário', { id: maskId(user.id) })
 
     // 1. Verifica metadata (cache rápido)
     const role = user.user_metadata?.role
@@ -76,7 +77,7 @@ export async function checkSuperAdminDetailed(accessToken?: string): Promise<Adm
       return { isAdmin: true, user, authClient, adminClient }
     }
     
-    logger.warn(`⛔ checkSuperAdminDetailed: Acesso NEGADO para ${user.email}. Role DB: ${profile?.role}`)
+    logger.warn(`⛔ checkSuperAdminDetailed: Acesso NEGADO. Role DB: ${profile?.role}`)
     return { isAdmin: false, user, authClient, adminClient }
   } catch (error) {
     logger.error('❌ checkSuperAdminDetailed: Erro crítico na verificação', error)
@@ -122,7 +123,7 @@ export async function getGlobalSystemStats(accessToken?: string) {
   const nicheDistribution: Record<string, number> = {}
   const moduleAdoption: Record<string, number> = {}
 
-  settings?.forEach((setting) => {
+  settings?.forEach((setting: { niche?: string; enabled_modules?: Record<string, boolean> }) => {
     // Nichos
     const niche = setting.niche || 'dance' // default
     nicheDistribution[niche] = (nicheDistribution[niche] || 0) + 1
@@ -160,10 +161,10 @@ export async function getGlobalSystemStats(accessToken?: string) {
     .from('system_plans')
     .select('id, price');
 
-  const plansMap = new Map(plans?.map(p => [p.id, p.price]) || []);
+  const plansMap = new Map(plans?.map((p: { id: string; price: number }) => [p.id, p.price]) || []);
   
-  const mrr = activeStudios.reduce((total, studio: any) => {
-    const price = plansMap.get(studio.plan) || 0;
+  const mrr = activeStudios.reduce((total: number, studio: any) => {
+    const price = Number(plansMap.get(studio.plan) ?? 0);
     return total + price;
   }, 0);
 
@@ -296,12 +297,13 @@ export async function getOrCreateStudioInvite(studioId: string, accessToken?: st
     throw new Error("Could not create admin client.")
   }
 
-  // 1. Verificar se existe um convite ativo e não expirado
+  // 1. Verificar se existe um convite de ecossistema ativo e não expirado
   const now = new Date().toISOString()
   let { data: invite, error: fetchError } = await adminClient
     .from('studio_invites')
     .select('token')
     .eq('studio_id', studioId)
+    .eq('invite_type', 'ecosystem')
     .is('used_at', null)
     .gt('expires_at', now)
     .order('created_at', { ascending: false })
@@ -335,6 +337,8 @@ export async function getOrCreateStudioInvite(studioId: string, accessToken?: st
       studio_id: studioId,
       token: newToken,
       created_by: created_by,
+      invite_type: 'ecosystem',
+      metadata: { invite_type: 'ecosystem' },
       expires_at: expires_at.toISOString(),
     })
     .select('token')

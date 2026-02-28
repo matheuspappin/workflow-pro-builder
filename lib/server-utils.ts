@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import logger from "@/lib/logger"
 
 /**
@@ -76,22 +76,18 @@ export async function getAuthenticatedClient() {
       }
     }
 
-    return ssrClient
+    return null
   } catch (error) {
     logger.error('Erro ao criar cliente autenticado:', error)
-    // Fallback absoluto: cliente anônimo sem cookies se tudo falhar
-    return createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
   }
+  return null
 }
 
 /**
  * Cria um cliente do Supabase com privilégios de admin (Service Role)
  * USE COM CAUTELA - IGNORA RLS
  */
-let cachedAdminClient: ReturnType<typeof createClient> | null = null;
+let cachedAdminClient: SupabaseClient | null = null;
 
 export async function getAdminClient() {
   if (cachedAdminClient) {
@@ -117,7 +113,7 @@ export async function getAdminClient() {
         }
       }
     )
-    cachedAdminClient = adminClient;
+    cachedAdminClient = adminClient as SupabaseClient;
     return adminClient;
   } catch (error) {
     logger.error('Erro ao criar cliente admin:', error)

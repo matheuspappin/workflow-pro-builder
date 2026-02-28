@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -175,7 +176,80 @@ const tabs = [
   { key: "integrações", label: "Integrações", icon: Zap },
 ]
 
-function TabEmpresa() {
+function TabEmpresa({
+  studioId,
+  data,
+}: {
+  studioId: string | null
+  data: {
+    company_name: string
+    company_cnpj: string
+    company_phone: string
+    company_email: string
+    company_address: string
+    crea_responsavel: string
+    alvara_funcionamento: string
+    system_name: string
+    primary_color: string
+  }
+}) {
+  const [loading, setLoading] = useState(false)
+  const [empresa, setEmpresa] = useState(data)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setEmpresa({
+      company_name: data.company_name || "",
+      company_cnpj: data.company_cnpj || "",
+      company_phone: data.company_phone || "",
+      company_email: data.company_email || "",
+      company_address: data.company_address || "",
+      crea_responsavel: data.crea_responsavel || "",
+      alvara_funcionamento: data.alvara_funcionamento || "",
+      system_name: data.system_name || "FireControl",
+      primary_color: data.primary_color || "#dc2626",
+    })
+  }, [data])
+
+  const handleSave = async () => {
+    if (!studioId) {
+      toast.error("Estúdio não identificado.")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/fire-protection/configuracoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioId,
+          empresa: {
+            company_name: empresa.company_name,
+            company_cnpj: empresa.company_cnpj,
+            company_phone: empresa.company_phone,
+            company_email: empresa.company_email,
+            company_address: empresa.company_address,
+            crea_responsavel: empresa.crea_responsavel,
+            alvara_funcionamento: empresa.alvara_funcionamento,
+          },
+          personalizacao: {
+            system_name: empresa.system_name,
+            primary_color: empresa.primary_color,
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar")
+      setSaved(true)
+      toast.success("Dados da empresa salvos!")
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 shadow-sm">
@@ -192,9 +266,9 @@ function TabEmpresa() {
               <FireExtinguisher className="w-10 h-10 text-white" />
             </div>
             <div>
-              <Button variant="outline" size="sm" className="font-bold">
+              <Button type="button" variant="outline" size="sm" className="font-bold" disabled>
                 <Upload className="w-4 h-4 mr-2" />
-                Alterar Logo
+                Alterar Logo (em breve)
               </Button>
               <p className="text-xs text-slate-400 mt-1">PNG ou JPG, máx. 2 MB</p>
             </div>
@@ -203,38 +277,69 @@ function TabEmpresa() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label>Razão Social</Label>
-              <Input defaultValue="FireControl Segurança Ltda." className="mt-1" />
+              <Input
+                value={empresa.company_name}
+                onChange={(e) => setEmpresa((p) => ({ ...p, company_name: e.target.value }))}
+                placeholder="FireControl Segurança Ltda."
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>CNPJ</Label>
-              <Input defaultValue="12.345.678/0001-90" className="mt-1" />
+              <Input
+                value={empresa.company_cnpj}
+                onChange={(e) => setEmpresa((p) => ({ ...p, company_cnpj: e.target.value }))}
+                placeholder="12.345.678/0001-90"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Telefone</Label>
-              <Input defaultValue="(11) 99000-0000" className="mt-1" />
+              <Input
+                value={empresa.company_phone}
+                onChange={(e) => setEmpresa((p) => ({ ...p, company_phone: e.target.value }))}
+                placeholder="(11) 99000-0000"
+                className="mt-1"
+              />
             </div>
             <div className="sm:col-span-2">
               <Label>E-mail Comercial</Label>
-              <Input defaultValue="contato@firecontrol.com.br" className="mt-1" />
+              <Input
+                type="email"
+                value={empresa.company_email}
+                onChange={(e) => setEmpresa((p) => ({ ...p, company_email: e.target.value }))}
+                placeholder="contato@firecontrol.com.br"
+                className="mt-1"
+              />
             </div>
             <div className="sm:col-span-2">
               <Label>Endereço</Label>
-              <Input defaultValue="Av. Paulista, 1000 — Bela Vista, São Paulo, SP" className="mt-1" />
+              <Input
+                value={empresa.company_address}
+                onChange={(e) => setEmpresa((p) => ({ ...p, company_address: e.target.value }))}
+                placeholder="Av. Paulista, 1000 — Bela Vista, São Paulo, SP"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>CREA Responsável Técnico</Label>
-              <Input defaultValue="CREA-SP 123456" className="mt-1" />
+              <Input
+                value={empresa.crea_responsavel}
+                onChange={(e) => setEmpresa((p) => ({ ...p, crea_responsavel: e.target.value }))}
+                placeholder="CREA-SP 123456"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Alvará de Funcionamento</Label>
-              <Input defaultValue="ALV-2026/000123" className="mt-1" />
+              <Input
+                value={empresa.alvara_funcionamento}
+                onChange={(e) => setEmpresa((p) => ({ ...p, alvara_funcionamento: e.target.value }))}
+                placeholder="ALV-2026/000123"
+                className="mt-1"
+              />
             </div>
           </div>
-
-          <Button className="bg-red-600 hover:bg-red-700 text-white font-bold">
-            <Save className="w-4 h-4 mr-2" />
-            Salvar alterações
-          </Button>
         </CardContent>
       </Card>
 
@@ -248,19 +353,37 @@ function TabEmpresa() {
         <CardContent className="space-y-4">
           <div>
             <Label>Nome do Sistema (exibido no menu)</Label>
-            <Input defaultValue="FireControl" className="mt-1" />
+            <Input
+              value={empresa.system_name}
+              onChange={(e) => setEmpresa((p) => ({ ...p, system_name: e.target.value }))}
+              placeholder="FireControl"
+              className="mt-1"
+            />
           </div>
           <div>
             <Label>Cor Principal</Label>
             <div className="flex items-center gap-3 mt-1">
-              <input type="color" defaultValue="#dc2626" className="w-10 h-10 rounded-lg cursor-pointer border border-slate-200" />
-              <Input defaultValue="#dc2626" className="w-32" />
-              <span className="text-sm text-slate-500">Vermelho (padrão)</span>
+              <input
+                type="color"
+                value={empresa.primary_color}
+                onChange={(e) => setEmpresa((p) => ({ ...p, primary_color: e.target.value }))}
+                className="w-10 h-10 rounded-lg cursor-pointer border border-slate-200"
+              />
+              <Input
+                value={empresa.primary_color}
+                onChange={(e) => setEmpresa((p) => ({ ...p, primary_color: e.target.value }))}
+                className="w-32"
+              />
+              <span className="text-sm text-slate-500">Cor tema</span>
             </div>
           </div>
-          <Button className="bg-red-600 hover:bg-red-700 text-white font-bold">
-            <Save className="w-4 h-4 mr-2" />
-            Salvar personalização
+          <Button
+            className={cn("font-bold", saved ? "bg-emerald-600" : "bg-red-600 hover:bg-red-700 text-white")}
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : saved ? <CheckCircle className="w-4 h-4 mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+            {loading ? "Salvando..." : saved ? "Salvo!" : "Salvar alterações"}
           </Button>
         </CardContent>
       </Card>
@@ -268,20 +391,47 @@ function TabEmpresa() {
   )
 }
 
-function TabNotificacoes() {
-  const [notifs, setNotifs] = useState({
-    extintor_vencendo: true,
-    vistoria_proxima: true,
-    os_nova: true,
-    os_concluida: true,
-    pagamento_pendente: true,
-    relatorio_semanal: false,
-    email_resumo: true,
-    sms_alertas: false,
-  })
+function TabNotificacoes({
+  studioId,
+  data,
+  onSaved,
+}: {
+  studioId: string | null
+  data: Record<string, boolean>
+  onSaved?: () => void
+}) {
+  const [notifs, setNotifs] = useState(data)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setNotifs(data)
+  }, [data])
 
   const toggle = (key: keyof typeof notifs) =>
     setNotifs((prev) => ({ ...prev, [key]: !prev[key] }))
+
+  const handleSave = async () => {
+    if (!studioId) {
+      toast.error("Estúdio não identificado.")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/fire-protection/configuracoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studioId, notificacoes: notifs }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar")
+      toast.success("Preferências de notificação salvas!")
+      onSaved?.()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const grupos = [
     {
@@ -335,11 +485,41 @@ function TabNotificacoes() {
           </CardContent>
         </Card>
       ))}
+      <Button className="bg-red-600 hover:bg-red-700 text-white font-bold" onClick={handleSave} disabled={loading}>
+        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+        Salvar notificações
+      </Button>
     </div>
   )
 }
 
 function TabSeguranca() {
+  const [loading, setLoading] = useState(false)
+  const [password, setPassword] = useState({ current: "", new: "", confirm: "" })
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password.new !== password.confirm) {
+      toast.error("As senhas não coincidem.")
+      return
+    }
+    if (password.new.length < 8) {
+      toast.error("A nova senha deve ter no mínimo 8 caracteres.")
+      return
+    }
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: password.new })
+      if (error) throw error
+      toast.success("Senha atualizada com sucesso!")
+      setPassword({ current: "", new: "", confirm: "" })
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao atualizar senha")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 shadow-sm">
@@ -350,22 +530,42 @@ function TabSeguranca() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label>Senha atual</Label>
-            <Input type="password" placeholder="••••••••" className="mt-1" />
-          </div>
-          <div>
-            <Label>Nova senha</Label>
-            <Input type="password" placeholder="••••••••" className="mt-1" />
-          </div>
-          <div>
-            <Label>Confirmar nova senha</Label>
-            <Input type="password" placeholder="••••••••" className="mt-1" />
-          </div>
-          <Button className="bg-red-600 hover:bg-red-700 text-white font-bold">
-            <Save className="w-4 h-4 mr-2" />
-            Atualizar senha
-          </Button>
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <div>
+              <Label>Senha atual</Label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password.current}
+                onChange={(e) => setPassword((p) => ({ ...p, current: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Nova senha</Label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password.new}
+                onChange={(e) => setPassword((p) => ({ ...p, new: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Confirmar nova senha</Label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password.confirm}
+                onChange={(e) => setPassword((p) => ({ ...p, confirm: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-bold" disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Atualizar senha
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
@@ -426,49 +626,450 @@ function TabSeguranca() {
   )
 }
 
-function TabIntegracoes() {
+function TabIntegracoes({ studioId, status, onSaved }: { studioId: string | null; status: Record<string, boolean>; onSaved?: () => void }) {
+  const [waOpen, setWaOpen] = useState(false)
+  const [geminiOpen, setGeminiOpen] = useState(false)
+  const [smtpOpen, setSmtpOpen] = useState(false)
+  const [mapsOpen, setMapsOpen] = useState(false)
+  const [nfeOpen, setNfeOpen] = useState(false)
+  const [waKey, setWaKey] = useState("")
+  const [waInstance, setWaInstance] = useState("")
+  const [geminiKey, setGeminiKey] = useState("")
+  const [smtpForm, setSmtpForm] = useState({ host: "", port: "587", user: "", password: "", fromEmail: "", secure: true })
+  const [mapsKey, setMapsKey] = useState("")
+  const [nfeKey, setNfeKey] = useState("")
+  const [loading, setLoading] = useState(false)
+
   const integracoes = [
-    { nome: "WhatsApp Business API", sub: "Envio de mensagens automatizadas", ativo: true, icone: Phone, color: "text-green-600", bg: "bg-green-600/10" },
-    { nome: "Chat IA (Gemini)", sub: "Assistente inteligente integrado", ativo: true, icone: MessageSquare, color: "text-purple-600", bg: "bg-purple-600/10" },
-    { nome: "E-mail (SMTP)", sub: "Envio de laudos e relatórios", ativo: true, icone: Mail, color: "text-blue-600", bg: "bg-blue-600/10" },
-    { nome: "Google Maps", sub: "Visualização de endereços de clientes", ativo: false, icone: MapPin, color: "text-red-600", bg: "bg-red-600/10" },
-    { nome: "Nota Fiscal Eletrônica", sub: "Emissão automática de NF-e", ativo: false, icone: CreditCard, color: "text-amber-600", bg: "bg-amber-600/10" },
+    { id: "whatsapp", nome: "WhatsApp Business API", sub: "Envio de mensagens automatizadas", icone: Phone, color: "text-green-600", bg: "bg-green-600/10", configurable: true },
+    { id: "gemini", nome: "Chat IA (Gemini)", sub: "Assistente inteligente integrado", icone: MessageSquare, color: "text-purple-600", bg: "bg-purple-600/10", configurable: true },
+    { id: "smtp", nome: "E-mail (SMTP)", sub: "Envio de laudos e relatórios", icone: Mail, color: "text-blue-600", bg: "bg-blue-600/10", configurable: true },
+    { id: "google_maps", nome: "Google Maps", sub: "Visualização de endereços de clientes", icone: MapPin, color: "text-red-600", bg: "bg-red-600/10", configurable: true },
+    { id: "nfe", nome: "Nota Fiscal Eletrônica", sub: "Emissão automática de NF-e", icone: CreditCard, color: "text-amber-600", bg: "bg-amber-600/10", configurable: true },
   ]
+
+  const saveWhatsApp = async () => {
+    if (!studioId || !waKey.trim()) {
+      toast.error("Informe a API Key do WhatsApp.")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/fire-protection/configuracoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioId,
+          integracoes: {
+            whatsapp: { apiKey: waKey.trim(), instanceId: waInstance.trim() || undefined },
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar")
+      toast.success("WhatsApp configurado com sucesso!")
+      setWaOpen(false)
+      onSaved?.()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveGemini = async () => {
+    if (!studioId || !geminiKey.trim()) {
+      toast.error("Informe a API Key do Gemini.")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/fire-protection/configuracoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioId,
+          integracoes: {
+            gemini: { apiKey: geminiKey.trim() },
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar")
+      toast.success("Chat IA (Gemini) configurado com sucesso!")
+      setGeminiOpen(false)
+      onSaved?.()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveSmtp = async () => {
+    if (!studioId || !smtpForm.host.trim() || !smtpForm.user.trim() || !smtpForm.password) {
+      toast.error("Preencha host, usuário e senha.")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/fire-protection/configuracoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioId,
+          integracoes: {
+            smtp: {
+              host: smtpForm.host.trim(),
+              port: smtpForm.port.trim() || "587",
+              user: smtpForm.user.trim(),
+              password: smtpForm.password,
+              fromEmail: smtpForm.fromEmail.trim() || smtpForm.user.trim(),
+              secure: smtpForm.secure,
+            },
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar")
+      toast.success("E-mail (SMTP) configurado com sucesso!")
+      setSmtpOpen(false)
+      onSaved?.()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveMaps = async () => {
+    if (!studioId || !mapsKey.trim()) {
+      toast.error("Informe a API Key do Google Maps.")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/fire-protection/configuracoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioId,
+          integracoes: {
+            google_maps: { apiKey: mapsKey.trim() },
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar")
+      toast.success("Google Maps configurado com sucesso!")
+      setMapsOpen(false)
+      onSaved?.()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveNfe = async () => {
+    if (!studioId || !nfeKey.trim()) {
+      toast.error("Informe a API Key da NF-e.")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/fire-protection/configuracoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioId,
+          integracoes: {
+            nfe: { apiKey: nfeKey.trim() },
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar")
+      toast.success("Nota Fiscal Eletrônica configurada com sucesso!")
+      setNfeOpen(false)
+      onSaved?.()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-3">
-      {integracoes.map((integ) => (
-        <Card key={integ.nome} className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 shadow-sm">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0", integ.bg)}>
-              <integ.icone className={cn("w-5 h-5", integ.color)} />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-slate-900 dark:text-white">{integ.nome}</h3>
-              <p className="text-sm text-slate-500">{integ.sub}</p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Badge className={cn(
-                "font-bold border-0 text-xs",
-                integ.ativo
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-600/20 dark:text-emerald-400"
-                  : "bg-slate-100 text-slate-500 dark:bg-slate-600/20"
-              )}>
-                {integ.ativo ? "Conectado" : "Desconectado"}
-              </Badge>
-              <Button size="sm" variant="outline" className="font-bold">
-                {integ.ativo ? "Configurar" : "Conectar"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      {integracoes.map((integ) => {
+        const ativo = status[integ.id] ?? false
+        return (
+          <Card key={integ.nome} className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 shadow-sm">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0", integ.bg)}>
+                <integ.icone className={cn("w-5 h-5", integ.color)} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-slate-900 dark:text-white">{integ.nome}</h3>
+                <p className="text-sm text-slate-500">{integ.sub}</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Badge className={cn(
+                  "font-bold border-0 text-xs",
+                  ativo ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-600/20 dark:text-emerald-400" : "bg-slate-100 text-slate-500 dark:bg-slate-600/20"
+                )}>
+                  {ativo ? "Conectado" : "Desconectado"}
+                </Badge>
+                {integ.configurable && integ.id === "whatsapp" && (
+                  <Dialog open={waOpen} onOpenChange={setWaOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="font-bold">{ativo ? "Configurar" : "Conectar"}</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>WhatsApp Business API</DialogTitle>
+                        <DialogDescription>Informe a chave da API e o ID da instância (Evolution API ou similar).</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-2">
+                        <div>
+                          <Label>API Key</Label>
+                          <Input type="password" placeholder="Sua API Key" value={waKey} onChange={(e) => setWaKey(e.target.value)} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label>ID da Instância (opcional)</Label>
+                          <Input placeholder="instance-id" value={waInstance} onChange={(e) => setWaInstance(e.target.value)} className="mt-1" />
+                        </div>
+                        <Button className="w-full bg-green-600 hover:bg-green-700" onClick={saveWhatsApp} disabled={loading}>
+                          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Salvar
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                {integ.configurable && integ.id === "gemini" && (
+                  <Dialog open={geminiOpen} onOpenChange={setGeminiOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="font-bold">{ativo ? "Configurar" : "Conectar"}</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Chat IA (Gemini)</DialogTitle>
+                        <DialogDescription>Informe sua API Key do Google AI Studio.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-2">
+                        <div>
+                          <Label>API Key</Label>
+                          <Input type="password" placeholder="Sua API Key do Gemini" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} className="mt-1" autoComplete="off" />
+                        </div>
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700" onClick={saveGemini} disabled={loading}>
+                          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Salvar
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                {integ.configurable && integ.id === "smtp" && (
+                  <Dialog open={smtpOpen} onOpenChange={setSmtpOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="font-bold">{ativo ? "Configurar" : "Conectar"}</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>E-mail (SMTP)</DialogTitle>
+                        <DialogDescription>Configure o envio de laudos e relatórios por e-mail.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-2">
+                        <div>
+                          <Label>Servidor (host)</Label>
+                          <Input placeholder="smtp.exemplo.com" value={smtpForm.host} onChange={(e) => setSmtpForm((p) => ({ ...p, host: e.target.value }))} className="mt-1" autoComplete="off" />
+                        </div>
+                        <div>
+                          <Label>Porta</Label>
+                          <Input placeholder="587" value={smtpForm.port} onChange={(e) => setSmtpForm((p) => ({ ...p, port: e.target.value }))} className="mt-1" type="number" />
+                        </div>
+                        <div>
+                          <Label>Usuário</Label>
+                          <Input type="email" placeholder="noreply@empresa.com" value={smtpForm.user} onChange={(e) => setSmtpForm((p) => ({ ...p, user: e.target.value }))} className="mt-1" autoComplete="off" />
+                        </div>
+                        <div>
+                          <Label>Senha</Label>
+                          <Input type="password" placeholder="••••••••" value={smtpForm.password} onChange={(e) => setSmtpForm((p) => ({ ...p, password: e.target.value }))} className="mt-1" autoComplete="new-password" />
+                        </div>
+                        <div>
+                          <Label>E-mail remetente (opcional)</Label>
+                          <Input type="email" placeholder="Igual ao usuário se vazio" value={smtpForm.fromEmail} onChange={(e) => setSmtpForm((p) => ({ ...p, fromEmail: e.target.value }))} className="mt-1" autoComplete="off" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch checked={smtpForm.secure} onCheckedChange={(v) => setSmtpForm((p) => ({ ...p, secure: v }))} />
+                          <Label>Usar TLS/SSL</Label>
+                        </div>
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={saveSmtp} disabled={loading}>
+                          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Salvar
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                {integ.configurable && integ.id === "google_maps" && (
+                  <Dialog open={mapsOpen} onOpenChange={setMapsOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="font-bold">{ativo ? "Configurar" : "Conectar"}</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Google Maps</DialogTitle>
+                        <DialogDescription>Informe sua API Key do Google Cloud (Maps JavaScript API habilitada).</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-2">
+                        <div>
+                          <Label>API Key</Label>
+                          <Input type="password" placeholder="Sua API Key do Google Maps" value={mapsKey} onChange={(e) => setMapsKey(e.target.value)} className="mt-1" autoComplete="off" />
+                        </div>
+                        <Button className="w-full bg-red-600 hover:bg-red-700" onClick={saveMaps} disabled={loading}>
+                          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Salvar
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                {integ.configurable && integ.id === "nfe" && (
+                  <Dialog open={nfeOpen} onOpenChange={setNfeOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="font-bold">{ativo ? "Configurar" : "Conectar"}</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Nota Fiscal Eletrônica</DialogTitle>
+                        <DialogDescription>Informe a API Key do seu provedor de NF-e (ex: Focus NFe, NFe.io, etc.).</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-2">
+                        <div>
+                          <Label>API Key</Label>
+                          <Input type="password" placeholder="Sua API Key da NF-e" value={nfeKey} onChange={(e) => setNfeKey(e.target.value)} className="mt-1" autoComplete="off" />
+                        </div>
+                        <Button className="w-full bg-amber-600 hover:bg-amber-700" onClick={saveNfe} disabled={loading}>
+                          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Salvar
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }
 
 export default function ConfiguracoesPage() {
   const [activeTab, setActiveTab] = useState("empresa")
+  const [studioId, setStudioId] = useState<string | null>(null)
+  const [config, setConfig] = useState<{
+    company_name: string
+    company_cnpj: string
+    company_phone: string
+    company_email: string
+    company_address: string
+    crea_responsavel: string
+    alvara_funcionamento: string
+    system_name: string
+    primary_color: string
+    notificacoes: Record<string, boolean>
+    integracoes_status: Record<string, boolean>
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      const sid = session?.user?.user_metadata?.studio_id ?? (() => {
+        try {
+          const u = JSON.parse(localStorage.getItem("danceflow_user") || "{}")
+          return u.studio_id || u.studioId || null
+        } catch {
+          return null
+        }
+      })()
+      if (!mounted || !sid) {
+        setLoading(false)
+        return
+      }
+      setStudioId(sid)
+      try {
+        const res = await fetch(`/api/fire-protection/configuracoes?studioId=${sid}`, { credentials: "include" })
+        if (res.ok && mounted) {
+          const data = await res.json()
+          setConfig({
+            company_name: data.company_name || "",
+            company_cnpj: data.company_cnpj || "",
+            company_phone: data.company_phone || "",
+            company_email: data.company_email || "",
+            company_address: data.company_address || "",
+            crea_responsavel: data.crea_responsavel || "",
+            alvara_funcionamento: data.alvara_funcionamento || "",
+            system_name: data.system_name || "FireControl",
+            primary_color: data.primary_color || "#dc2626",
+            notificacoes: data.notificacoes || {
+              extintor_vencendo: true,
+              vistoria_proxima: true,
+              os_nova: true,
+              os_concluida: true,
+              pagamento_pendente: true,
+              relatorio_semanal: false,
+              email_resumo: true,
+              sms_alertas: false,
+            },
+            integracoes_status: data.integracoes_status || {},
+          })
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
+  const reloadConfig = () => {
+    if (!studioId) return
+    fetch(`/api/fire-protection/configuracoes?studioId=${studioId}`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data)
+          setConfig({
+            company_name: data.company_name || "",
+            company_cnpj: data.company_cnpj || "",
+            company_phone: data.company_phone || "",
+            company_email: data.company_email || "",
+            company_address: data.company_address || "",
+            crea_responsavel: data.crea_responsavel || "",
+            alvara_funcionamento: data.alvara_funcionamento || "",
+            system_name: data.system_name || "FireControl",
+            primary_color: data.primary_color || "#dc2626",
+            notificacoes: data.notificacoes || {},
+            integracoes_status: data.integracoes_status || {},
+          })
+      })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -501,10 +1102,29 @@ export default function ConfiguracoesPage() {
         ))}
       </div>
 
-      {activeTab === "empresa" && <TabEmpresa />}
-      {activeTab === "notificacoes" && <TabNotificacoes />}
+      {activeTab === "empresa" && config && (
+        <TabEmpresa
+          studioId={studioId}
+          data={{
+            company_name: config.company_name,
+            company_cnpj: config.company_cnpj,
+            company_phone: config.company_phone,
+            company_email: config.company_email,
+            company_address: config.company_address,
+            crea_responsavel: config.crea_responsavel,
+            alvara_funcionamento: config.alvara_funcionamento,
+            system_name: config.system_name,
+            primary_color: config.primary_color,
+          }}
+        />
+      )}
+      {activeTab === "notificacoes" && config && (
+        <TabNotificacoes studioId={studioId} data={config.notificacoes} onSaved={reloadConfig} />
+      )}
       {activeTab === "seguranca" && <TabSeguranca />}
-      {activeTab === "integrações" && <TabIntegracoes />}
+      {activeTab === "integrações" && config && (
+        <TabIntegracoes studioId={studioId} status={config.integracoes_status} onSaved={reloadConfig} />
+      )}
     </div>
   )
 }

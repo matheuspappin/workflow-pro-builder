@@ -40,7 +40,7 @@ export async function sendWhatsAppMessage({ to, message, studioId }: SendMessage
   } else {
     // 2. Se NÃO tiver studioId, é uma mensagem de SISTEMA (ex: Código de Verificação)
     // Usamos a API do SuperAdmin (definida no .env)
-    apiKey = process.env.WHATSAPP_API_KEY || '429614461957a853b9b3';
+    apiKey = process.env.WHATSAPP_API_KEY || '';
     apiUrl = process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
     instanceId = 'danceflow'; // Instância padrão do sistema
   }
@@ -90,7 +90,10 @@ export async function getWhatsAppConnection(studioId: string) {
   await guardModule('whatsapp')
   // 1. Se NÃO tiver studioId ou for o ID do SuperAdmin, usamos a instância global
   if (!studioId || studioId === '00000000-0000-0000-0000-000000000000') {
-    const apiKey = process.env.WHATSAPP_API_KEY || '429614461957a853b9b3';
+    const apiKey = process.env.WHATSAPP_API_KEY || '';
+    if (!apiKey) {
+      return { success: false, error: 'WHATSAPP_API_KEY não configurada. Defina no .env.' };
+    }
     const instanceId = 'danceflow';
     const baseUrl = (process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081').split('/message')[0].replace(/\/$/, "");
 
@@ -264,7 +267,10 @@ export async function logoutWhatsApp(studioId: string) {
 
   // 1. Se NÃO tiver studioId ou for o ID do SuperAdmin, usamos a instância global
   if (!studioId || studioId === '00000000-0000-0000-0000-000000000000') {
-    const apiKey = process.env.WHATSAPP_API_KEY || '429614461957a853b9b3';
+    const apiKey = process.env.WHATSAPP_API_KEY || '';
+    if (!apiKey) {
+      return { success: false, error: 'WHATSAPP_API_KEY não configurada. Defina no .env.' };
+    }
     const instanceId = 'danceflow';
     const baseUrl = (process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081').split('/message')[0].replace(/\/$/, "");
 

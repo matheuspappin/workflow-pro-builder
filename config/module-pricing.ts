@@ -124,4 +124,22 @@ export const MODULE_PRICING: Record<ModuleKey, ModulePricing> = {
     ],
     description: 'Solução completa para grandes operações.',
   },
+  multi_unit: {
+    price: 150,
+    benefits: [
+      'Gerenciamento de múltiplas filiais',
+      'Centralização de dados',
+      'Relatórios por unidade'
+    ],
+    description: 'Gestão Multi-unidade.',
+  },
+  service_orders: {
+    price: 80,
+    benefits: [
+      'Controle de consertos e manutenções',
+      'Assinatura digital do cliente',
+      'Rastreabilidade completa'
+    ],
+    description: 'Ordens de Serviço (OS).',
+  },
 };

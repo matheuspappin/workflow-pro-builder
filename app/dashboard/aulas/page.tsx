@@ -74,6 +74,7 @@ interface ClassItem {
 }
 
 const dayKeys = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+const weekDays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 const dayToNumber: Record<string, number> = {
   "monday": 1,
   "tuesday": 2,
@@ -866,7 +867,7 @@ export default function ClassesPage() {
                   )}
                   {businessModel === 'MONETARY' && (
                     <div className="space-y-2">
-                      <Label htmlFor="priceCurrency">Preço ({vocabulary.currencySymbol})</Label>
+                      <Label htmlFor="priceCurrency">Preço ({(vocabulary as Record<string, string>).currencySymbol ?? 'R$'})</Label>
                       <Input
                         id="priceCurrency"
                         type="number"
@@ -1016,7 +1017,7 @@ export default function ClassesPage() {
                 </div>
                 {businessModel === 'MONETARY' && (
                   <div className="space-y-2">
-                    <Label htmlFor="edit-priceCurrency">Preço ({vocabulary.currencySymbol})</Label>
+                    <Label htmlFor="edit-priceCurrency">Preço ({(vocabulary as Record<string, string>).currencySymbol ?? 'R$'})</Label>
                     <Input
                       id="edit-priceCurrency"
                       type="number"

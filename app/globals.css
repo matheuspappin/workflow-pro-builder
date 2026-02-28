@@ -3,15 +3,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* AKAAI CORE - Nike Tech-Futurist Theme */
 :root {
-  --background: oklch(0.985 0.002 300);
-  --foreground: oklch(0.145 0.02 280);
+  --background: #ffffff;
+  --foreground: #000000;
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0.02 280);
+  --card-foreground: #000000;
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0.02 280);
-  --primary: oklch(0.55 0.25 290);
-  --primary-foreground: oklch(0.985 0 0);
+  --popover-foreground: #000000;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
   --secondary: oklch(0.97 0.01 300);
   --secondary-foreground: oklch(0.205 0.02 280);
   --muted: oklch(0.96 0.01 300);
@@ -44,24 +45,25 @@
 }
 
 .dark {
-  --background: oklch(0.12 0.02 280);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.16 0.02 280);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.16 0.02 280);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.6 0.25 290);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.22 0.02 280);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.22 0.02 280);
+  /* AKAAI CORE - Black absolute, white pure */
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: oklch(0.07 0.01 280);
+  --card-foreground: #ffffff;
+  --popover: oklch(0.08 0.01 280);
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: oklch(0.18 0.02 280);
+  --secondary-foreground: #ffffff;
+  --muted: oklch(0.15 0.02 280);
   --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.7 0.22 340);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.22 0.02 280);
+  --accent-foreground: #ffffff;
   --destructive: oklch(0.5 0.2 25);
   --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.25 0.02 280);
-  --input: oklch(0.25 0.02 280);
+  --border: oklch(0.2 0.02 280);
+  --input: oklch(0.2 0.02 280);
   --ring: oklch(0.6 0.25 290);
   --chart-1: oklch(0.6 0.25 290);
   --chart-2: oklch(0.7 0.22 340);
@@ -134,4 +136,70 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Esconde scrollbar mantendo funcionalidade de scroll */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Portal — animações para seção Arquitetura AKAAI CORE */
+@keyframes portal-pulse {
+  0%, 100% { opacity: 0.2; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.08); }
+}
+@keyframes portal-ring-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes portal-shimmer {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.08; }
+}
+.animate-portal-pulse {
+  animation: portal-pulse 4s ease-in-out infinite;
+}
+.animate-portal-ring {
+  animation: portal-ring-spin 20s linear infinite;
+}
+.animate-portal-shimmer {
+  animation: portal-shimmer 3s ease-in-out infinite;
+}
+
+/* Lineup — animações para seção Coleções AKAAI CORE */
+@keyframes lineup-flow {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+@keyframes lineup-glow-pulse {
+  0%, 100% { opacity: 0.15; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.35; transform: translate(-50%, -50%) scale(1.05); }
+}
+@keyframes lineup-shimmer {
+  0% { transform: translateX(-100%); opacity: 0; }
+  15% { opacity: 0.4; }
+  85% { opacity: 0.4; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+.animate-lineup-flow {
+  animation: lineup-flow 12s linear infinite;
+}
+.animate-lineup-glow {
+  animation: lineup-glow-pulse 4s ease-in-out infinite;
+}
+.animate-lineup-shimmer {
+  animation: lineup-shimmer 8s ease-in-out infinite;
+}
+
+/* Global — estética futurista */
+@keyframes tech-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+.animate-tech-pulse {
+  animation: tech-pulse 3s ease-in-out infinite;
 }

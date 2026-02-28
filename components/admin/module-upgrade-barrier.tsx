@@ -44,7 +44,6 @@ export function ModuleUpgradeBarrier({
         toast({
           title: "Módulo Ativado! 🚀",
           description: `O módulo ${module} foi adicionado ao seu plano com sucesso.`,
-          variant: "success",
         })
         await refresh() // Atualiza o contexto global
       } else {

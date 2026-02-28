@@ -79,6 +79,8 @@ export function ServiceOrderForm({ studioId, initialData, onSuccess }: ServiceOr
       observations: initialData.observations || '',
       private_notes: initialData.private_notes || '',
       discount: initialData.discount || 0,
+      professional_commission_value: initialData.professional_commission_value ?? 0,
+      professional_commission_status: initialData.professional_commission_status || 'pending',
       scheduled_at: initialData.scheduled_at ? new Date(initialData.scheduled_at).toISOString().slice(0, 16) : null,
       items: initialData.items?.map((item: any) => ({
         id: item.id,
@@ -92,7 +94,9 @@ export function ServiceOrderForm({ studioId, initialData, onSuccess }: ServiceOr
     } : {
       status: 'draft',
       items: [],
-      discount: 0
+      discount: 0,
+      professional_commission_value: 0,
+      professional_commission_status: 'pending'
     }
   })
 
@@ -397,7 +401,16 @@ export function ServiceOrderForm({ studioId, initialData, onSuccess }: ServiceOr
                       <FormItem>
                         <FormLabel>Valor da Comissão (R$)</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={field.value === undefined || field.value === null ? '' : field.value}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              field.onChange(v === '' ? undefined : (parseFloat(v) || 0))
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

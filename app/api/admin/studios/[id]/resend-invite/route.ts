@@ -1,46 +1,26 @@
-import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import logger from '@/lib/logger';
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import logger from '@/lib/logger'
 import { randomBytes } from 'crypto'
-// NOTE: We need an email sending utility. For now, we will just log the email content.
-// import { sendEmail } from '@/lib/email' 
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: studioId } = await params
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { isAdmin, user } = await checkSuperAdminDetailed()
 
-  if (!user || user.user_metadata?.role !== 'superadmin') {
+  if (!isAdmin || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
-  const { clientEmail, role } = await request.json()
+  const { clientEmail } = await request.json()
 
-  if (!clientEmail || !role) {
-    return NextResponse.json({ error: 'Client email and role are required' }, { status: 400 })
+  if (!clientEmail) {
+    return NextResponse.json({ error: 'E-mail do cliente é obrigatório' }, { status: 400 })
   }
-
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   const token = randomBytes(32).toString('hex')
 
@@ -48,33 +28,28 @@ export async function POST(
     .from('studio_invites')
     .insert({
       studio_id: studioId,
-      email: clientEmail,
-      token: token,
+      email: null,
+      token,
       created_by: user.id,
-      role: role
+      invite_type: 'ecosystem',
+      metadata: { invite_type: 'ecosystem' },
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     })
 
   if (inviteError) {
     logger.error('Error creating invite:', inviteError)
-    return NextResponse.json({ error: `Error creating invite: ${inviteError.message}` }, { status: 500 })
+    return NextResponse.json({ error: `Erro ao criar convite: ${inviteError.message}` }, { status: 500 })
   }
-  
+
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/setup/invite/${token}`
 
-  // TODO: Replace with actual email sending logic
   logger.info(`
     ---- EMAIL SIMULATION ----
     TO: ${clientEmail}
     SUBJECT: Seu link de setup está pronto!
     BODY: Olá, aqui está o seu link para configurar o sistema: ${inviteUrl}
     --------------------------
-  `);
-
-  // await sendEmail({
-  //   to: clientEmail,
-  //   subject: 'Seu link de setup está pronto!',
-  //   html: `<p>Olá, aqui está o seu link para configurar o sistema: <a href="${inviteUrl}">${inviteUrl}</a></p>`
-  // });
+  `)
 
   return NextResponse.json({ success: true, inviteUrl })
 }

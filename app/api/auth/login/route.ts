@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { AppError } from '@/lib/errors'
+import { loginSchema } from '@/lib/schemas/auth'
+import { checkAuthRateLimit } from '@/lib/rate-limit'
+import { maskEmail, maskId } from '@/lib/sanitize-logs'
 import logger from '@/lib/logger'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { generateUniqueSlug } from '@/lib/utils/slug'
@@ -98,7 +101,7 @@ async function repairUserProfile(dbClient: any, authUser: any, identifier: strin
 
   if (!role) return null;
 
-  logger.info(`[AUTH] Iniciando auto-reparação para ${authUser.email} (Role: ${role}, StudioId: ${studioId})`);
+  logger.info(`[AUTH] Iniciando auto-reparação para ${maskEmail(authUser.email)} (Role: ${role})`);
 
   try {
     if (role === 'admin' || role === 'super_admin') {
@@ -166,17 +169,25 @@ async function repairUserProfile(dbClient: any, authUser: any, identifier: strin
 
 export async function POST(request: NextRequest) {
   try {
-    const { email: rawIdentifier, password, portal: rawPortal, language: loginLanguage, studioSlug: requestStudioSlug } = await request.json()
-    const identifier = rawIdentifier?.trim();
-    
-    let portal = rawPortal;
-    // Se o portal for 'client', tratamos como 'student'. 'professional', 'engineer' e 'architect' são tratados separadamente.
-    if (portal === 'client') portal = 'student';
-
-
-    if (!identifier || !password) {
-      throw new AppError('E-mail e senha são obrigatórios.', 400, 'MISSING_CREDENTIALS');
+    const rate = await checkAuthRateLimit(request)
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Muitas tentativas. Aguarde um momento antes de tentar novamente.' },
+        { status: 429, headers: rate.retryAfter ? { 'Retry-After': String(rate.retryAfter) } : {} }
+      )
     }
+
+    const body = await request.json()
+    const parsed = loginSchema.safeParse(body)
+    if (!parsed.success) {
+      const first = parsed.error.errors[0]
+      throw new AppError(first?.message ?? 'Dados inválidos', 400, 'VALIDATION_ERROR')
+    }
+    const { email: rawIdentifier, password, portal: rawPortal, language: loginLanguage, studioSlug: requestStudioSlug } = parsed.data
+    const identifier = rawIdentifier.trim()
+
+    let portal = rawPortal
+    if (portal === 'client') portal = 'student'
 
     // 1. Inicializar Supabase SSR com captura de cookies
     // Criamos uma resposta que será preenchida com os cookies de sessão pelo Supabase
@@ -203,7 +214,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (authError) {
-      logger.error('[AUTH] Login Error:', authError.message);
+      logger.error('[AUTH] Login Error:', { code: authError.message?.slice(0, 50) });
       if (authError.message.toLowerCase().includes('email not confirmed')) {
         throw new AppError('Seu e-mail ainda não foi confirmado.', 401, 'EMAIL_NOT_CONFIRMED');
       }
@@ -245,7 +256,7 @@ export async function POST(request: NextRequest) {
     // --- Lógica para vincular profissional a um estúdio se studioSlug for fornecido e ele não tiver um studio_id ---
     let studio = null;
     if (requestStudioSlug && !profile.studio_id && (userRole === 'engineer' || userRole === 'architect' || userRole === 'teacher' || userRole === 'professional')) {
-      logger.info(`[AUTH] Profissional ${authData.user.email} logado via URL de estúdio (${requestStudioSlug}) sem vínculo. Tentando vincular.`);
+      logger.info(`[AUTH] Profissional logado via URL de estúdio (${requestStudioSlug}) sem vínculo. Tentando vincular.`);
       
       const { data: targetStudio, error: fetchStudioError } = await adminDb.from('studios').select('id, name, slug, plan').eq('slug', requestStudioSlug).maybeSingle();
 
@@ -269,9 +280,9 @@ export async function POST(request: NextRequest) {
         );
 
         if (updateProfError) {
-          logger.error(`[AUTH] Erro ao vincular profissional ${authData.user.email} ao estúdio ${studioIdToLink}:`, updateProfError);
+          logger.error('[AUTH] Erro ao vincular profissional ao estúdio:', { error: updateProfError.message });
         } else {
-          logger.info(`[AUTH] Profissional ${authData.user.email} vinculado ao estúdio ${targetStudio.name}.`);
+          logger.info('[AUTH] Profissional vinculado ao estúdio com sucesso.');
           // Atualiza o objeto profile para refletir o novo vínculo
           profile.studio_id = studioIdToLink;
           studio = targetStudio; // Define o estúdio para a resposta
@@ -288,7 +299,7 @@ export async function POST(request: NextRequest) {
     // 4. Sincronizar Metadados do Auth (IMPORTANTE: sempre atualizar para garantir consistência)
     const metadata = authData.user.user_metadata || {};
     // Apenas atualiza se houver uma mudança real ou se o studio_id foi recém-definido
-    const updatedMetadata = { ...metadata, role: userRole, language: loginLanguage };
+    const updatedMetadata: Record<string, unknown> = { ...metadata, role: userRole, language: loginLanguage };
     if (profile.studio_id) {
       updatedMetadata.studio_id = profile.studio_id;
     } else {

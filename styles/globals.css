@@ -192,6 +192,27 @@
     background: #2563eb;
   }
 
+  /* Scrollbar escura para sidebars (FireControl, etc.) - integra ao tema navy */
+  .scrollbar-sidebar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #1e293b;
+  }
+  .scrollbar-sidebar-dark::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-sidebar-dark::-webkit-scrollbar-track {
+    background: #1e293b; /* slate-800 - trilho escuro */
+    border-radius: 3px;
+  }
+  .scrollbar-sidebar-dark::-webkit-scrollbar-thumb {
+    background: #475569; /* slate-600 - thumb visível mas integrado */
+    border-radius: 3px;
+  }
+  .scrollbar-sidebar-dark::-webkit-scrollbar-thumb:hover {
+    background: #64748b; /* slate-500 */
+  }
+
   @keyframes gradient {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }

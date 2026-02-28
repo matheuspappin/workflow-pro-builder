@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { AppError } from '@/lib/errors'
+import { errorResponse, successResponse } from '@/lib/api-response'
+import { maskEmail } from '@/lib/sanitize-logs'
 import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
@@ -8,18 +11,18 @@ export async function POST(request: NextRequest) {
     const { phone, email } = await request.json()
 
     if (!phone) {
-      return NextResponse.json({ error: 'Telefone é obrigatório' }, { status: 400 })
+      return errorResponse(new AppError('Telefone é obrigatório', 400, 'MISSING_PHONE'))
     }
     
     // Agora exigimos e-mail para enviar o código
     if (!email) {
-      return NextResponse.json({ error: 'E-mail é obrigatório para enviar o código' }, { status: 400 })
+      return errorResponse(new AppError('E-mail é obrigatório para enviar o código', 400, 'MISSING_EMAIL'))
     }
 
     // Limpar o número para apenas dígitos
     const cleanPhone = phone.replace(/\D/g, '')
     if (cleanPhone.length < 10 || cleanPhone.length > 11) {
-      return NextResponse.json({ error: 'Telefone inválido' }, { status: 400 })
+      return errorResponse(new AppError('Telefone inválido', 400, 'INVALID_PHONE'))
     }
 
     // 1. Verificar se o número já está em uso em qualquer conta
@@ -30,9 +33,7 @@ export async function POST(request: NextRequest) {
     ])
 
     if (checkAdmin.data || checkTeacher.data || checkStudent.data) {
-      return NextResponse.json({ 
-        error: 'Este número de telefone já está vinculado a uma conta ativa.' 
-      }, { status: 400 })
+      return errorResponse(new AppError('Este número de telefone já está vinculado a uma conta ativa.', 400, 'PHONE_IN_USE'))
     }
 
     // 2. Gerar código de 6 dígitos
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       logger.error('❌ Erro ao salvar código no banco:', dbError)
-      return NextResponse.json({ error: 'Erro ao gerar código de verificação' }, { status: 500 })
+      return errorResponse(new AppError('Erro ao gerar código de verificação', 500, 'CODE_GENERATION_FAILED'))
     }
 
     // Enviar via E-mail
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
       </div>
     `
 
-    logger.info(`📧 Enviando código ${code} para ${email}...`)
+    logger.info(`📧 Enviando código de verificação para ${maskEmail(email)}`)
 
     const { success, error: emailError } = await sendEmail({
       to: email,
@@ -80,29 +81,23 @@ export async function POST(request: NextRequest) {
     })
 
     if (!success) {
-      logger.warn('-----------------------------------------')
-      logger.warn('⚠️ FALHA NO ENVIO DE E-MAIL')
-      logger.warn(`PARA O E-MAIL: ${email}`)
-      logger.warn(`CÓDIGO DE VERIFICAÇÃO: ${code}`)
-      logger.warn(`ERRO: ${emailError}`)
-      logger.warn('-----------------------------------------')
+      logger.warn('⚠️ Falha no envio de e-mail de verificação', { target: maskEmail(email), error: String(emailError) })
       
       // Em desenvolvimento, retornamos sucesso se falhar o envio (para teste sem SMTP configurado)
       if (process.env.NODE_ENV === 'development') {
-        return NextResponse.json({ 
-          success: true, 
+        return successResponse({ 
           message: 'Código gerado (Verifique o console do servidor em modo DEV)',
           _dev_code: code 
         })
       }
 
-      return NextResponse.json({ error: 'Falha ao enviar código por e-mail. Verifique se o e-mail está correto.' }, { status: 500 })
+      return errorResponse(new AppError('Falha ao enviar código por e-mail. Verifique se o e-mail está correto.', 500, 'EMAIL_SEND_FAILED'))
     }
 
-    return NextResponse.json({ success: true, message: 'Código enviado para seu e-mail!' })
+    return successResponse({ message: 'Código enviado para seu e-mail!' })
 
   } catch (error) {
     logger.error('💥 Erro fatal no envio de código:', error)
-    return NextResponse.json({ error: 'Erro interno ao processar solicitação' }, { status: 500 })
+    return errorResponse(error instanceof Error ? error : new AppError('Erro interno ao processar solicitação', 500, 'INTERNAL_ERROR'))
   }
 }

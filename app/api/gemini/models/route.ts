@@ -46,7 +46,7 @@ export async function GET() {
       }))
       .sort((a: any, b: any) => b.version.localeCompare(a.version)) // Ordenar por versão mais recente
 
-    logger.info('🎯 Modelos Gemini filtrados:', geminiModels.map(m => m.id))
+    logger.info('🎯 Modelos Gemini filtrados:', geminiModels.map((m: { id: string }) => m.id))
 
     return NextResponse.json({
       models: geminiModels,

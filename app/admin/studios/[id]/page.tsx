@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AdminHeader } from "@/components/admin/admin-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Save, ArrowLeft, Database, Globe, FireExtinguisher } from "lucide-react"
+import { Loader2, Save, ArrowLeft, Database, Globe, FireExtinguisher, Copy, Check, RefreshCw, Link2 } from "lucide-react"
 import Link from "next/link"
 import { supabase } from '@/lib/supabase'
 import { toast } from "sonner"
@@ -52,6 +52,8 @@ const MODULE_ICONS: Record<string, keyof typeof Icons> = {
   scanner: 'QrCode',
   marketplace: 'Store',
   erp: 'Building2',
+  multi_unit: 'Building2',
+  service_orders: 'FileText',
 }
 
 export default function TenantDetailPage() {
@@ -70,6 +72,9 @@ export default function TenantDetailPage() {
   })
   const [loadingProduction, setLoadingProduction] = useState(false)
   const [savingProduction, setSavingProduction] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+  const [loadingInvite, setLoadingInvite] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
 
   useEffect(() => {
     loadTenant()
@@ -80,6 +85,31 @@ export default function TenantDetailPage() {
       loadProductionConfig()
     }
   }, [params.id, niche])
+
+  async function loadInviteLink() {
+    setLoadingInvite(true)
+    try {
+      const res = await fetch(`/api/admin/studios/${params.id}/invite-link`)
+      const data = await res.json()
+      if (data.success) {
+        setInviteUrl(data.inviteUrl)
+      } else {
+        toast.error(data.error || 'Erro ao buscar link de convite')
+      }
+    } catch {
+      toast.error('Erro ao buscar link de convite')
+    } finally {
+      setLoadingInvite(false)
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!inviteUrl) return
+    await navigator.clipboard.writeText(inviteUrl)
+    setIsCopied(true)
+    toast.success('Link copiado!')
+    setTimeout(() => setIsCopied(false), 2000)
+  }
 
   async function loadProductionConfig() {
     setLoadingProduction(true)
@@ -266,7 +296,8 @@ export default function TenantDetailPage() {
               </CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {Object.keys(MODULE_DEFINITIONS).map(id => {
-                  const IconComponent = Icons[MODULE_ICONS[id] as keyof typeof Icons] || Database
+                  const IconName = MODULE_ICONS[id] ?? 'Database'
+                  const IconComponent = (Icons[IconName] as React.ComponentType<{ className?: string }>) ?? Database
                   return (
                     <div key={id} className="flex items-center space-x-3 p-3 rounded-lg bg-slate-50/50 dark:bg-slate-900/50">
                       <IconComponent className="w-5 h-5 text-muted-foreground" />
@@ -275,7 +306,7 @@ export default function TenantDetailPage() {
                         checked={modules[id as ModuleKey]}
                         onCheckedChange={(checked) => handleToggleModule(id, checked)}
                       />
-                      <Label htmlFor={id} className="text-sm font-medium">{MODULE_DEFINITIONS[id as ModuleKey].name}</Label>
+                      <Label htmlFor={id} className="text-sm font-medium">{MODULE_DEFINITIONS[id as ModuleKey].label}</Label>
                     </div>
                   )
                 })}
@@ -284,29 +315,70 @@ export default function TenantDetailPage() {
 
             <Card>
               <CardHeader>
-                  <CardTitle>Acesso e Setup</CardTitle>
-                  <CardDescription>Reenvie o link de configuração para o proprietário do estúdio.</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-indigo-500" />
+                  Link de Ativação
+                </CardTitle>
+                <CardDescription>
+                  Gere e copie o link para o cliente ativar o sistema. O link é válido por 30 dias.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                  <div>
-                      <Label htmlFor="client-email">E-mail do Cliente</Label>
-                      <Input 
-                          id="client-email"
-                          type="email"
-                          placeholder="email@cliente.com"
-                          value={clientEmail}
-                          onChange={(e) => setClientEmail(e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground mt-2">
-                          Este é o e-mail para onde o link de setup será enviado.
-                      </p>
+                {inviteUrl ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={inviteUrl}
+                      readOnly
+                      className="font-mono text-xs bg-slate-50 dark:bg-slate-900"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={copyInviteLink}
+                      title="Copiar link"
+                    >
+                      {isCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
                   </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Clique em "Gerar Link" para obter o link de ativação do cliente.
+                  </p>
+                )}
               </CardContent>
-              <CardFooter>
-                  <Button onClick={handleResendInvite} disabled={isSendingLink || !clientEmail}>
-                      {isSendingLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Reenviar Link de Setup
-                  </Button>
+              <CardFooter className="flex flex-col gap-3">
+                <Button
+                  onClick={loadInviteLink}
+                  disabled={loadingInvite}
+                  variant={inviteUrl ? 'outline' : 'default'}
+                  className="w-full"
+                >
+                  {loadingInvite
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <RefreshCw className="mr-2 h-4 w-4" />
+                  }
+                  {inviteUrl ? 'Regenerar Link' : 'Gerar Link de Ativação'}
+                </Button>
+                <div className="w-full border-t pt-3 space-y-2">
+                  <Label htmlFor="client-email" className="text-xs text-muted-foreground">Notificar cliente por e-mail (opcional)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="client-email"
+                      type="email"
+                      placeholder="email@cliente.com"
+                      value={clientEmail}
+                      onChange={(e) => setClientEmail(e.target.value)}
+                    />
+                    <Button
+                      onClick={handleResendInvite}
+                      disabled={isSendingLink || !clientEmail}
+                      variant="outline"
+                      className="shrink-0"
+                    >
+                      {isSendingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enviar'}
+                    </Button>
+                  </div>
+                </div>
               </CardFooter>
             </Card>
 

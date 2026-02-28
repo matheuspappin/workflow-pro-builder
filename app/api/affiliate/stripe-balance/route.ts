@@ -6,6 +6,9 @@ import logger from '@/lib/logger';
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getAuthenticatedClient();
+    if (!supabase) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    }
     
     const { data: { user } } = await supabase.auth.getUser();
 

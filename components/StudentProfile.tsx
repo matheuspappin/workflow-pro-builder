@@ -313,7 +313,7 @@ const StudentProfile = ({ studentData: propStudentData }: StudentProfileProps) =
                 />
                 <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-bold">
-                    {data.name.split(' ').map(n => n[0]).join('')}
+                    {data.name.split(' ').map((n: string) => n[0]).join('')}
                   </span>
                 </div>
               </div>
@@ -507,7 +507,7 @@ const StudentProfile = ({ studentData: propStudentData }: StudentProfileProps) =
               <div className="mt-4 text-center">
                 <p className="text-sm text-gray-600">
                   {t.studentProfile.attendanceAverage}: <span className="font-semibold text-gray-900">
-                    {Math.round(data.attendanceData.reduce((sum, item) => sum + item.attendance, 0) / data.attendanceData.length)}%
+                    {Math.round(data.attendanceData.reduce((sum: number, item: { attendance: number }) => sum + item.attendance, 0) / data.attendanceData.length)}%
                   </span>
                 </p>
               </div>
@@ -557,7 +557,7 @@ const StudentProfile = ({ studentData: propStudentData }: StudentProfileProps) =
               </div>
 
               <div className="space-y-4 max-h-80 overflow-y-auto">
-                {data.notes.map((note) => (
+                {data.notes.map((note: { id: string; type: string; teacher?: string; date?: string; content?: string; note?: string }) => (
                   <div key={note.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex-shrink-0">
                       {getNoteTypeIcon(note.type)}
@@ -566,7 +566,7 @@ const StudentProfile = ({ studentData: propStudentData }: StudentProfileProps) =
                       <div className="flex items-center justify-between mb-1">
                         <p className="font-medium text-gray-900">{note.teacher}</p>
                         <p className="text-xs text-gray-500">
-                          {new Date(note.date).toLocaleDateString('pt-BR')}
+                          {note.date ? new Date(note.date).toLocaleDateString('pt-BR') : '—'}
                         </p>
                       </div>
                       <p className="text-sm text-gray-700">{note.note}</p>

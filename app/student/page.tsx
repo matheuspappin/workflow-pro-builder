@@ -83,6 +83,31 @@ export default function StudentDashboard() {
   const [isBuying, setIsBuyIng] = useState(false)
   const [creditTransactions, setCreditTransactions] = useState<any[]>([])
 
+  const handlePayOS = async (order: any) => {
+    try {
+      setIsPayingOnline(true)
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoiceId: order.id,
+          amount: Number(order.total_amount || order.amount),
+          description: `Pagamento OS #${order.tracking_code || order.id?.substring(0, 8) || ''}`,
+          studentId: student?.id,
+          studioId: student?.studio_id || student?.studioId,
+          type: 'service_order'
+        })
+      })
+      const data = await response.json()
+      if (data.url) window.location.href = data.url
+      else throw new Error(data.error || 'Erro ao criar sessão de pagamento')
+    } catch (e: any) {
+      toast({ title: 'Erro no pagamento', description: e.message, variant: 'destructive' })
+    } finally {
+      setIsPayingOnline(false)
+    }
+  }
+
   const handleBuyCredits = async (pkg: any) => {
     try {
       setIsBuyIng(true)

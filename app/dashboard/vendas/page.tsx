@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast"
 import { 
   getInventory, getProductBySku, Product
 } from "@/lib/actions/inventory"
-import { processPosPayment } from "@/lib/actions/pos"
+import { processPosPayment, createPosStripeSession } from "@/lib/actions/pos"
 import { getStudents } from "@/lib/database-utils"
 import { getPendingServiceOrders } from "@/lib/actions/service-orders"
 import { BarcodeScanner } from "@/components/dashboard/barcode-scanner"

@@ -113,7 +113,6 @@ const clientIcons: Record<NicheType, LucideIcon> = {
   brewery: Users,
   barista: Users,
   confectionery: Users,
-  real_estate: Users,
   consulting: Users,
   marketing_agency: Users,
   dev_studio: Users,
@@ -129,11 +128,15 @@ const clientIcons: Record<NicheType, LucideIcon> = {
   daycare: Users,
   elderly_care: Users,
   driving_school: Users,
+  swim_school: Users,
+  beach_tennis: Users,
+  fire_protection: FireExtinguisher,
+  environmental_compliance: LandPlot,
+  default_generic: Users,
 };
 
-// Mapeamento de ícones para provedores/profissionais
-const providerIcons: Record<NicheType, LucideIcon> = {
-  school: GraduationCap,
+// Mapeamento de ícones para provedores/profissionais (parcial - nichos sem ícone usam User)
+const providerIcons: Record<string, LucideIcon> = {
   language_school: GraduationCap,
   tutoring: GraduationCap,
   music_school: GraduationCap,
@@ -194,19 +197,17 @@ const providerIcons: Record<NicheType, LucideIcon> = {
   travel_agency: User, // Agente
   logistics: User, // Entregador
   cleaning: User, // Profissional
-  tutoring: User, // Profissional
   daycare: User, // Cuidador
   elderly_care: User, // Cuidador
   driving_school: User, // Profissional
 };
 
 // Mapeamento de ícones para serviços
-const serviceIcons: Record<NicheType, LucideIcon> = {
+const serviceIcons: Record<string, LucideIcon> = {
   music_school: Music,
   barista: Coffee,
   brewery: Beer,
   wine_club: Beer,
-  school: Calendar,
   language_school: Calendar,
   tutoring: Calendar,
   dance: Calendar,
@@ -263,7 +264,7 @@ const serviceIcons: Record<NicheType, LucideIcon> = {
 };
 
 // Mapeamento de ícones para estabelecimentos
-const establishmentIcons: Record<NicheType, LucideIcon> = {
+const establishmentIcons: Record<string, LucideIcon> = {
   dance: Home,
   dentist: Home,
   gym: Home,
@@ -328,6 +329,9 @@ const establishmentIcons: Record<NicheType, LucideIcon> = {
   driving_school: Home,
   sports_center: Home,
   clinic_vet: Home,
+  fire_protection: FireExtinguisher,
+  environmental_compliance: LandPlot,
+  default_generic: Home,
 };
 
 export const getNicheIcon = (niche: NicheType | string, type: 'client' | 'provider' | 'service' | 'establishment') => {

@@ -36,6 +36,13 @@ export default function TestesLaboraisPage() {
   const [loading, setLoading] = useState(true)
   const [isRunningStress, setIsRunningStress] = useState(false)
   const [stressProgress, setStressProgress] = useState(0)
+  const [stressResult, setStressResult] = useState<{
+    total: number
+    success: number
+    failed: number
+    latencies: number[]
+    totalTimeMs: number
+  } | null>(null)
   
   // Estados do Controlador de IA
   const [responseStyle, setResponseStyle] = useState<'simple' | 'complex'>('simple')
@@ -65,15 +72,50 @@ export default function TestesLaboraisPage() {
   }
 
   const handleTrainAI = async () => {
+    if (!trainingFile && !customKnowledge) {
+      toast({ title: "Nada para treinar", description: "Selecione um arquivo .txt e/ou adicione regras customizadas.", variant: "destructive" })
+      return
+    }
+    if (trainingFile && trainingFile.size > 5 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" })
+      return
+    }
     setIsTraining(true)
-    // Simulação de treinamento
-    setTimeout(() => {
-      setIsTraining(false)
+    try {
+      const formData = new FormData()
+      if (trainingFile) formData.append("file", trainingFile)
+      if (customKnowledge) formData.append("customKnowledge", customKnowledge)
+
+      const res = await fetch("/api/admin/ai-training", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({
+          title: "Erro no treinamento",
+          description: data.error || data.hint || "Não foi possível processar o arquivo.",
+          variant: "destructive",
+        })
+        return
+      }
       toast({
         title: "Treinamento Concluído",
-        description: "A inteligência artificial foi atualizada com os novos dados e estilo de resposta.",
+        description: data.message || `${data.inserted} conversa(s) adicionada(s) à base.`,
       })
-    }, 3000)
+      setTrainingFile(null)
+      if (customKnowledge && !trainingFile) setCustomKnowledge("")
+      loadConversations()
+    } catch (e) {
+      toast({
+        title: "Erro",
+        description: "Falha ao enviar o treinamento. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsTraining(false)
+    }
   }
 
   const loadConversations = async () => {
@@ -93,28 +135,66 @@ export default function TestesLaboraisPage() {
     }
   }
 
-  const handleRunStressTest = () => {
+  const STRESS_CONCURRENT = 50
+  const HEALTH_URL = "/api/admin/logs/health"
+
+  const handleRunStressTest = async () => {
     setIsRunningStress(true)
     setStressProgress(0)
-    
-    const interval = setInterval(() => {
-      setStressProgress(prev => {
-        const next = prev + 5
-        if (next >= 100) {
-          clearInterval(interval)
-          // Usamos um setTimeout 0 para tirar a execução do ciclo de renderização atual do React
-          setTimeout(() => {
-            setIsRunningStress(false)
-            toast({
-              title: "Teste de Estresse Concluído",
-              description: "O sistema suportou 1000 requisições simultâneas com latência média de 45ms.",
-            })
-          }, 0)
-          return 100
-        }
-        return next
+    setStressResult(null)
+
+    const latencies: number[] = []
+    let completed = 0
+
+    const runSingleRequest = async (): Promise<{ ok: boolean; latency: number }> => {
+      const start = Date.now()
+      try {
+        const res = await fetch(HEALTH_URL, { credentials: "same-origin" })
+        const latency = Date.now() - start
+        return { ok: res.ok, latency }
+      } catch {
+        return { ok: false, latency: Date.now() - start }
+      }
+    }
+
+    // Dispara N requisições simultâneas
+    const promises = Array.from({ length: STRESS_CONCURRENT }, () =>
+      runSingleRequest().then((r) => {
+        latencies.push(r.latency)
+        completed++
+        setStressProgress(Math.round((completed / STRESS_CONCURRENT) * 100))
+        return r
       })
-    }, 200)
+    )
+
+    const totalStart = Date.now()
+    const results = await Promise.all(promises)
+    const totalTimeMs = Date.now() - totalStart
+
+    const success = results.filter((r) => r.ok).length
+    const failed = STRESS_CONCURRENT - success
+    const sortedLatencies = [...latencies].sort((a, b) => a - b)
+    const avgLatency = latencies.length
+      ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+      : 0
+    const minLatency = sortedLatencies[0] ?? 0
+    const maxLatency = sortedLatencies[sortedLatencies.length - 1] ?? 0
+
+    setStressResult({
+      total: STRESS_CONCURRENT,
+      success,
+      failed,
+      latencies: sortedLatencies,
+      totalTimeMs,
+    })
+    setIsRunningStress(false)
+    setStressProgress(100)
+
+    toast({
+      title: "Teste de Estresse Concluído",
+      description: `${success}/${STRESS_CONCURRENT} requisições OK. Latência média: ${avgLatency}ms (min: ${minLatency}ms, max: ${maxLatency}ms). Tempo total: ${totalTimeMs}ms.`,
+      variant: failed > 0 ? "destructive" : "default",
+    })
   }
 
   return (
@@ -158,21 +238,65 @@ export default function TestesLaboraisPage() {
               </Button>
             </div>
 
-            {isRunningStress && (
-              <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900/50">
+            {(isRunningStress || stressResult) && (
+              <Card className={`border-orange-200 dark:border-orange-900/50 ${
+                stressResult ? "bg-orange-50/50 dark:bg-orange-950/10" : "bg-orange-50 dark:bg-orange-950/20"
+              }`}>
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-bold text-orange-700 dark:text-orange-400 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" /> Simulando 50 usuários simultâneos...
-                    </span>
-                    <span className="text-sm font-black text-orange-700 dark:text-orange-400">{stressProgress}%</span>
-                  </div>
-                  <div className="w-full bg-orange-200 dark:bg-orange-900/50 rounded-full h-2">
-                    <div 
-                      className="bg-orange-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${stressProgress}%` }}
-                    />
-                  </div>
+                  {isRunningStress ? (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold text-orange-700 dark:text-orange-400 flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> {STRESS_CONCURRENT} requisições simultâneas em andamento...
+                        </span>
+                        <span className="text-sm font-black text-orange-700 dark:text-orange-400">{stressProgress}%</span>
+                      </div>
+                      <div className="w-full bg-orange-200 dark:bg-orange-900/50 rounded-full h-2">
+                        <div 
+                          className="bg-orange-600 h-2 rounded-full transition-all duration-300" 
+                          style={{ width: `${stressProgress}%` }}
+                        />
+                      </div>
+                    </>
+                  ) : stressResult && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-orange-700 dark:text-orange-400 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4" /> Resultado do Teste de Carga
+                        </span>
+                        <Badge variant={stressResult.failed > 0 ? "destructive" : "default"} className="bg-emerald-600">
+                          {stressResult.success}/{stressResult.total} OK
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div className="p-3 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                          <p className="text-xs text-slate-500 uppercase font-bold">Latência média</p>
+                          <p className="font-black text-orange-700 dark:text-orange-400">
+                            {stressResult.latencies.length
+                              ? Math.round(stressResult.latencies.reduce((a, b) => a + b, 0) / stressResult.latencies.length)
+                              : 0}ms
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                          <p className="text-xs text-slate-500 uppercase font-bold">Mín</p>
+                          <p className="font-black">{stressResult.latencies[0] ?? 0}ms</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                          <p className="text-xs text-slate-500 uppercase font-bold">Máx</p>
+                          <p className="font-black">{stressResult.latencies[stressResult.latencies.length - 1] ?? 0}ms</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-white/50 dark:bg-slate-900/50">
+                          <p className="text-xs text-slate-500 uppercase font-bold">Tempo total</p>
+                          <p className="font-black">{stressResult.totalTimeMs}ms</p>
+                        </div>
+                      </div>
+                      {stressResult.failed > 0 && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          {stressResult.failed} requisição(ões) falharam (401/403 = sem permissão admin).
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -259,7 +383,7 @@ export default function TestesLaboraisPage() {
                       <Upload className="w-5 h-5 text-indigo-600" />
                       <CardTitle>Alimentação de Dados</CardTitle>
                     </div>
-                    <CardDescription>Envie arquivos .txt com conversas simuladas para treinar a IA</CardDescription>
+                    <CardDescription>Envie arquivos .txt com conversas simuladas para treinar a IA. Formato: --- | MATRÍCULA ou AGENDAMENTO | Usuário: msg | IA: resposta</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center hover:border-indigo-500 transition-colors cursor-pointer relative">
@@ -351,7 +475,7 @@ export default function TestesLaboraisPage() {
 
                     <Button 
                       onClick={handleTrainAI}
-                      disabled={isTraining || (!trainingFile && !customKnowledge)}
+                      disabled={isTraining || !trainingFile}
                       className="w-full bg-white text-indigo-900 hover:bg-indigo-50 font-bold h-12 text-lg mt-4"
                     >
                       {isTraining ? (

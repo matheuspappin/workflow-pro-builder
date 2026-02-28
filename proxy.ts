@@ -66,37 +66,42 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-// #region agent log
-    console.log(`[DEBUG] Proxy: ${request.nextUrl.pathname} - Cookie Role: ${request.cookies.get('user-role')?.value}`);
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'327965'},body:JSON.stringify({sessionId:'327965',location:'proxy.ts:68',message:'Middleware request',data:{path:request.nextUrl.pathname,userRole:request.cookies.get('user-role')?.value},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-// #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'327965'},body:JSON.stringify({sessionId:'327965',location:'middleware.ts:70',message:'User fetched',data:{userId:user?.id,userRoleMetadata:user?.user_metadata?.role},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
-    
-    // Se o user existe mas o cookie user-role não, tentamos recuperar do metadata
-    let userRole = request.cookies.get('user-role')?.value
-    if (user && !userRole) {
-      userRole = user.user_metadata?.role
-// #region agent log
-      fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'327965'},body:JSON.stringify({sessionId:'327965',location:'proxy.ts:75',message:'Role recovered from metadata',data:{recoveredRole:userRole},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
-      if (userRole) {
-        // Opcional: setar o cookie na resposta se ele estiver faltando
-        response.cookies.set('user-role', userRole, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-        })
-      }
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Se o user existe mas o cookie user-role não, tentamos recuperar do metadata
+  let userRole = request.cookies.get('user-role')?.value
+  if (user && !userRole) {
+    userRole = user.user_metadata?.role
+    if (userRole) {
+      response.cookies.set('user-role', userRole, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      })
     }
+  }
 
-    const pathname = request.nextUrl.pathname
+  const url = request.nextUrl.clone()
+  const pathname = url.pathname
+  const host = request.headers.get('host') || ''
+  const hostname = host.split(':')[0].toLowerCase()
 
-    // ─── Arquivos estáticos e rotas internas do Next.js ───────────────────────
+  // ─── Subdomínios e Domínios Customizados (AKAAI CORE) ─────────────────────
+  // DanceFlow, Fire Protection, AgroFlow - mapeamento para rotas /solutions/*
+  const subdomainMap: Array<{ pattern: RegExp; base: string }> = [
+    { pattern: /^(danceflow|studio-danca|danca)\./i, base: '/solutions/estudio-de-danca' },
+    { pattern: /^(fire-protection|fireprotection|fire)\./i, base: '/solutions/fire-protection' },
+    { pattern: /^(agroflow|agroflowai|agro)\./i, base: '/solutions/agroflowai' },
+  ]
+  for (const { pattern, base } of subdomainMap) {
+    if (pattern.test(hostname) && !pathname.startsWith(base)) {
+      url.pathname = base + (pathname === '/' ? '' : pathname)
+      return Response.redirect(url)
+    }
+  }
+
+  // ─── Arquivos estáticos e rotas internas do Next.js ───────────────────────
     if (
       pathname.startsWith('/_next') ||
       pathname.startsWith('/favicon') ||
@@ -120,14 +125,17 @@ export async function proxy(request: NextRequest) {
       return response
     }
 
+    // ─── API admin: 401 se não autenticado ────────────────────────────────────
+    if (pathname.startsWith('/api/admin') && !user) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
     // ─── Fire Protection bubble ───────────────────────────────────────────────
-    // Rotas públicas dentro da bolha (landing, login, register)
     const isFireProtectionPublic =
       pathname === '/solutions/fire-protection' ||
       pathname === '/solutions/fire-protection/login' ||
       pathname === '/solutions/fire-protection/register'
 
-    // Rotas protegidas dentro da bolha
     const isFireProtectionDashboard  = pathname.startsWith('/solutions/fire-protection/dashboard')
     const isFireProtectionEngineer   = pathname.startsWith('/solutions/fire-protection/engineer')
     const isFireProtectionTechnician = pathname.startsWith('/solutions/fire-protection/technician')
@@ -138,9 +146,28 @@ export async function proxy(request: NextRequest) {
       isFireProtectionTechnician ||
       isFireProtectionClient
 
-    // Toda a bolha fire-protection (public + protected)
-    const isFireProtectionBubble =
-      isFireProtectionPublic || isFireProtectionProtected
+    const isFireProtectionBubble = isFireProtectionPublic || isFireProtectionProtected
+
+    // ─── DanceFlow bubble ─────────────────────────────────────────────────────
+    const isDanceFlowPublic =
+      pathname === '/solutions/estudio-de-danca' ||
+      pathname === '/solutions/estudio-de-danca/login' ||
+      pathname === '/solutions/estudio-de-danca/register'
+
+    const isDanceFlowDashboard  = pathname.startsWith('/solutions/estudio-de-danca/dashboard')
+    const isDanceFlowTeacher    = pathname.startsWith('/solutions/estudio-de-danca/teacher')
+    const isDanceFlowStudent    = pathname.startsWith('/solutions/estudio-de-danca/student')
+    const isDanceFlowProtected  = isDanceFlowDashboard || isDanceFlowTeacher || isDanceFlowStudent
+
+    // ─── AgroFlowAI bubble ────────────────────────────────────────────────────
+    const isAgroFlowPublic =
+      pathname === '/solutions/agroflowai' ||
+      pathname === '/solutions/agroflowai/login' ||
+      pathname === '/solutions/agroflowai/register'
+
+    const isAgroFlowDashboard = pathname.startsWith('/solutions/agroflowai/dashboard')
+    const isAgroFlowClient    = pathname.startsWith('/solutions/agroflowai/client')
+    const isAgroFlowProtected = isAgroFlowDashboard || isAgroFlowClient
 
     // ─── Generic routes ────────────────────────────────────────────────────────
     const isAuthRoute =
@@ -153,6 +180,7 @@ export async function proxy(request: NextRequest) {
 
     const isPublicRoute =
       pathname === '/' ||
+      pathname === '/home' ||
       pathname === '/white-label' ||
       pathname === '/shop' ||
       pathname === '/portal/login' ||
@@ -160,7 +188,7 @@ export async function proxy(request: NextRequest) {
       pathname === '/auth/set-password' ||
       pathname === '/subscription-expired' ||
       pathname.startsWith('/setup/invite/') ||
-      (pathname.startsWith('/solutions') && !isFireProtectionProtected)
+      (pathname.startsWith('/solutions') && !isFireProtectionProtected && !isDanceFlowProtected && !isAgroFlowProtected)
 
     const isDashboardRoute   = pathname.startsWith('/dashboard')
     const isEngineerRoute    = pathname.startsWith('/engineer')
@@ -221,6 +249,63 @@ export async function proxy(request: NextRequest) {
       if (userRole === 'seller')      return NextResponse.redirect(new URL('/seller', request.url))
       if (userRole === 'finance')     return NextResponse.redirect(new URL('/finance', request.url))
       return NextResponse.redirect(new URL('/solutions/fire-protection/dashboard', request.url))
+    }
+
+    // ─── DanceFlow bubble logic ───────────────────────────────────────────────
+    if (isDanceFlowProtected) {
+      if (!user) {
+        return NextResponse.redirect(new URL('/solutions/estudio-de-danca/login', request.url))
+      }
+      if (userRole === 'super_admin') {
+        return NextResponse.redirect(new URL('/admin', request.url))
+      }
+      if (isDanceFlowDashboard) {
+        if (userRole === 'student') {
+          return NextResponse.redirect(new URL('/solutions/estudio-de-danca/student', request.url))
+        }
+        if (userRole === 'teacher') {
+          return NextResponse.redirect(new URL('/solutions/estudio-de-danca/teacher', request.url))
+        }
+      }
+      if (isDanceFlowTeacher && userRole !== 'teacher' && userRole !== 'super_admin') {
+        return NextResponse.redirect(new URL('/solutions/estudio-de-danca/login', request.url))
+      }
+      if (isDanceFlowStudent && userRole !== 'student' && userRole !== 'super_admin') {
+        return NextResponse.redirect(new URL('/solutions/estudio-de-danca/login', request.url))
+      }
+      return response
+    }
+
+    if (pathname === '/solutions/estudio-de-danca/login' && user && userRole) {
+      if (userRole === 'super_admin') return NextResponse.redirect(new URL('/admin', request.url))
+      if (userRole === 'student')     return NextResponse.redirect(new URL('/solutions/estudio-de-danca/student', request.url))
+      if (userRole === 'teacher')     return NextResponse.redirect(new URL('/solutions/estudio-de-danca/teacher', request.url))
+      return NextResponse.redirect(new URL('/solutions/estudio-de-danca/dashboard', request.url))
+    }
+
+    // ─── AgroFlowAI bubble logic ──────────────────────────────────────────────
+    if (isAgroFlowProtected) {
+      if (!user) {
+        return NextResponse.redirect(new URL('/solutions/agroflowai/login', request.url))
+      }
+      if (userRole === 'super_admin') {
+        return NextResponse.redirect(new URL('/admin', request.url))
+      }
+      if (isAgroFlowDashboard) {
+        if (userRole === 'student' || userRole === 'client') {
+          return NextResponse.redirect(new URL('/solutions/agroflowai/client', request.url))
+        }
+      }
+      if (isAgroFlowClient && userRole !== 'student' && userRole !== 'client' && userRole !== 'super_admin') {
+        return NextResponse.redirect(new URL('/solutions/agroflowai/login', request.url))
+      }
+      return response
+    }
+
+    if (pathname === '/solutions/agroflowai/login' && user && userRole) {
+      if (userRole === 'super_admin') return NextResponse.redirect(new URL('/admin', request.url))
+      if (userRole === 'student' || userRole === 'client') return NextResponse.redirect(new URL('/solutions/agroflowai/client', request.url))
+      return NextResponse.redirect(new URL('/solutions/agroflowai/dashboard', request.url))
     }
 
     // ─── Generic route logic ───────────────────────────────────────────────────
@@ -284,13 +369,11 @@ export async function proxy(request: NextRequest) {
     }
 
     // --- White-Label / Custom Domain Logic ---
-    // If we were to rewrite here, we would need to ensure 'response' is used or cookies are copied.
-    // For now, returning 'response' (which might be the default or a modified one with cookies) is safe.
-
     return response
   }
+
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

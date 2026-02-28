@@ -41,7 +41,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-black text-white flex flex-col lg:flex-row">
       <AdminSidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -50,18 +50,18 @@ export default function AdminLayout({
       />
       
       {/* Mobile Top Bar */}
-      <div className="lg:hidden h-16 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 sticky top-0 z-40">
+      <div className="lg:hidden h-16 bg-black border-b border-white/10 flex items-center justify-between px-4 sticky top-0 z-40">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <span className="text-white font-bold text-xs">WA</span>
+          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
+            <span className="text-white font-black text-xs">AK</span>
           </div>
-          <span className="text-slate-50 font-bold text-sm">Workflow AI Admin</span>
+          <span className="text-white font-black text-sm tracking-tight">AKAAI HUB</span>
         </div>
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => setMobileOpen(true)}
-          className="text-slate-400"
+          className="text-white/60 hover:text-white"
         >
           <Menu className="w-6 h-6" />
         </Button>

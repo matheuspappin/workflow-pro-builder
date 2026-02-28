@@ -130,7 +130,7 @@ export default function AdminScannerPage() {
 
   const handleScannerError = (err: any) => {
     logger.error("❌ Erro no scanner:", err);
-    let msg = t.scanner.cameraAccessError;
+    let msg: string = t.scanner.cameraAccessError;
     
     if (err.name === 'NotAllowedError' || err.toString().includes('Permission denied')) {
       msg = t.scanner.cameraPermission;

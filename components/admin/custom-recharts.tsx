@@ -5,16 +5,16 @@ import { cn } from "@/lib/utils"
 export const CustomTooltip = ({ active, payload, label, chartType }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-xl border bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm p-3 shadow-lg text-sm">
+      <div className="rounded-xl border border-white/20 bg-black/95 backdrop-blur-sm p-3 shadow-lg text-sm">
         {chartType === 'pie' ? (
           <div>
-            <p className="font-bold capitalize">{`${payload[0].name}`}</p>
-            <p className="text-muted-foreground">{`Total: ${payload[0].value}`}</p>
+            <p className="font-bold text-white capitalize">{`${payload[0].name}`}</p>
+            <p className="text-white/60">{`Total: ${payload[0].value}`}</p>
           </div>
         ) : (
           <div>
-            <p className="font-bold capitalize">{`${label}`}</p>
-            <p className="text-muted-foreground">{`Engajamento: ${payload[0].value}`}</p>
+            <p className="font-bold text-white capitalize">{`${label}`}</p>
+            <p className="text-white/60">{`Engajamento: ${payload[0].value}`}</p>
           </div>
         )}
       </div>

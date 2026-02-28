@@ -1,5 +1,5 @@
-
 import { createClient } from '@/lib/supabase/server'
+import logger from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
     const { data, error } = await query
 
     if (error) {
-      console.error('Error fetching tickets:', {
+      logger.error('Error fetching tickets:', {
         message: error.message,
         details: error.details,
         hint: error.hint,
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(tickets)
   } catch (error) {
-    console.error('Internal Error:', error)
+    logger.error('Internal Error:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
       .single()
 
     if (ticketError) {
-      console.error('Error creating ticket:', ticketError)
+      logger.error('Error creating ticket:', ticketError)
       return new NextResponse('Error creating ticket', { status: 500 })
     }
 
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
       })
 
     if (messageError) {
-      console.error('Error creating message:', messageError)
+      logger.error('Error creating message:', messageError)
       return new NextResponse('Error creating message', { status: 500 })
     }
 
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return new NextResponse(JSON.stringify(error.issues), { status: 400 })
     }
-    console.error('Internal Error:', error)
+    logger.error('Internal Error:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }

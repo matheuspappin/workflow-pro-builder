@@ -107,8 +107,24 @@ export default function FinanceiroPage() {
   const [editingExpense, setEditingExpense] = useState<any>(null)
   const [editingPackage, setEditingPackage] = useState<any>(null)
   
-  const [newExpense, setNewExpense] = useState({
-    // ... existing ...
+  const [newExpense, setNewExpense] = useState<{
+    description: string
+    category: string
+    amount: string
+    due_date: string
+    status: string
+    notes: string
+    is_recurring: boolean
+    recurrence_period: string
+  }>({
+    description: "",
+    category: "Outros",
+    amount: "",
+    due_date: "",
+    status: "pending",
+    notes: "",
+    is_recurring: false,
+    recurrence_period: "monthly"
   })
 
   const [newPackage, setNewPackage] = useState({
@@ -474,7 +490,9 @@ export default function FinanceiroPage() {
                     amount: "",
                     due_date: new Date().toISOString().split('T')[0],
                     status: "pending",
-                    notes: ""
+                    notes: "",
+                    is_recurring: false,
+                    recurrence_period: "monthly"
                   })
                   setIsExpenseModalOpen(true)
                 }}
@@ -671,7 +689,7 @@ export default function FinanceiroPage() {
                             <div className="flex items-center gap-2">
                               {expense.description}
                               {expense.is_recurring && (
-                                <Repeat className="w-3 h-3 text-indigo-500" title={t.finance.recurring} />
+                                <span title={t.finance.recurring}><Repeat className="w-3 h-3 text-indigo-500" /></span>
                               )}
                             </div>
                           </TableCell>

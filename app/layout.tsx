@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Toaster as RadixToaster } from '@/components/ui/toaster'
 import { Toaster as SonnerToaster } from 'sonner'
 import { OrganizationProvider } from '@/components/providers/organization-provider'
 import './globals.css'
@@ -12,10 +11,10 @@ const _inter = Inter({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Workflow AI Builder - Plataforma White-Label',
-  description: 'Crie seu próprio software SaaS em minutos. Plataforma modular white-label para agências e empreendedores.',
+  title: 'AKAAI CORE - Engine of Excellence',
+  description: 'O futuro não é algo que se espera. É algo que se instancia. A singularidade aplicada ao seu modelo de negócio.',
   generator: 'v0.app',
-  keywords: ['saas builder', 'white label', 'no code', 'gestao', 'AI', 'inteligencia artificial'],
+  keywords: ['AKAAI CORE', 'singularidade', 'IA', 'Fire Protection', 'AgroFlow', 'DanceFlow', 'tecnologia'],
   icons: {
     icon: [
       {
@@ -36,7 +35,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#9333ea',
+  themeColor: '#000000',
   width: 'device-width',
   initialScale: 1,
 }
@@ -47,11 +46,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
-      <body className="font-sans antialiased">
+    <html lang="pt-BR" suppressHydrationWarning className="dark">
+      <body className="font-sans antialiased tracking-tight">
         <OrganizationProvider>
           {children}
-          <RadixToaster />
           <SonnerToaster position="top-right" richColors />
         </OrganizationProvider>
         <Analytics />

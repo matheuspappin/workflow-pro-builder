@@ -20,7 +20,7 @@ export function generateSlugBase(text: string): string {
  */
 export async function generateUniqueSlug(
   text: string,
-  table: 'studios' | 'partners',
+  table: 'studios' | 'partners' | 'verticalizations',
   column: string = 'slug'
 ): Promise<string> {
   const base = generateSlugBase(text)

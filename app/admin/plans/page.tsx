@@ -123,9 +123,9 @@ export default function AdminPlansPage() {
   };
 
   const normalizeModules = (modules: Record<ModuleKey, boolean> | null) => {
-    const normalized: Record<ModuleKey, boolean> = {};
-    Object.keys(MODULE_DEFINITIONS).forEach(key => {
-      normalized[key as ModuleKey] = modules?.[key] ?? MODULE_DEFINITIONS[key as ModuleKey].default;
+    const normalized = {} as Record<ModuleKey, boolean>;
+    (Object.keys(MODULE_DEFINITIONS) as ModuleKey[]).forEach(key => {
+      normalized[key] = modules?.[key] ?? MODULE_DEFINITIONS[key].default;
     });
     return normalized;
   };

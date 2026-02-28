@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 import { guardModule } from '@/lib/modules-server'
 import { ServiceOrderFormValues } from '@/lib/schemas/service-orders'
@@ -68,12 +69,36 @@ export async function getServiceOrderById(id: string) {
       customer:students(id, name, email, phone),
       professional:professionals!professional_id(id, name),
       items:service_order_items(*),
+      milestones:service_order_milestones(id, title, status, order_index, completed_at, category),
       history:service_order_history(
         *,
         user:auth.users(email) 
       )
     `)
     .eq('id', id)
+    .single()
+
+  if (error) return null
+  return data
+}
+
+/** Busca OS com milestones usando supabaseAdmin — evita problemas de RLS com studio/fire-protection */
+export async function getServiceOrderByIdForStudio(id: string, studioId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('service_orders')
+    .select(`
+      *,
+      customer:students(id, name, email, phone),
+      professional:professionals!professional_id(id, name),
+      items:service_order_items(*),
+      milestones:service_order_milestones(id, title, status, order_index, completed_at, category),
+      history:service_order_history(
+        *,
+        user:auth.users(email) 
+      )
+    `)
+    .eq('id', id)
+    .eq('studio_id', studioId)
     .single()
 
   if (error) return null

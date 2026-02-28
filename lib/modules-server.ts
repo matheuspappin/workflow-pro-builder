@@ -72,7 +72,7 @@ export async function guardModule(moduleKey: ModuleKey) {
   if (!config) {
     // Tenta obter o usuário para log mais detalhado
     const supabase = await getAuthenticatedClient()
-    const { data: { user } } = await supabase?.auth.getUser() || { data: {} }
+    const { data: { user } } = supabase ? await supabase.auth.getUser() : { data: { user: null } }
     
     if (user) {
       logger.error(`guardModule: Falha ao carregar config para usuário ${user.id} tentando acessar ${moduleKey}`)

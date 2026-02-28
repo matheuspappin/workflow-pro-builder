@@ -5,8 +5,19 @@ import dotenv from 'dotenv'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
-// Caminho para o arquivo .env na raiz do projeto
 const envPath = path.join(process.cwd(), '.env')
+
+// Chaves permitidas para leitura (sem valores sensíveis) e edição. Secrets NUNCA são expostos.
+const ALLOWED_KEYS = new Set([
+  'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_APP_URL',
+  'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'EMAIL_SENDER_ADDRESS', 'EMAIL_SENDER_NAME',
+  'EMAIL_SMTP_HOST', 'EMAIL_SMTP_PORT', 'EMAIL_SECURE', 'EMAIL_SMTP_USER'
+])
+
+function maskSecret(val: string): string {
+  if (!val || val.length < 4) return '****'
+  return val.slice(0, 2) + '****' + val.slice(-2)
+}
 
 async function requireSuperAdmin(): Promise<{ authorized: boolean; response?: NextResponse }> {
   const supabase = await createClient()
@@ -30,6 +41,9 @@ async function requireSuperAdmin(): Promise<{ authorized: boolean; response?: Ne
 }
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production' || process.env.ADMIN_ENV_DISABLED === 'true') {
+    return NextResponse.json({ error: 'Endpoint desativado em produção' }, { status: 404 })
+  }
   const auth = await requireSuperAdmin()
   if (!auth.authorized) return auth.response!
 
@@ -37,69 +51,54 @@ export async function GET() {
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ error: 'Arquivo .env não encontrado' }, { status: 404 })
     }
-
-    const envContent = fs.readFileSync(envPath, 'utf8')
-    const parsedEnv = dotenv.parse(envContent)
-
-    // Filtramos apenas as chaves que queremos expor/editar por segurança
-    const editableKeys = [
-      'OPENAI_API_KEY',
-      'GOOGLE_AI_API_KEY',
-      'NEXT_PUBLIC_SUPABASE_URL',
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-      'DATABASE_URL',
-      'STRIPE_SECRET_KEY',
-      'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
-      'STRIPE_WEBHOOK_SECRET',
-      'EMAIL_SENDER_ADDRESS',
-      'EMAIL_SENDER_NAME',
-      'EMAIL_SENDER_PASSWORD',
-      'EMAIL_SMTP_HOST',
-      'EMAIL_SMTP_PORT',
-      'EMAIL_SECURE',
-      'EMAIL_SMTP_USER'
-    ]
-
+    const parsedEnv = dotenv.parse(fs.readFileSync(envPath, 'utf8'))
     const config: Record<string, string> = {}
-    editableKeys.forEach(key => {
-      config[key] = parsedEnv[key] || ''
+    ALLOWED_KEYS.forEach(key => {
+      const val = parsedEnv[key]
+      config[key] = val ? maskSecret(val) : '(não definido)'
     })
-
     return NextResponse.json(config)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production' || process.env.ADMIN_ENV_DISABLED === 'true') {
+    return NextResponse.json({ error: 'Endpoint desativado em produção' }, { status: 404 })
+  }
   const auth = await requireSuperAdmin()
   if (!auth.authorized) return auth.response!
 
   try {
     const newConfig = await request.json()
-    
+    if (typeof newConfig !== 'object' || newConfig === null) {
+      return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
+    }
     if (!fs.existsSync(envPath)) {
       return NextResponse.json({ error: 'Arquivo .env não encontrado' }, { status: 404 })
     }
 
     let envContent = fs.readFileSync(envPath, 'utf8')
-    
-    // Atualizamos as chaves no conteúdo do arquivo
-    Object.entries(newConfig).forEach(([key, value]) => {
-      const regex = new RegExp(`^${key}=.*`, 'm')
-      const newLine = `${key}=${value}`
-      
-      if (envContent.match(regex)) {
-        envContent = envContent.replace(regex, newLine)
-      } else {
-        envContent += `\n${newLine}`
+    const toUpdate: Record<string, string> = {}
+    for (const [key, value] of Object.entries(newConfig)) {
+      if (typeof key === 'string' && ALLOWED_KEYS.has(key) && typeof value === 'string') {
+        toUpdate[key] = String(value).replace(/\n/g, '')
       }
-    })
+    }
+    const escapedKey = (k: string) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    for (const [key, value] of Object.entries(toUpdate)) {
+      const regex = new RegExp(`^${escapedKey(key)}=.*`, 'm')
+      if (regex.test(envContent)) {
+        envContent = envContent.replace(regex, `${key}=${value}`)
+      } else {
+        envContent += `\n${key}=${value}`
+      }
+    }
 
     fs.writeFileSync(envPath, envContent, 'utf8')
-
     return NextResponse.json({ success: true, message: 'Arquivo .env atualizado com sucesso!' })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

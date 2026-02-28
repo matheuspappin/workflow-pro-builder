@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import logger from '@/lib/logger'
 
 /**
  * GET - Lista profissionais (técnicos, engenheiros) com comissões pendentes e valores já pagos
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ professionals: result, referenceMonth: month })
   } catch (error: any) {
-    console.error('[finance/employee-payments] GET error:', error)
+    logger.error('[finance/employee-payments] GET error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, payment })
   } catch (error: any) {
-    console.error('[finance/employee-payments] POST error:', error)
+    logger.error('[finance/employee-payments] POST error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

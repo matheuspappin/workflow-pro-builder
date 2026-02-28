@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import logger from '@/lib/logger';
 
@@ -10,10 +10,15 @@ import logger from '@/lib/logger';
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
-    // Em produção, adicione uma chave secreta aqui
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    //   return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    // }
+    const cronSecret = process.env.CRON_SECRET
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (isProduction && !cronSecret) {
+      return NextResponse.json({ error: 'CRON_SECRET não configurado em produção' }, { status: 500 })
+    }
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
 
     const now = new Date()
     const dayOfWeek = now.getDay() // 0 (Dom) a 6 (Sáb)
@@ -24,7 +29,7 @@ export async function GET(request: NextRequest) {
     const lookaheadMinutes = 60 // Olhar 1 hora a frente
 
     // 1. Buscar turmas ativas
-    const { data: classes } = await supabase
+    const { data: classes } = await supabaseAdmin
       .from('classes')
       .select('*, studio:studios(name)')
       .eq('status', 'active')
@@ -48,7 +53,7 @@ export async function GET(request: NextRequest) {
           const todayStr = now.toISOString().split('T')[0]
           
           // Buscar ou criar sessão
-          let { data: session } = await supabase
+          let { data: session } = await supabaseAdmin
             .from('sessions')
             .select('*')
             .eq('class_id', classItem.id)
@@ -56,7 +61,7 @@ export async function GET(request: NextRequest) {
             .maybeSingle()
 
           if (!session) {
-            const { data: newSession } = await supabase
+            const { data: newSession } = await supabaseAdmin
               .from('sessions')
               .insert({
                 studio_id: classItem.studio_id,
@@ -72,14 +77,14 @@ export async function GET(request: NextRequest) {
 
           if (session && !session.reminders_sent) {
             // Buscar alunos matriculados
-            const { data: enrollments } = await supabase
+            const { data: enrollments } = await supabaseAdmin
               .from('enrollments')
               .select('student:students(*)')
               .eq('class_id', classItem.id)
               .eq('status', 'active')
 
             for (const enrollment of (enrollments || [])) {
-              const student = enrollment.student
+              const student = Array.isArray((enrollment as any).student) ? (enrollment as any).student[0] : (enrollment as any).student
               if (student && student.phone) {
                 const message = `Olá ${student.name.split(' ')[0]}! 💃\n\nSua aula de *${classItem.name}* no *${classItem.studio?.name}* começa às *${todaySchedule.start_time}*.\n\nVocê confirma sua presença?\nResponda *SIM* para confirmar ou *NAO* caso não possa vir.`
                 
@@ -90,7 +95,7 @@ export async function GET(request: NextRequest) {
                 })
 
                 // Criar registro de presença pendente se não existir
-                await supabase
+                await supabaseAdmin
                   .from('attendance')
                   .upsert({
                     studio_id: classItem.studio_id,
@@ -106,7 +111,7 @@ export async function GET(request: NextRequest) {
             }
 
             // Marcar que lembretes foram enviados
-            await supabase
+            await supabaseAdmin
               .from('sessions')
               .update({ reminders_sent: true })
               .eq('id', session.id)

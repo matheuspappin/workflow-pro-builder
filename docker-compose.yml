@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  # ─── Python Satellite Processor ───────────────────────────────────────────
+  satellite-processor:
+    build:
+      context: ./satellite-processor
+      dockerfile: Dockerfile
+    container_name: agroflow_satellite
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - agroflow_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ─── Next.js App (dev) ────────────────────────────────────────────────────
+  # Descomente para rodar o Next.js também no Docker (opcional em dev):
+  # nextjs:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.nextjs
+  #   container_name: agroflow_nextjs
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - SATELLITE_PROCESSOR_URL=http://satellite-processor:8001
+  #   depends_on:
+  #     satellite-processor:
+  #       condition: service_healthy
+  #   networks:
+  #     - agroflow_net
+
+networks:
+  agroflow_net:
+    driver: bridge

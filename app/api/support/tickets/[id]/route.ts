@@ -1,5 +1,5 @@
-
 import { createClient } from '@/lib/supabase/server'
+import logger from '@/lib/logger'
 import { NextResponse } from 'next/server'
 
 // REMOVED local createClient
@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     return NextResponse.json(ticket)
   } catch (error) {
-    console.error('Internal Error:', error)
+    logger.error('Internal Error:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
@@ -70,13 +70,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .single()
 
     if (error) {
-      console.error('Error updating ticket:', error)
+      logger.error('Error updating ticket:', error)
       return new NextResponse('Error updating ticket', { status: 500 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Internal Error:', error)
+    logger.error('Internal Error:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }

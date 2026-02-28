@@ -56,7 +56,7 @@ import { useToast } from "@/hooks/use-toast"
 import StudentProfile from "@/components/StudentProfile"
 import { useSearchParams } from "next/navigation"
 import LoadingComponent from "./loading"
-import { getStudents, saveStudent, getClasses, deleteStudent } from "@/lib/database-utils"
+import { getStudents, saveStudent, getClasses, deleteStudent, getStudentPayments } from "@/lib/database-utils"
 import { isLimitReached, PLAN_LIMITS } from "@/lib/plan-limits"
 import { supabase } from "@/lib/supabase"
 import {
@@ -100,7 +100,9 @@ const modalities = ["Ballet", "Jazz", "Hip Hop", "Contemporaneo", "Salsa"]
 
 function StudentsContent() {
   const { toast } = useToast()
-  const { schemas, vocabulary, t, language } = useVocabulary()
+  const { schemas, vocabulary, t: tOrig, language } = useVocabulary()
+  const t = tOrig as unknown as Record<string, Record<string, string>>
+  const schemasSafe = schemas as Record<string, unknown> | undefined
   const { businessModel } = useOrganization()
   const searchParams = useSearchParams()
   const [students, setStudents] = useState<Student[]>([])
@@ -273,7 +275,7 @@ function StudentsContent() {
       console.log('💾 Dados dos alunos salvos no cache')
 
     } catch (error) {
-      console.error('Erro ao carregar alunos:', error?.message || error)
+      console.error('Erro ao carregar alunos:', error instanceof Error ? error.message : error)
       toast({
         title: t.common.error,
         description: t.students.errorLoadingStudents.replace('{clients}', vocabulary.clients.toLowerCase()),
@@ -339,7 +341,7 @@ function StudentsContent() {
       const savedStudent = await saveStudent(studentData)
 
       if (!savedStudent) {
-        throw new Error(t.common.errorSavingDesc.replace('{client}', vocabulary.client.toLowerCase()))
+        throw new Error(t.students.errorSavingDesc)
       }
 
       // Recarregar lista de ${vocabulary.clients}
@@ -379,7 +381,7 @@ function StudentsContent() {
     if (credits > 0) {
       return <Badge className="bg-success/20 text-success-foreground hover:bg-success/30"><CheckCircle className="w-3 h-3 mr-1" />{t.common.active}</Badge>
     } else {
-      return <Badge variant="secondary">{t.common.inactive}</Badge>
+      return <Badge variant="secondary">{(t.common as Record<string, string>).inactive ?? 'Inativo'}</Badge>
     }
   }
 
@@ -388,9 +390,9 @@ function StudentsContent() {
       case "pago":
         return <Badge className="bg-success/20 text-success-foreground hover:bg-success/30">{t.common.paid}</Badge>
       case "pendente":
-        return <Badge className="bg-warning/20 text-warning-foreground hover:bg-warning/30">{t.common.pending}</Badge>
+        return <Badge className="bg-warning/20 text-warning-foreground hover:bg-warning/30">{(t.common as Record<string, string>).pending ?? 'Pendente'}</Badge>
       case "atrasado":
-        return <Badge variant="destructive">{t.finance.overdue}</Badge>
+        return <Badge variant="destructive">{(t.finance as Record<string, string>).overdue ?? 'Atrasado'}</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -409,7 +411,7 @@ function StudentsContent() {
       color: "text-warning" 
     }] : []),
     { 
-      label: t.common.inactive, 
+      label: (t.common as Record<string, string>).inactive ?? 'Inativos', 
       value: students.filter(s => businessModel === 'CREDIT' ? (s.credits ?? 0) === 0 : s.status === 'inativo').length, 
       color: "text-muted-foreground" 
     },
@@ -419,7 +421,7 @@ function StudentsContent() {
     const studioName = localStorage.getItem("danceflow_user") ? JSON.parse(localStorage.getItem("danceflow_user")!).studioName : vocabulary.establishment
     window.open(`mailto:${student.email}?subject=${studioName} - Contato&body=Ola ${student.name},`)
     toast({
-      title: t.common.emailLabel || "Email",
+      title: (t.common as Record<string, string>).emailLabel || "Email",
       description: `${t.common.loading.replace('...', '')} email para ${student.name}`,
     })
   }
@@ -541,8 +543,8 @@ function StudentsContent() {
     const csv = [
       [
         t.common.fullName, 
-        t.common.emailLabel || "Email", 
-        t.common.phoneLabel || "Telefone", 
+        (t.common as Record<string, string>).emailLabel || "Email", 
+        (t.common as Record<string, string>).phoneLabel || "Telefone", 
         vocabulary.category, 
         t.common.status, 
         t.students.currentMonthlyFee, 
@@ -669,7 +671,7 @@ function StudentsContent() {
       ],
     }
 
-    setSelectedStudent(profileData)
+    setSelectedStudent(profileData as unknown as Student)
     setProfileModalOpen(true)
   }
 
@@ -869,7 +871,7 @@ function StudentsContent() {
                   ) : (
                     <RefreshCw className="w-4 h-4 mr-2" />
                   )}
-                  {loading ? t.common.updating : t.common.update}
+                  {loading ? (t.common as Record<string, string>).updating ?? 'Atualizando...' : (t.common as Record<string, string>).update ?? 'Atualizar'}
                 </Button>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[150px] bg-background">
@@ -882,7 +884,7 @@ function StudentsContent() {
                     {businessModel === 'CREDIT' && (
                       <SelectItem value="baixo">{t.students.lowCredit}</SelectItem>
                     )}
-                    <SelectItem value="inativo">{t.common.inactive}</SelectItem>
+                    <SelectItem value="inativo">{(t.common as Record<string, string>).inactive ?? 'Inativo'}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={modalityFilter} onValueChange={setModalityFilter}>
@@ -965,13 +967,13 @@ function StudentsContent() {
                       />
                     </div>
                     
-                    {schemas?.student && (
-                      <DynamicMetadataForm 
-                        schema={schemas.student} 
-                        value={newStudent.metadata} 
-                        onChange={(m) => setNewStudent({...newStudent, metadata: m})} 
+                    {schemasSafe?.student ? (
+                      <DynamicMetadataForm
+                        schema={schemasSafe.student as any}
+                        value={newStudent.metadata}
+                        onChange={(m) => setNewStudent({...newStudent, metadata: m})}
                       />
-                    )}
+                    ) : null}
 
                     </div>
                     <div className="flex justify-end gap-2">
@@ -1116,7 +1118,7 @@ function StudentsContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-email">{t.common.emailLabel || 'Email'}</Label>
+                  <Label htmlFor="edit-email">{(t.common as Record<string, string>).emailLabel || 'Email'}</Label>
                   <Input
                     id="edit-email"
                     type="email"
@@ -1126,7 +1128,7 @@ function StudentsContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-phone">{t.common.phoneLabel || 'Telefone'}</Label>
+                  <Label htmlFor="edit-phone">{t.common?.phoneLabel || 'Telefone'}</Label>
                   <Input
                     id="edit-phone"
                     value={editStudent.phone}
@@ -1145,13 +1147,13 @@ function StudentsContent() {
                   />
                 </div>
 
-                {schemas?.student && (
-                  <DynamicMetadataForm 
-                    schema={schemas.student} 
-                    value={editStudent.metadata} 
-                    onChange={(m) => setEditStudent({...editStudent, metadata: m})} 
+                {schemasSafe?.student ? (
+                  <DynamicMetadataForm
+                    schema={schemasSafe.student as any}
+                    value={editStudent.metadata}
+                    onChange={(m) => setEditStudent({...editStudent, metadata: m})}
                   />
-                )}
+                ) : null}
 
                 <div className="pt-4 border-t border-border mt-4 space-y-4">
                   <div className="flex items-center justify-between">
@@ -1271,7 +1273,7 @@ function StudentsContent() {
                     </div>
                     <div className="text-center">
                       <p className={`text-2xl font-bold ${selectedStudent.paymentStatus === 'pago' ? 'text-green-700' : 'text-red-700'}`}>
-                        {selectedStudent.paymentStatus === 'pago' ? t.common.upToDate : t.common.pending}
+                        {selectedStudent.paymentStatus === 'pago' ? (t.common as Record<string, string>).upToDate ?? 'Em dia' : (t.common as Record<string, string>).pending ?? 'Pendente'}
                       </p>
                       <p className="text-sm text-gray-600">{t.students.paymentStatus}</p>
                     </div>
@@ -1331,7 +1333,7 @@ function StudentsContent() {
         <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
             <div className="h-[90vh] overflow-auto">
-              {selectedStudent && <StudentProfile studentData={selectedStudent} businessModel={businessModel} />}
+              {selectedStudent && <StudentProfile studentData={selectedStudent} />}
             </div>
           </DialogContent>
         </Dialog>

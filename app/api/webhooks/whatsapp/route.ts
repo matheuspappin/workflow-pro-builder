@@ -1,18 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import crypto from 'crypto'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
-import logger from '@/lib/logger';
+import logger from '@/lib/logger'
+import { getAiEndpointForStudio } from '@/lib/ai-router'
 
 // Cache em memória para evitar processar a mesma mensagem duas vezes seguidas
 // Em produção real, isso seria um Redis, mas para dev local resolve 100%
 const processedMessages = new Set<string>();
 
+function validateWebhookSignature(request: NextRequest, rawBody: string): boolean {
+  const secret = process.env.WEBHOOK_WHATSAPP_SECRET || process.env.EVOLUTION_WEBHOOK_SECRET
+  if (!secret) {
+    logger.warn('⚠️ WEBHOOK_WHATSAPP_SECRET ou EVOLUTION_WEBHOOK_SECRET não configurado - webhook sem validação')
+    return process.env.NODE_ENV !== 'production'
+  }
+
+  // Evolution API: HMAC-SHA256 com timestamp.payload (headers x-evolution-signature, x-evolution-time)
+  const evoxSignature = request.headers.get('x-evolution-signature') || request.headers.get('x-evox-signature')
+  const evoxTime = request.headers.get('x-evolution-time') || request.headers.get('x-evox-time')
+  if (evoxSignature && evoxTime) {
+    try {
+      const payload = evoxTime + '.' + rawBody
+      const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex')
+      const a = Buffer.from(expected, 'hex')
+      const b = Buffer.from(evoxSignature, 'hex')
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+        const timestamp = parseInt(evoxTime, 10)
+        const now = Math.floor(Date.now() / 1000)
+        if (Math.abs(now - timestamp) <= 300) return true // 5 min tolerância anti-replay
+        logger.warn('Webhook: timestamp expirado')
+        return false
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  // Fallback: Bearer token ou X-Webhook-Token
+  const auth = request.headers.get('authorization')
+  const token = request.headers.get('x-webhook-token')
+  const provided = auth?.startsWith('Bearer ') ? auth.slice(7) : token
+  if (!provided) return false
+  const a = Buffer.from(provided, 'utf8')
+  const b = Buffer.from(secret, 'utf8')
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
 /**
  * WEBHOOK PRINCIPAL DO WHATSAPP (Versão Anti-Duplicidade Extrema)
+ * Requer WEBHOOK_WHATSAPP_SECRET ou EVOLUTION_WEBHOOK_SECRET em produção.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const rawBody = await request.text()
+    const body = JSON.parse(rawBody)
+
+    if (!validateWebhookSignature(request, rawBody)) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
     
     // 1. IDENTIFICAÇÃO ÚNICA DA MENSAGEM (O segredo para não duplicar)
     // Pegamos o ID da mensagem que o WhatsApp gera. Ele é único no mundo.
@@ -23,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Se já processamos esse ID, ignoramos completamente (Check via DB em produção é melhor)
-    const { data: existingMsg } = await supabase
+    const { data: existingMsg } = await supabaseAdmin
       .from('whatsapp_messages')
       .select('id')
       .eq('message_id', messageId)
@@ -69,23 +116,23 @@ export async function POST(request: NextRequest) {
       // Se for o formato df_slug
       if (instanceName.startsWith('df_')) {
         const slug = instanceName.replace('df_', '');
-        const { data: studio } = await supabase.from('studios').select('id').eq('slug', slug).maybeSingle();
+        const { data: studio } = await supabaseAdmin.from('studios').select('id').eq('slug', slug).maybeSingle();
         if (studio) studioId = studio.id;
       } else {
         // Tentar buscar na tabela de chaves de API
-        const { data: keys } = await supabase.from('studio_api_keys').select('studio_id').eq('instance_id', instanceName).maybeSingle();
+        const { data: keys } = await supabaseAdmin.from('studio_api_keys').select('studio_id').eq('instance_id', instanceName).maybeSingle();
         if (keys) studioId = keys.studio_id;
       }
     }
 
     // 4.2 Buscar se é admin ou aluno para confirmar studioId se ainda não identificado
-    const { data: adminUser } = await supabase
+    const { data: adminUser } = await supabaseAdmin
       .from('users_internal')
       .select('studio_id, name')
       .eq('phone', senderNumber)
       .maybeSingle()
 
-    const { data: studentUser } = await supabase
+    const { data: studentUser } = await supabaseAdmin
       .from('students')
       .select('studio_id, name, id')
       .eq('phone', senderNumber)
@@ -110,7 +157,7 @@ export async function POST(request: NextRequest) {
       const todayStr = new Date().toISOString().split('T')[0]
 
       // Buscar presença pendente para hoje
-      const { data: pendingAttendance } = await supabase
+      const { data: pendingAttendance } = await supabaseAdmin
         .from('attendance')
         .select('*, class:classes(name)')
         .eq('student_id', studentUser.id)
@@ -121,7 +168,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       if (pendingAttendance) {
-        await supabase
+        await supabaseAdmin
           .from('attendance')
           .update({ status: isConfirming ? 'confirmed' : 'declined' })
           .eq('id', pendingAttendance.id)
@@ -140,23 +187,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. PERSISTÊNCIA E IA
+    // 5. PERSISTÊNCIA E IA (roteamento por nicho: DanceFlow, FireControl, AgroFlowAI)
     await syncToDb(remoteJid, messageContent, studioId, userName, messageId)
 
-    const geminiRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/gemini`, {
+    const aiEndpoint = await getAiEndpointForStudio(studioId)
+    const internalKey = process.env.INTERNAL_AI_SECRET || process.env.WEBHOOK_WHATSAPP_SECRET || process.env.EVOLUTION_WEBHOOK_SECRET
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (internalKey && !aiEndpoint.includes('/api/gemini')) {
+      headers['x-internal-ai-key'] = internalKey
+    }
+
+    const geminiRes = await fetch(aiEndpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         message: messageContent,
-        context: { studio_id: studioId, is_admin: isAdmin, user_name: userName }
+        history: [],
+        context: { studio_id: studioId, is_admin: isAdmin, is_student: isStudent, user_name: userName }
       })
     })
 
-    const { response: aiResponse } = await geminiRes.json()
+    const geminiData = await geminiRes.json().catch(() => ({}))
+    const aiResponse = geminiData.response ?? geminiData.content ?? ''
 
     // 6. DETECÇÃO E CAPTURA DE LEADS (NOVA LÓGICA)
     let finalMessage = aiResponse;
-    const leadRegex = /\[LEAD_DETECTED:\s*({.*?})\]/s;
+    const leadRegex = /\[LEAD_DETECTED:\s*({[\s\S]*?})\]/m;
     const match = aiResponse.match(leadRegex);
 
     if (match && !isAdmin && !isStudent && studioId !== '00000000-0000-0000-0000-000000000000') {
@@ -168,7 +224,7 @@ export async function POST(request: NextRequest) {
         finalMessage = aiResponse.replace(match[0], '').trim();
 
         // Salvar ou Atualizar Lead
-        const { data: existingLead } = await supabase
+        const { data: existingLead } = await supabaseAdmin
           .from('leads')
           .select('id, notes')
           .eq('studio_id', studioId)
@@ -177,7 +233,7 @@ export async function POST(request: NextRequest) {
 
         if (existingLead) {
           // Atualizar
-          await supabase.from('leads').update({
+          await supabaseAdmin.from('leads').update({
             interest_level: leadData.interest_level,
             stage: leadData.stage !== 'new' ? leadData.stage : undefined, // Só muda estágio se avançou
             last_contact_date: new Date().toISOString(),
@@ -185,7 +241,7 @@ export async function POST(request: NextRequest) {
           }).eq('id', existingLead.id);
         } else {
           // Criar Novo
-          await supabase.from('leads').insert({
+          await supabaseAdmin.from('leads').insert({
             studio_id: studioId,
             name: userName, // O nome que veio do WhatsApp
             phone: senderNumber,
@@ -199,7 +255,7 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         logger.error('❌ Erro ao processar Lead AI:', e);
         // Se der erro no JSON, apenas limpamos a mensagem para não mostrar código pro usuário
-        finalMessage = aiResponse.replace(/\[LEAD_DETECTED:.*?\]/s, '').trim();
+        finalMessage = aiResponse.replace(/\[LEAD_DETECTED:[\s\S]*?\]/, '').trim();
       }
     } else if (match) {
       // Se for admin/aluno mas a IA alucinou e gerou lead, apenas limpamos
@@ -226,7 +282,7 @@ export async function POST(request: NextRequest) {
 
 async function syncToDb(remoteJid: string, content: string, studioId: string, name: string, messageId: string) {
   try {
-    const { data: chat } = await supabase
+    const { data: chat } = await supabaseAdmin
       .from('whatsapp_chats')
       .upsert({
         studio_id: studioId,
@@ -239,7 +295,7 @@ async function syncToDb(remoteJid: string, content: string, studioId: string, na
 
     if (chat) {
       const senderNumber = remoteJid.replace(/\D/g, '')
-      await supabase.from('whatsapp_messages').insert({
+      await supabaseAdmin.from('whatsapp_messages').insert({
         studio_id: studioId,
         chat_id: chat.id,
         content: content,

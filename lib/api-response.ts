@@ -2,6 +2,34 @@ import { NextResponse } from 'next/server';
 import { AppError } from './errors';
 import logger from './logger';
 
+/**
+ * Resposta 400 para parâmetros obrigatórios ausentes.
+ */
+export function missingParamResponse(param: string) {
+  return NextResponse.json({ error: `${param} é obrigatório`, success: false }, { status: 400 })
+}
+
+/**
+ * Resposta 404 genérica.
+ */
+export function notFoundResponse(resource = 'Recurso') {
+  return NextResponse.json({ error: `${resource} não encontrado`, success: false }, { status: 404 })
+}
+
+/**
+ * Resposta 403 genérica.
+ */
+export function forbiddenResponse(message = 'Acesso negado') {
+  return NextResponse.json({ error: message, success: false }, { status: 403 })
+}
+
+/**
+ * Resposta 401 genérica.
+ */
+export function unauthorizedResponse(message = 'Não autenticado') {
+  return NextResponse.json({ error: message, success: false }, { status: 401 })
+}
+
 interface ApiResponse<T> {
   success?: boolean;
   data?: T;

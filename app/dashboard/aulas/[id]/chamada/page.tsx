@@ -161,6 +161,7 @@ export default function AdminAttendancePage() {
       if (attendanceError) throw attendanceError
 
       for (const [studentId, status] of Object.entries(attendance)) {
+        const studentName = students.find((s: any) => (s.student?.id ?? s.id) === studentId)?.student?.name ?? 'Aluno'
         const oldStatus = prevAttendance[studentId]
         const isNowPresent = status === 'present' || status === 'confirmed'
         const wasPreviouslyPresent = oldStatus === 'present' || oldStatus === 'confirmed'
@@ -204,7 +205,7 @@ export default function AdminAttendancePage() {
               if (expiryDate && expiryDate < todayDate) {
                 toast({
                   title: "Créditos Congelados",
-                  description: `Os créditos de ${student.name} estão congelados (expiraram em ${expiryDate.toLocaleDateString('pt-BR')}).`,
+                  description: `Os créditos de ${studentName} estão congelados (expiraram em ${expiryDate.toLocaleDateString('pt-BR')}).`,
                   variant: "destructive"
                 });
                 
@@ -240,7 +241,7 @@ export default function AdminAttendancePage() {
                     studentId,
                     studioId: classInfo.studio_id,
                     remainingCredits: credits.remaining_credits - 1,
-                    clientName: student.name,
+                    clientName: studentName,
                     establishmentName: adminData?.studioName || vocabulary.establishment
                   })
                 }).catch(() => {});

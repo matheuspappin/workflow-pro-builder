@@ -23,7 +23,14 @@ export const ServiceOrderSchema = z.object({
   discount: z.number().default(0),
   scheduled_at: z.string().optional().nullable(),
   customer_signature_url: z.string().optional().nullable(),
-  professional_commission_value: z.number().optional().default(0),
+  professional_commission_value: z.union([z.number(), z.string()])
+    .transform((val) => {
+      if (val === '' || val === undefined || val === null) return 0
+      const n = Number(val)
+      return isNaN(n) ? 0 : n
+    })
+    .optional()
+    .default(0),
   professional_commission_status: z.enum(['pending', 'approved', 'paid', 'cancelled']).default('pending'),
 })
 

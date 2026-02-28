@@ -59,8 +59,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setState(prev => ({
         ...prev,
         language: savedLang,
-        vocabulary: nicheDictionary[savedLang].dance,
-        t: translations[savedLang]
+        vocabulary: nicheDictionary[savedLang].dance as VocabularyType,
+        t: translations[savedLang] as unknown as TranslationType
       }))
     }
   }, [])
@@ -77,7 +77,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           setState(prev => ({ 
             ...prev, 
             language: newLang,
-            t: translations[newLang]
+            t: translations[newLang] as unknown as TranslationType
           }))
         }
       }
@@ -92,7 +92,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ 
       ...prev, 
       language: lang,
-      t: translations[lang]
+      t: translations[lang] as unknown as TranslationType
     }))
 
     // Tenta atualizar no Supabase se o usuário estiver logado
@@ -129,12 +129,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const urlNiche = isFirePath ? 'fire_protection' : null
 
       if (!user) {
-        setState(prev => ({ 
-          ...defaultState, 
+        setState(prev => ({
+          ...defaultState,
           niche: urlNiche || prev.niche || 'dance',
-          vocabulary: urlNiche ? nicheDictionary[prev.language || 'pt'][urlNiche] : defaultState.vocabulary,
-          language: prev.language, 
-          isLoading: false 
+          vocabulary: (urlNiche ? nicheDictionary[prev.language || 'pt'][urlNiche] : defaultState.vocabulary) as VocabularyType,
+          language: prev.language,
+          t: translations[prev.language || 'pt'] as unknown as TranslationType,
+          isLoading: false
         }))
         return
       }
@@ -242,12 +243,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
               .from('studios')
               .select('business_model')
               .eq('id', studioId)
-              .maybeSingle();
+              .maybeSingle()
+              .then((r) => r) as Promise<{ data: { business_model?: string } | null }>;
           }
 
           const [settingsResult, businessModelResult] = await Promise.all([
             settingsPromise,
-            businessModelPromise
+            businessModelPromise ?? Promise.resolve({ data: null })
           ]);
 
           orgSettings = settingsResult.data;
@@ -269,8 +271,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setState(prev => ({
         ...prev,
         niche: nicheKey,
-        vocabulary,
-        t: translations[currentLang],
+        vocabulary: vocabulary as VocabularyType,
+        t: translations[currentLang] as unknown as TranslationType,
         language: currentLang,
         enabledModules,
         isLoading: false,
@@ -295,7 +297,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setState(prev => ({ 
           ...defaultState, 
           language: prev.language, 
-          t: translations[prev.language],
+          t: translations[prev.language] as unknown as TranslationType,
           isLoading: false,
           businessModel: 'CREDIT'
         }))

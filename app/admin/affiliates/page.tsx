@@ -45,7 +45,7 @@ export default function AffiliatesPage() {
       const { partners } = await getPartnersList(1, 50, session?.access_token)
       setPartners(partners || [])
     } catch (error) {
-      logger.error(error)
+      logger.error({ err: error }, "Erro ao carregar afiliados")
       toast({
         title: "Erro ao carregar afiliados",
         description: "Não foi possível buscar a lista de afiliados.",

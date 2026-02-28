@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { notifyLowCredits } from '@/lib/whatsapp';
 import logger from '@/lib/logger';
 
@@ -9,11 +9,22 @@ import logger from '@/lib/logger';
  */
 export async function GET(req: NextRequest) {
   try {
+    const authHeader = req.headers.get('authorization')
+    const cronSecret = process.env.CRON_SECRET
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (isProduction && !cronSecret) {
+      return NextResponse.json({ error: 'CRON_SECRET não configurado em produção' }, { status: 500 })
+    }
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
     const today = new Date().toISOString().split('T')[0];
 
     // 1. Buscar todas as presenças 'confirmed' de datas passadas ou hoje (se a sessão já terminou)
     // Para simplificar, pegaremos tudo que ficou como 'confirmed' de ontem para trás
-    const { data: noShows, error: fetchError } = await supabase
+    const { data: noShows, error: fetchError } = await supabaseAdmin
       .from('attendance')
       .select('*, class:classes(name, studio_id)')
       .eq('status', 'confirmed')
@@ -25,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     for (const record of noShows) {
       // 2. Verificar se o aluno tem créditos
-      const { data: credits } = await supabase
+      const { data: credits } = await supabaseAdmin
         .from('student_lesson_credits')
         .select('*')
         .eq('student_id', record.student_id)
@@ -34,7 +45,7 @@ export async function GET(req: NextRequest) {
       if (credits && credits.remaining_credits > 0) {
         // 3. Debitar crédito por No-Show
         const newRemaining = credits.remaining_credits - 1;
-        await supabase
+        await supabaseAdmin
           .from('student_lesson_credits')
           .update({ 
             remaining_credits: newRemaining,
@@ -43,7 +54,7 @@ export async function GET(req: NextRequest) {
           .eq('id', credits.id);
 
         // 4. Registrar uso
-        await supabase.from('student_credit_usage').insert({
+        await supabaseAdmin.from('student_credit_usage').insert({
           studio_id: record.class.studio_id,
           student_id: record.student_id,
           class_id: record.class_id,
@@ -54,7 +65,7 @@ export async function GET(req: NextRequest) {
         });
 
         // 5. Atualizar status para 'absent' (Falta)
-        await supabase
+        await supabaseAdmin
           .from('attendance')
           .update({ status: 'absent', notes: 'No-Show (Débito automático)' })
           .eq('id', record.id);
@@ -67,7 +78,7 @@ export async function GET(req: NextRequest) {
         results.push({ id: record.id, student_id: record.student_id, status: 'processed' });
       } else {
         // Se não tem crédito, apenas marca como falta sem debitar (ou gera pendência)
-        await supabase
+        await supabaseAdmin
           .from('attendance')
           .update({ status: 'absent', notes: 'No-Show (Sem créditos para debitar)' })
           .eq('id', record.id);

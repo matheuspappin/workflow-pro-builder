@@ -16,6 +16,7 @@ export type ModuleConfig = {
   service_orders: boolean;
   erp: boolean;
   multi_unit: boolean;
+  satellite_monitor?: boolean;
 };
 
 const defaultModules: ModuleConfig = {
@@ -34,6 +35,7 @@ const defaultModules: ModuleConfig = {
   service_orders: false,
   erp: false,
   multi_unit: false,
+  satellite_monitor: false,
 };
 
 // Grupo A: Aulas/Turmas
@@ -59,10 +61,11 @@ const appointmentBasedNiches: NicheType[] = [
 const serviceOrderBasedNiches: NicheType[] = [
   'auto_detail', 'mechanic', 'tech_repair', 'plumbing', 'electrician', 
   'construction', 'landscaping', 'tailoring', 'cleaning', 'car_wash', 
-  'party_venue', 'logistics', 'fire_protection'
+  'party_venue', 'logistics', 'fire_protection', 'environmental_compliance'
 ];
 
 export const monetaryBasedNiches: NicheType[] = [
+  'dance',
   'auto_detail', 'mechanic', 'tech_repair', 'car_wash', 'dentist', 'clinic', 
   'vet', 'clinic_vet', 'law', 'marketing_agency', 'dev_studio', 'real_estate', 
   'insurance', 'consulting', 'plumbing', 'electrician', 'construction', 
@@ -71,7 +74,7 @@ export const monetaryBasedNiches: NicheType[] = [
   'wine_club', 'barber', 'beauty', 'aesthetics', 'spa', 'tanning', 'physio',
   'nutrition', 'podiatry', 'pet_shop', 'psychology', 'pet_hotel', 'personal',
   'art_studio', 'cooking_school', 'tutoring', 'daycare', 'elderly_care',
-  'driving_school', 'party_venue', 'coworking', 'fire_protection'
+  'driving_school', 'party_venue', 'coworking', 'fire_protection', 'environmental_compliance'
 ];
 
 export type BusinessConcept = {
@@ -336,6 +339,18 @@ export const NICHE_CONCEPTS: Record<string, BusinessConcept> = {
       'classes': 'Lista de Coletas/Entregas',
       'teachers': 'Técnicos/Engenheiros'
     }
+  },
+  environmental_compliance: {
+    hiddenModules: ['ao-vivo', 'gamification'],
+    priorityModules: ['dashboard', 'service-orders', 'scanner', 'students', 'satellite-monitor'],
+    sidebarOverrides: {
+      'students': 'Clientes (Proprietários Rurais)',
+      'service-orders': 'Laudos / Vistorias / OS',
+      'scanner': 'Documentos / CAR',
+      'classes': 'Agenda de Vistorias',
+      'teachers': 'Engenheiros / Técnicos',
+      'satellite-monitor': 'Monitor Satélite'
+    }
   }
 };
 
@@ -402,6 +417,11 @@ export function getDefaultModulesForNiche(niche: NicheType): ModuleConfig {
       modules.service_orders = true;
       modules.scanner = true; // Para entrada/saída de veículos
       modules.inventory = true;
+      break;
+
+    case 'dance':
+      modules.scanner = true; // QR Code portaria
+      modules.gamification = true;
       break;
 
     case 'gym':
@@ -479,6 +499,16 @@ export function getDefaultModulesForNiche(niche: NicheType): ModuleConfig {
       modules.scanner = true;
       modules.inventory = true;
       modules.classes = true; // Lista de Coletas
+      break;
+
+    case 'environmental_compliance':
+      modules.service_orders = true;
+      modules.scanner = true;
+      modules.classes = true;
+      modules.leads = true;
+      modules.whatsapp = true;
+      modules.multi_unit = true;
+      modules.satellite_monitor = true;
       break;
   }
 

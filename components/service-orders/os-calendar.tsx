@@ -15,7 +15,7 @@ import {
   parseISO
 } from 'date-fns'
 import { ptBR, enUS } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Clock, User, Tool, Wrench, Package } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Clock, User, Wrench, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -201,7 +201,7 @@ export function OSCalendar({ studioId }: OSCalendarProps) {
                         <span className="font-bold">{format(parseISO(order.scheduled_at), 'HH:mm')}</span>
                       </div>
                       <Badge variant="outline" className={statusColors[order.status]}>
-                        {t.service_orders.status[order.status] || order.status}
+                        {(t.service_orders.status as Record<string, string>)[order.status] || order.status}
                       </Badge>
                     </div>
                     <div className="space-y-1">

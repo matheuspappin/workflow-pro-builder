@@ -186,6 +186,7 @@ export default function StudentOSDetailPage() {
               </div>
             )}
           </CardHeader>
+          <CardContent>
             {/* Barra de Progresso Visual */}
             <div className="px-6 pb-2">
               <div className="flex justify-between items-center mb-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
@@ -236,6 +237,7 @@ export default function StudentOSDetailPage() {
                 </div>
               </div>
             )}
+            </div>
           </CardContent>
         </Card>
 

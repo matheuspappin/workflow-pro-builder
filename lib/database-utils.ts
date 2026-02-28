@@ -656,7 +656,7 @@ async function getDashboardStats(studioId: string = getCurrentStudioId()!) {
       
     // Agrupar por mês
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    const dataByMonth = {}
+    const dataByMonth: Record<string, { receita: number; despesas: number }> = {}
     
     // Inicializar últimos 6 meses
     for (let i = 5; i >= 0; i--) {
@@ -698,9 +698,10 @@ async function getDashboardStats(studioId: string = getCurrentStudioId()!) {
       .eq('studio_id', studioId)
       .eq('status', 'active')
       
-    const modalityDistribution = {}
+    const modalityDistribution: Record<string, number> = {}
     enrollmentsByModality?.forEach(e => {
-      const style = e.classes?.dance_style || 'Outros'
+      const cls = Array.isArray(e.classes) ? e.classes[0] : e.classes
+      const style = (cls as { dance_style?: string } | null)?.dance_style || 'Outros'
       modalityDistribution[style] = (modalityDistribution[style] || 0) + 1
     })
     
@@ -1209,6 +1210,10 @@ export {
   getChatSessions,
   getChatSessionById,
   deleteChatSession,
+  saveFireProtectionChatSession,
+  getFireProtectionChatSessions,
+  getFireProtectionChatSessionById,
+  deleteFireProtectionChatSession,
   getStudioApiKey,
   saveStudioApiKey
 }
@@ -1269,15 +1274,16 @@ async function saveChatSession(sessionData: any, studioId: string = getCurrentSt
   // Garantir que messages é um JSON válido
   const messagesJson = Array.isArray(messages) ? messages : []
 
-  const payload = {
+  const payload: { studio_id: string; source?: string; title: string; messages: unknown[]; updated_at: string; id?: string } = {
     studio_id: studioId,
-    title: title || (messagesJson.length > 0 ? messagesJson[messagesJson.length - 1].content.substring(0, 50) + '...' : 'Nova Conversa'),
+    source: 'danceflow',
+    title: title || (messagesJson.length > 0 ? (messagesJson[messagesJson.length - 1] as { content?: string })?.content?.substring(0, 50) + '...' : 'Nova Conversa'),
     messages: messagesJson,
     updated_at: new Date().toISOString()
   }
 
   if (id) {
-    payload['id'] = id
+    payload.id = id
   }
 
   const { data, error } = await supabase
@@ -1307,6 +1313,7 @@ async function getChatSessions(studioId: string = getCurrentStudioId()!) {
     .from('chat_sessions')
     .select('id, title, updated_at')
     .eq('studio_id', studioId)
+    .eq('source', 'danceflow')
     .gte('updated_at', fifteenDaysAgo.toISOString())
     .order('updated_at', { ascending: false })
 
@@ -1340,6 +1347,93 @@ async function deleteChatSession(id: string) {
     .delete()
     .eq('id', id)
   
+  if (error) throw error
+  return true
+}
+
+// ========== FIRE PROTECTION CHAT ==========
+
+/**
+ * Salva ou atualiza uma sessão do chat Fire Protection
+ */
+async function saveFireProtectionChatSession(sessionData: any, studioId: string = getCurrentStudioId()!) {
+  if (!studioId) return null
+
+  const { id, title, messages } = sessionData
+  const messagesJson = Array.isArray(messages) ? messages : []
+
+  const payload: { studio_id: string; source: string; title: string; messages: unknown[]; updated_at: string; id?: string } = {
+    studio_id: studioId,
+    source: 'fire_protection',
+    title: title || (messagesJson.length > 0 ? (messagesJson.find((m: any) => m.role === 'user') as { content?: string })?.content?.substring(0, 40) || 'Nova Conversa' : 'Nova Conversa'),
+    messages: messagesJson,
+    updated_at: new Date().toISOString()
+  }
+
+  if (id) payload.id = id
+
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .upsert(payload, { onConflict: 'id' })
+    .select()
+    .single()
+
+  if (error) {
+    logger.warn('Erro ao salvar sessão Fire Protection chat:', error.message)
+    return null
+  }
+  return data
+}
+
+/**
+ * Busca sessões do chat Fire Protection (últimos 15 dias)
+ */
+async function getFireProtectionChatSessions(studioId: string = getCurrentStudioId()!) {
+  if (!studioId) return []
+
+  const fifteenDaysAgo = new Date()
+  fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15)
+
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .select('id, title, updated_at')
+    .eq('studio_id', studioId)
+    .eq('source', 'fire_protection')
+    .gte('updated_at', fifteenDaysAgo.toISOString())
+    .order('updated_at', { ascending: false })
+
+  if (error) {
+    logger.warn('Erro ao buscar sessões Fire Protection chat:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Busca uma sessão Fire Protection por ID
+ */
+async function getFireProtectionChatSessionById(id: string) {
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .select('*')
+    .eq('id', id)
+    .eq('source', 'fire_protection')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Deleta uma sessão Fire Protection
+ */
+async function deleteFireProtectionChatSession(id: string) {
+  const { error } = await supabase
+    .from('chat_sessions')
+    .delete()
+    .eq('id', id)
+    .eq('source', 'fire_protection')
+
   if (error) throw error
   return true
 }

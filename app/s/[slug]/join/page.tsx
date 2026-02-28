@@ -37,7 +37,7 @@ export default function JoinStudioPage() {
           return
         }
         setStudio(studioData)
-        const fetchedVocabulary = studioData.organization_settings?.[0]?.vocabulary || studioData.organization_settings?.vocabulary;
+        const fetchedVocabulary = (studioData.organization_settings as { vocabulary?: any; niche?: any }[] | null)?.[0]?.vocabulary;
         if (fetchedVocabulary) {
           setVocabulary(fetchedVocabulary);
         }
@@ -155,8 +155,8 @@ export default function JoinStudioPage() {
             user_id: userId,
             studio_id: studio.id,
             professional_type: userRole,
-            name: user?.name || session.user.email?.split('@')[0] || 'Novo Profissional',
-            email: session.user.email,
+            name: user?.name || session?.user?.email?.split('@')[0] || 'Novo Profissional',
+            email: session?.user?.email ?? '',
             status: 'active'
           }, { onConflict: 'studio_id, email' })
 

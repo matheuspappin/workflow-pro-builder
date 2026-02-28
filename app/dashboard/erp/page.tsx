@@ -51,6 +51,7 @@ import {
   createERPOrder,
   getERPCatalog,
   getOrganizationSettings,
+  updateBusinessType,
   getStudioPlan,
   getERPDashboardStats,
   getSuppliers,
@@ -702,7 +703,7 @@ export default function ERPPage() {
                       ) : erpOrders.map((o) => (
                         <tr key={o.id} className="border-b last:border-0 hover:bg-muted/30">
                           <td className="p-4 font-mono font-bold text-primary">{o.external_id}</td>
-                          <td className="p-4 text-xs">{o.integration_channels?.name || t.common.manual}</td>
+                          <td className="p-4 text-xs">{o.integration_channels?.name || t.erp.manual}</td>
                           <td className="p-4">{o.customer_name}</td>
                           <td className="p-4 font-bold">{language === 'en' ? '$' : 'R$'} {o.total_amount}</td>
                           <td className="p-4">

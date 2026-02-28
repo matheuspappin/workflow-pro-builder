@@ -7,11 +7,41 @@ export interface ApiKeys {
   geminiApiKey?: string
 }
 
+const STORAGE_KEY = 'workflow_api_keys'
+
 export function getApiKeys(): ApiKeys {
-  // Chaves são obtidas exclusivamente das variáveis de ambiente (servidor)
+  // No servidor: variáveis de ambiente
+  if (typeof window === 'undefined') {
+    return {
+      openaiApiKey: process.env.OPENAI_API_KEY,
+      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    }
+  }
+  // No cliente: localStorage (configurações salvas pelo usuário)
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored) as ApiKeys
+      return {
+        openaiApiKey: parsed.openaiApiKey || process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+        geminiApiKey: parsed.geminiApiKey || process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY,
+      }
+    }
+  } catch {
+    // ignore
+  }
   return {
-    openaiApiKey: process.env.OPENAI_API_KEY,
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    openaiApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+    geminiApiKey: process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY,
+  }
+}
+
+export function setApiKeys(keys: ApiKeys): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(keys))
+  } catch {
+    // ignore
   }
 }
 

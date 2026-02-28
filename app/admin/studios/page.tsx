@@ -107,8 +107,7 @@ export default function TenantsPage() {
       await deleteStudio(tenantToDelete.id, session?.access_token)
       toast({
         title: "Empresa Excluída",
-        description: `A empresa '${tenantToDelete.name}' foi excluída permanentemente.`, 
-        variant: "success"
+        description: `A empresa '${tenantToDelete.name}' foi excluída permanentemente.`
       })
       loadTenants() // Recarregar a lista de tenants
     } catch (error) {

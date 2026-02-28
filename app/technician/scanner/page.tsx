@@ -15,7 +15,8 @@ import {
   RefreshCw,
   Camera,
   Truck,
-  PackageCheck
+  PackageCheck,
+  ClipboardCheck
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"

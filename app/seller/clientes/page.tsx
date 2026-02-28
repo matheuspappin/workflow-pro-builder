@@ -6,11 +6,10 @@ import { getSellerClients, deleteClientBySeller } from '@/lib/actions/seller-cli
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { PlusCircle, Edit, Trash } from 'lucide-react'
+import { PlusCircle, Edit, Trash, CircleAlert } from 'lucide-react'
 import { SellerClientFormDialog } from '@/components/seller/client-form-dialog' // Componente a ser criado
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoCircledIcon } from "@radix-ui/react-icons"
 
 interface Client {
   id: string
@@ -93,7 +92,7 @@ export default function SellerClientsPage() {
     return (
       <div className="container mx-auto p-4">
         <Alert variant="destructive">
-          <InfoCircledIcon className="h-4 w-4" />
+          <CircleAlert className="h-4 w-4" />
           <AlertTitle>Erro!</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>

@@ -3,11 +3,10 @@
 import * as React from "react"
 import { motion, HTMLMotionProps } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { ButtonProps, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
+import type { VariantProps } from "class-variance-authority"
 
-interface MotionButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
-  variant?: ButtonProps["variant"]
-  size?: ButtonProps["size"]
+interface MotionButtonProps extends Omit<HTMLMotionProps<"button">, "children">, VariantProps<typeof buttonVariants> {
   children: React.ReactNode
 }
 

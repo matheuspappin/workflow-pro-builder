@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger';
 
 /**
@@ -9,9 +9,21 @@ import logger from '@/lib/logger';
  * 2. Exclui permanentemente estúdios que estão desativados há mais de 15 dias.
  * 
  * Este endpoint deve ser chamado por um serviço de CRON externo (ex: GitHub Actions, Vercel Cron).
+ * Requer CRON_SECRET no header Authorization: Bearer <CRON_SECRET>
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authHeader = request.headers.get('authorization')
+    const cronSecret = process.env.CRON_SECRET
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (isProduction && !cronSecret) {
+      return NextResponse.json({ error: 'CRON_SECRET não configurado em produção' }, { status: 500 })
+    }
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
     const now = new Date().toISOString()
     const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -19,7 +31,7 @@ export async function GET() {
 
     // 1. DESATIVAÇÃO: Estúdios com Trial vencido
     // Regra: trial_ends_at < agora E subscription_status não é 'active' E status é 'active'
-    const { data: toDeactivate, error: deactivateError } = await supabase
+    const { data: toDeactivate, error: deactivateError } = await supabaseAdmin
       .from('studios')
       .update({ 
         status: 'inactive',
@@ -39,7 +51,7 @@ export async function GET() {
     // 2. EXCLUSÃO: Estúdios inativos há mais de 15 dias
     // Regra: status é 'inactive' E updated_at < 15 dias atrás E subscription_status não é 'active'
     // Nota: O ON DELETE CASCADE no schema cuidará de limpar todas as tabelas relacionadas.
-    const { data: toDelete, error: deleteError } = await supabase
+    const { data: toDelete, error: deleteError } = await supabaseAdmin
       .from('studios')
       .delete()
       .eq('status', 'inactive')

@@ -73,6 +73,8 @@ interface Professional {
   phone: string
   specialties: string[]
   perClassRate: number
+  bonusPerStudent?: number | string
+  bio?: string
   status: "ativo" | "inativo"
   classesThisMonth: number
   rating: number
@@ -321,12 +323,12 @@ function ProfessionalsContent() {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        toast.success(`Link de convite ${inviteEmail ? 'nominal' : 'público'} gerado com sucesso! Link: ${data.inviteLink}`)
+        toast({ title: "Sucesso", description: `Link de convite ${inviteEmail ? 'nominal' : 'público'} gerado! Link: ${data.inviteLink}` })
         setInviteEmail("")
         setInviteProfessionalType("technician")
         setIsInviteProfessionalDialogOpen(false)
       } else {
-        toast.error(data.error || "Erro ao enviar convite")
+        toast({ title: "Erro", description: data.error || "Erro ao enviar convite", variant: "destructive" })
       }
     } catch (error: any) {
       console.error('Erro ao enviar convite:', error)

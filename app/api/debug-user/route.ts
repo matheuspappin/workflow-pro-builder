@@ -5,9 +5,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  // Apenas disponível em ambiente de desenvolvimento
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Endpoint não disponível em produção' }, { status: 404 })
+  if (process.env.NODE_ENV === 'production' || process.env.DEBUG_MODE !== 'true') {
+    return NextResponse.json({ error: 'Endpoint não disponível' }, { status: 404 })
   }
 
   try {

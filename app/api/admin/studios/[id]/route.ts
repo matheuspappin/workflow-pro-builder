@@ -1,38 +1,19 @@
-import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import logger from '@/lib/logger';
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import logger from '@/lib/logger'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: studioId } = await params
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { isAdmin } = await checkSuperAdminDetailed()
 
-  if (!user || user.user_metadata?.role !== 'superadmin') {
+  if (!isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
-
-  // Use service role for admin access to bypass RLS
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   const { data, error } = await supabaseAdmin
     .from('studios')
@@ -52,5 +33,13 @@ export async function GET(
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  return NextResponse.json(data)
+  const settings = Array.isArray(data.organization_settings)
+    ? data.organization_settings[0]
+    : data.organization_settings
+  const modules = settings?.enabled_modules ?? {}
+
+  return NextResponse.json({
+    ...data,
+    modules,
+  })
 }

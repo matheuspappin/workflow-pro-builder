@@ -125,7 +125,7 @@ REGRAS CRÍTICAS:
     contents.push({ role: 'user', parts: [{ text: message }] })
 
     // 4. CHAMADA AO GEMINI
-    const modelToUse = model || 'gemini-2.0-flash'
+    const modelToUse = model || 'gemini-2.5-flash'
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -3,8 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { AppError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { createClient } from '@supabase/supabase-js'
 import { isLimitReached, PLAN_LIMITS } from '@/lib/plan-limits'
+import { checkStudioAccess } from '@/lib/auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -12,15 +12,27 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 // Handler para criar um novo convite
 export async function POST(request: NextRequest) {
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'84519b'},body:JSON.stringify({sessionId:'84519b',location:'app/api/invites/professionals/route.ts:15',message:'POST invite request received',data:{email, studioId, professionalType, createdByUserId},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
     const { email, studioId, professionalType = 'technician', role: internalRole, createdByUserId } = await request.json()
     const isInternalInvite = internalRole && ['finance', 'seller', 'receptionist'].includes(internalRole)
 
-    if (!studioId || !createdByUserId) {
-      throw new AppError('ID do estúdio e ID do criador são obrigatórios', 400, 'MISSING_REQUIRED_FIELDS');
+    if (!studioId) {
+      throw new AppError('ID do estúdio é obrigatório', 400, 'MISSING_REQUIRED_FIELDS');
     }
+
+    // Validação de segurança: verificar se o usuário logado tem acesso ao estúdio
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) {
+      return access.response
+    }
+
+    // Garantir que o createdByUserId corresponde ao usuário autenticado ou que o usuário autenticado é admin
+    if (createdByUserId && access.userId !== createdByUserId) {
+       // Se foi passado um createdByUserId diferente do usuário logado, logamos um aviso mas permitimos 
+       // se o usuário logado tiver permissão (checkStudioAccess já garantiu isso).
+       // No entanto, para consistência, forçamos o ID do usuário autenticado.
+       logger.warn(`Tentativa de criar convite com createdByUserId ${createdByUserId} diferente do usuário autenticado ${access.userId}. Usando ID autenticado.`);
+    }
+    const finalCreatorId = access.userId;
 
     // 1. Verificar se o estúdio existe e obter o plano
     const { data: studio, error: studioError } = await supabaseAdmin
@@ -59,7 +71,7 @@ export async function POST(request: NextRequest) {
       studio_id: studioId,
       email: email || null,
       token,
-      created_by: createdByUserId,
+      created_by: finalCreatorId,
       expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Expira em 30 dias para links abertos
       metadata: isInternalInvite ? { role: internalRole } : { professional_type: professionalType },
       role: isInternalInvite ? internalRole : professionalType,
@@ -70,10 +82,6 @@ export async function POST(request: NextRequest) {
       throw new AppError('Falha ao criar convite', 500, 'INVITE_CREATION_FAILED');
     }
 
-    // Link de convite gerado
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'84519b'},body:JSON.stringify({sessionId:'84519b',location:'app/api/invites/professionals/route.ts:70',message:'Invite link generated',data:{inviteLink, token, newInviteId: newInvite.id},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
     const inviteLink = `${request.headers.get('origin')}/setup/invite/${token}`;
     logger.info(`✉️ Link de convite ${email ? 'para ' + email : 'público'} gerado: ${inviteLink}`);
     
@@ -88,9 +96,6 @@ export async function POST(request: NextRequest) {
 // Handler para aceitar um convite (usado na página /setup/invite/[token])
 export async function PUT(request: NextRequest) {
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'84519b'},body:JSON.stringify({sessionId:'84519b',location:'app/api/invites/professionals/route.ts:84',message:'PUT accept invite request received',data:{token, userId, email},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
     const { token, userId, email } = await request.json()
 
     if (!token || !userId || !email) {
@@ -100,7 +105,7 @@ export async function PUT(request: NextRequest) {
     // 1. Buscar e validar o convite
     const { data: invite, error: inviteError } = await supabaseAdmin
       .from('studio_invites')
-      .select('*, studio:studio_id(id, name, plan), createdByUser:created_by(name)')
+      .select('*, studio:studio_id(id, name, plan)')
       .eq('token', token)
       .maybeSingle()
 
@@ -189,9 +194,6 @@ export async function PUT(request: NextRequest) {
 
     if (existingProfError) logger.error('Erro ao verificar profissionais existentes:', existingProfError);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'84519b'},body:JSON.stringify({sessionId:'84519b',location:'app/api/invites/professionals/route.ts:140',message:'Existing professional checks',data:{existingProfessional, orphanProfessional},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
     const existingProfessional = existingProfessionals?.find(p => p.studio_id === invite.studio_id);
     const orphanProfessional = existingProfessionals?.find(p => p.studio_id === null);
 
@@ -270,9 +272,6 @@ export async function PUT(request: NextRequest) {
       if (updateInviteError) logger.error('Erro ao marcar convite como usado:', updateInviteError);
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'84519b'},body:JSON.stringify({sessionId:'84519b',location:'app/api/invites/professionals/route.ts:217',message:'Invite accepted successfully',data:{studioId: invite.studio_id, professionalId: newProfessional.id},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
     logger.info(`✅ Convite ${invite.email ? 'nominal' : 'público'} aceito por ${email} para o estúdio ${invite.studio_id}. Profissional ID: ${newProfessional.id}`);
 
     return successResponse({ message: 'Convite aceito com sucesso', studioId: invite.studio_id, professionalId: newProfessional.id }, 200);
@@ -287,9 +286,6 @@ export async function PUT(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5e897388-3e47-4146-aa62-51afed14eb62',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'84519b'},body:JSON.stringify({sessionId:'84519b',location:'app/api/invites/professionals/route.ts:231',message:'GET invite validation request',data:{token},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
     const token = searchParams.get('token');
 
     if (!token) {
@@ -298,7 +294,7 @@ export async function GET(request: NextRequest) {
 
     const { data: invite, error: inviteError } = await supabaseAdmin
       .from('studio_invites')
-      .select('*, studio:studio_id(id, name), createdByUser:created_by(name), role')
+      .select('*, studio:studio_id(id, name), role')
       .eq('token', token)
       .maybeSingle();
 

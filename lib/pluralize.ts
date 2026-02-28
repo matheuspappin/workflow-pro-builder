@@ -8,6 +8,13 @@ export function pluralize(word: string): string {
   // Se já terminar em 's', assume que já está no plural ou é invariável
   if (word.toLowerCase().endsWith('s')) return word
 
+  // Casos especiais para termos compostos ou com plural irregular
+  const specialPlurals: Record<string, string> = {
+    'Vistoria/OS': 'Vistorias e OS',
+    'vistoria/OS': 'vistorias e OS',
+  }
+  if (specialPlurals[word]) return specialPlurals[word]
+
   // Casos especiais de palavras em inglês/estrangeiras comuns no sistema
   const foreignWords: Record<string, string> = {
     'coach': 'coaches',
@@ -30,7 +37,6 @@ export function pluralize(word: string): string {
     'utility': 'utilities',
     'itinerary': 'itineraries',
     'agency': 'agencies',
-    'specialty': 'specialties',
     'professional': 'professionals',
     'patient': 'patients',
     'client': 'clients',

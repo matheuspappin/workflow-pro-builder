@@ -47,12 +47,11 @@ interface Ticket {
   created_at: string
   updated_at: string
   lastMessage?: string
+  customer?: string
+  studio?: string | { name: string }
   user: {
     email: string
     user_metadata: any
-  }
-  studio?: {
-    name: string
   }
 }
 
@@ -293,13 +292,13 @@ export default function AdminSupportPage() {
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10 border border-slate-100 dark:border-slate-800">
                         <AvatarFallback className="bg-slate-100 text-slate-600 font-bold uppercase">
-                          {ticket.customer.substring(0, 2)}
+                          {(ticket.customer ?? ticket.user?.email ?? '?').substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{ticket.customer}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{ticket.customer ?? ticket.user?.email ?? '—'}</p>
                         <p className="text-xs text-slate-400 flex items-center gap-1">
-                          <Building2 className="w-3 h-3" /> {ticket.studio}
+                          <Building2 className="w-3 h-3" /> {typeof ticket.studio === 'object' ? ticket.studio?.name : ticket.studio ?? '—'}
                         </p>
                       </div>
                     </div>
@@ -307,7 +306,7 @@ export default function AdminSupportPage() {
                     <div className="hidden lg:block text-right">
                       <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Criado em</p>
                       <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                        {new Date(ticket.createdAt).toLocaleDateString('pt-BR')}
+                        {new Date(ticket.created_at).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
 
@@ -370,7 +369,7 @@ export default function AdminSupportPage() {
                   <div>
                     <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedTicket.user?.email}</p>
                     <p className="text-xs text-slate-400 flex items-center gap-1">
-                      <Building2 className="w-3 h-3" /> {selectedTicket.studio?.name || 'Sem estúdio'}
+                      <Building2 className="w-3 h-3" /> {typeof selectedTicket.studio === 'object' ? selectedTicket.studio?.name : selectedTicket.studio ?? 'Sem estúdio'}
                     </p>
                   </div>
                 </div>

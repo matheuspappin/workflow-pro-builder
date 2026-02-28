@@ -1,8 +1,11 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { validateCPF, validateCNPJ } from '@/lib/validation-utils'
+import { registerSchema } from '@/lib/schemas/auth'
+import { checkAuthRateLimit } from '@/lib/rate-limit'
 import { createClient } from '@supabase/supabase-js'
 import { AppError } from '@/lib/errors'
+import { maskEmail } from '@/lib/sanitize-logs'
 import logger from '@/lib/logger'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { generateUniqueSlug } from '@/lib/utils/slug'
@@ -15,14 +18,29 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 export async function POST(request: NextRequest) {
   try {
-    let { 
-      name, 
-      email, 
-      studioName, 
-      password, 
-      role = 'admin', 
-      taxId, 
-      taxIdType = 'cpf', 
+    const rate = await checkAuthRateLimit(request)
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Muitas tentativas de cadastro. Aguarde um momento antes de tentar novamente.' },
+        { status: 429, headers: rate.retryAfter ? { 'Retry-After': String(rate.retryAfter) } : {} }
+      )
+    }
+
+    const body = await request.json()
+    const parsed = registerSchema.safeParse(body)
+    if (!parsed.success) {
+      const first = parsed.error.errors[0]
+      throw new AppError(first?.message ?? 'Dados inválidos', 400, 'VALIDATION_ERROR')
+    }
+
+    let {
+      name,
+      email,
+      studioName,
+      password,
+      role = 'admin',
+      taxId,
+      taxIdType = 'cpf',
       phone,
       birthDate,
       address,
@@ -30,24 +48,20 @@ export async function POST(request: NextRequest) {
       businessModel,
       plan,
       studioId,
-      modules, // Modules selection for custom plan
+      modules,
       multiUnitQuantity = 1,
       language: registerLanguage,
-      professionalRegistration
-    } = await request.json()
+      professionalRegistration,
+    } = parsed.data
 
     // Normalização de roles vindo de diferentes portais
     if (role === 'client') role = 'student'
     if (role === 'professional') role = 'teacher'
     if (role === 'sales') role = 'seller'
     if (role === 'engineer') role = 'engineer'
-    if (role === 'architect') role = 'architect' // Adicionado suporte para Arquiteto
+    if (role === 'architect') role = 'architect'
 
-    logger.info('➡️ Tentativa de Registro para:', { email, role, plan });
-
-    if (!name || !email || !password || !taxId || !phone) {
-      throw new AppError('Nome, e-mail, documento, telefone e senha são obrigatórios', 400, 'MISSING_REQUIRED_FIELDS');
-    }
+    logger.info('➡️ Tentativa de Registro para:', { email: maskEmail(email), role, plan })
 
     const cleanPhone = phone.replace(/\D/g, '')
     logger.info('✅ E-mail verificado (Simulado para testes).');
@@ -56,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Algoritmo de validação de documento
     const isDocumentValid = taxIdType === 'cnpj' ? validateCNPJ(taxId) : validateCPF(taxId)
     if (!isDocumentValid) {
-      logger.error('❌ Documento inválido:', taxId);
+      logger.error('❌ Documento inválido (CPF/CNPJ não passou na validação)');
       throw new AppError(`O ${taxIdType.toUpperCase()} informado é inválido.`, 400, 'INVALID_TAX_ID');
     }
     logger.info('✅ Documento válido.');
@@ -67,7 +81,7 @@ export async function POST(request: NextRequest) {
       supabaseAdmin.from('professionals').select('id').eq('cpf_cnpj', taxId).maybeSingle(),
       supabaseAdmin.from('students').select('id').eq('cpf_cnpj', taxId).maybeSingle()
     ])
-    logger.debug('🔍 Verificação de CPF/CNPJ existente:', { checkAdmin: checkAdmin.data, checkProfessional: checkProfessional.data, checkStudent: checkStudent.data });
+    logger.debug('🔍 Verificação de CPF/CNPJ existente:', { adminExists: !!checkAdmin.data, profExists: !!checkProfessional.data, studentExists: !!checkStudent.data });
 
     if (checkAdmin.data || checkProfessional.data || checkStudent.data) {
       logger.error('❌ CPF/CNPJ já existe.');
@@ -94,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     // 1. Se for ADMIN (Dono), criar o estúdio
     if (role === 'admin') {
-      const slug = await generateUniqueSlug(studioName, 'studios')
+      const slug = await generateUniqueSlug(studioName!, 'studios')
       
       // Determine plan ID
       let selectedPlanId = plan || 'gratuito'
@@ -202,8 +216,15 @@ export async function POST(request: NextRequest) {
 
       // Configurar Ecossistema (organization_settings) se nicho for fornecido
       if (niche) {
-        // 1. Obter módulos padrão baseados no nicho escolhido
-        let enabledModules: any = getDefaultModulesForNiche(niche as any);
+        // 1. Obter módulos da verticalização ativa no banco (tem precedência sobre o hardcoded)
+        const { data: verticalizationData } = await supabaseAdmin
+          .from('verticalizations')
+          .select('modules')
+          .eq('niche', niche)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        let enabledModules: any = verticalizationData?.modules ?? getDefaultModulesForNiche(niche as any);
 
         // Logic for modules override (Custom Plan or Specific Plan Features)
         if (plan === 'custom' && modules) {

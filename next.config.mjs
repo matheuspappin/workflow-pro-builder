@@ -6,6 +6,13 @@ const nextConfig = {
   // Removido serverExternalPackages pois removemos a dependência direta do pino
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+    ],
   },
 };
 

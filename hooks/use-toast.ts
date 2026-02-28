@@ -1,7 +1,8 @@
 'use client'
 
-// Inspired by react-hot-toast library
+// Padrão unificado: useToast delega para sonner (lib sonner)
 import * as React from 'react'
+import { toast as sonnerToast } from 'sonner'
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 
@@ -139,32 +140,22 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, 'id'>
 
-function toast({ ...props }: Toast) {
-  const id = genId()
+function toast(props: Toast) {
+  const title = props.title ?? ''
+  const description = props.description as string | undefined
 
-  const update = (props: ToasterToast) =>
-    dispatch({
-      type: 'UPDATE_TOAST',
-      toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id })
-
-  dispatch({
-    type: 'ADD_TOAST',
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
-    },
-  })
+  if (props.variant === 'destructive') {
+    sonnerToast.error(title || 'Erro', { description })
+  } else if ((props as { variant?: string }).variant === 'warning') {
+    sonnerToast.warning(title || 'Atenção', { description })
+  } else {
+    sonnerToast.success(title || 'Sucesso', { description })
+  }
 
   return {
-    id: id,
-    dismiss,
-    update,
+    id: genId(),
+    dismiss: () => sonnerToast.dismiss(),
+    update: () => {},
   }
 }
 

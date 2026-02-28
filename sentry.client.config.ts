@@ -16,7 +16,7 @@ Sentry.init({
   integrations: [
     Sentry.replayIntegration({
       // Additional Replay configuration goes in here, for example:
-      maskAllTextInputs: true,
+      maskAllInputs: true,
       blockAllMedia: true,
     }),
   ],

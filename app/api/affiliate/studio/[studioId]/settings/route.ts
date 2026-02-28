@@ -4,8 +4,6 @@ import { NextResponse } from 'next/server';
 import { normalizeModules } from '@/config/modules';
 import logger from '@/lib/logger';
 
-// REMOVED local createClient
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ studioId: string }> }
@@ -13,7 +11,11 @@ export async function GET(
   const { studioId } = await params
   const supabase = await createClient();
 
-  // Implementar verificação se o usuário (afiliado) tem permissão para gerenciar este studioId
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  }
+
   const { data: partnerData, error: partnerError } = await supabase
     .from('partners')
     .select('id')
@@ -61,7 +63,11 @@ export async function POST(
   const supabase = await createClient();
   const { enabledModules } = await request.json();
 
-  // Implementar verificação se o usuário (afiliado) tem permissão para gerenciar este studioId
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  }
+
   const { data: partnerData, error: partnerError } = await supabase
     .from('partners')
     .select('id')

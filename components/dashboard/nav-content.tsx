@@ -305,10 +305,11 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false,
     },
   ]
 
-  let menuItems = dashboardMenuItems;
+  type MenuItem = { id: string; icon: typeof LayoutDashboard; label: string; href: string; module?: string }
+  let menuItems: MenuItem[] = dashboardMenuItems as MenuItem[];
   if (isAffiliate) menuItems = affiliateMenuItems;
-  if (isSeller) menuItems = sellerMenuItems;
-  if (isFinance) menuItems = financeMenuItems;
+  if (isSeller) menuItems = sellerMenuItems as MenuItem[];
+  if (isFinance) menuItems = financeMenuItems as MenuItem[];
 
   const handleLogout = async () => {
     try {

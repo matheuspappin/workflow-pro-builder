@@ -280,13 +280,8 @@ function translateToEnglish(term: string): string {
     'Categoria': 'Category',
     'Aula Prática': 'Driving Class',
     'Centro Esportivo': 'Sports Center',
-    'Atleta': 'Athlete',
-    'Treino': 'Workout',
     'Esporte': 'Sport',
-    'Clínica Veterinária': 'Veterinary Clinic',
-    'Tutor': 'Owner',
-    'Veterinário': 'Veterinarian',
-    'Consulta': 'Appointment'
+    'Clínica Veterinária': 'Veterinary Clinic'
   }
   return dictionary[term] || term
 }

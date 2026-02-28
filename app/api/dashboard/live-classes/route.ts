@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         const durationMinutes = s.duration_minutes || 60;
 
         if (!startTime.includes(':')) {
-            console.warn(`⚠️ [LIVE-CLASSES] Formato de horário inválido para turma ${cls.name}: start=${startTime}`);
+            logger.warn(`⚠️ [LIVE-CLASSES] Formato de horário inválido para turma ${cls.name}: start=${startTime}`);
             return false;
         }
 

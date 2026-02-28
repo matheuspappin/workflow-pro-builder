@@ -274,7 +274,7 @@ export default function WhatsAppPage() {
       if (data.success) {
         setConnectionStatus('disconnected')
         setQrCode(null)
-        toast({ title: t.whatsapp.disconnectedSuccess, description: t.whatsapp.disconnectedDesc })
+        toast({ title: t.whatsapp.disconnectSuccess, description: t.whatsapp.disconnectedDesc })
       } else {
         throw new Error(data.error)
       }
@@ -436,7 +436,7 @@ export default function WhatsAppPage() {
       toast({ title: t.whatsapp.contactUpdated, description: t.whatsapp.contactUpdatedDesc })
       setIsEditModalOpen(false)
       loadChats()
-      setSelectedChat(prev => ({ ...prev, contact_name: editName, contact_type: editType }))
+      setSelectedChat((prev: any) => prev ? ({ ...prev, contact_name: editName, contact_type: editType }) : null)
     } catch (error) {
       toast({ title: t.whatsapp.updateError, description: t.whatsapp.updateErrorDesc, variant: "destructive" })
     }

@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import logger from '@/lib/logger'
 
 const messageSchema = z.object({
   message: z.string().min(1, "Mensagem é obrigatória"),
@@ -29,13 +30,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       .order('created_at', { ascending: true })
 
     if (error) {
-      console.error('Error fetching messages:', error)
+      logger.error('Error fetching messages:', error)
       return new NextResponse('Error fetching messages', { status: 500 })
     }
 
     return NextResponse.json(messages)
   } catch (error) {
-    console.error('Internal Error:', error)
+    logger.error('Internal Error:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
@@ -67,7 +68,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .single()
 
     if (error) {
-      console.error('Error adding message:', error)
+      logger.error('Error adding message:', error)
       return new NextResponse('Error adding message', { status: 500 })
     }
 
@@ -82,7 +83,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (error instanceof z.ZodError) {
       return new NextResponse(JSON.stringify(error.issues), { status: 400 })
     }
-    console.error('Internal Error:', error)
+    logger.error('Internal Error:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }

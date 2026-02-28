@@ -24,7 +24,7 @@ interface SellerClientFormDialogProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  client: ClientFormValues | null
+  client: (ClientFormValues & { id?: string }) | null
   sellerId: string
   studioId: string
 }

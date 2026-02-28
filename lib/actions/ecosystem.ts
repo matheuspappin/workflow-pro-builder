@@ -7,6 +7,7 @@ import { nicheDictionary } from "@/config/niche-dictionary"
 import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
 import logger from "@/lib/logger"
+import { maskEmail, maskId } from "@/lib/sanitize-logs"
 import { generateUniqueSlug } from "@/lib/utils/slug"
 
 /**
@@ -40,7 +41,7 @@ export async function createEcosystemInvite(data: {
     logger.debug('🔄 [1] Tentando autenticação via SSR Client (Cookies)...')
     const { data: { user: authUser }, error: authError } = await authClient.auth.getUser()
     if (authUser) {
-      logger.info('✅ [1] Autenticação SSR sucesso:', authUser.id)
+      logger.info('✅ [1] Autenticação SSR sucesso:', maskId(authUser.id))
       user = authUser;
     } else {
       logger.warn('⚠️ [1] Falha getUser:', authError?.message)
@@ -112,7 +113,7 @@ export async function createEcosystemInvite(data: {
     throw new Error("Não autorizado: Não foi possível identificar o usuário. Tente fazer login novamente.")
   }
 
-  logger.info('✅ Usuário FINAL identificado:', user.email, `(${user.id})`)
+  logger.info('✅ Usuário FINAL identificado:', maskEmail(user.email))
 
   // 2. Verificar Permissões (Super Admin ou Parceiro)
   // Usamos adminClient preferencialmente para ler dados de usuários/parceiros sem bloqueio de RLS
@@ -136,7 +137,7 @@ export async function createEcosystemInvite(data: {
     user.app_metadata?.role === 'super_admin' ||
     user.email?.toLowerCase() === 'vendaslachef@gmail.com';
 
-  logger.info(`🔍 Verificação de permissão para ${user.email}: DB=${profile?.role}, Meta=${user.user_metadata?.role}, AppMeta=${user.app_metadata?.role} -> SuperAdmin=${isSuperAdmin}`)
+  logger.info(`🔍 Verificação de permissão: DB=${profile?.role}, Meta=${user.user_metadata?.role}, AppMeta=${user.app_metadata?.role} -> SuperAdmin=${isSuperAdmin}`)
 
   
   let partnerId = data.partnerId;
@@ -150,10 +151,10 @@ export async function createEcosystemInvite(data: {
        .maybeSingle()
      
      if (!partner) {
-       logger.error(`❌ Acesso negado para ${user.email}: Nem Super Admin, nem Parceiro.`)
+       logger.error('❌ Acesso negado: Nem Super Admin, nem Parceiro.')
        throw new Error("Permissão negada: Apenas Super Admins ou Parceiros podem criar ecossistemas")
      }
-     logger.info('✅ Usuário é Parceiro ID:', partner.id)
+     logger.info('✅ Usuário é Parceiro')
      partnerId = partner.id;
   } else {
     logger.info('✅ Usuário é Super Admin.')
@@ -163,6 +164,9 @@ export async function createEcosystemInvite(data: {
   // Aqui PRECISARÍAMOS do adminClient para garantir bypass de RLS na criação de tabelas 'globais' como studios
   // Se não tiver adminClient, tentamos com authClient, mas avisamos se der erro.
   const dbWriter = adminClient || authClient;
+  if (!dbWriter) {
+    throw new Error('Database client not available')
+  }
 
   if (!adminClient) {
     logger.warn('⚠️ AVISO: Service Role Key ausente. Tentando criar studio com permissões do usuário (pode falhar por RLS).')
@@ -193,7 +197,7 @@ export async function createEcosystemInvite(data: {
     logger.error('❌ Erro ao criar studio:', studioError)
     throw new Error(`Erro ao criar studio: ${studioError.message} (Dica: Verifique se SUPABASE_SERVICE_ROLE_KEY está configurada)`)
   }
-  logger.info('✅ Studio criado com sucesso:', studio.id)
+  logger.info('✅ Studio criado com sucesso')
 
   // 4. Criar Configurações
   logger.info('⚙️ Criando configurações para o studio...')
@@ -219,9 +223,12 @@ export async function createEcosystemInvite(data: {
     .from('studio_invites')
     .insert({
       studio_id: studio.id,
-      email: data.clientEmail,
+      email: data.clientEmail || null,
       token: token,
-      created_by: user.id
+      created_by: user.id,
+      invite_type: 'ecosystem',
+      metadata: { invite_type: 'ecosystem', niche: data.niche },
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias
     })
 
   if (inviteError) {
@@ -230,7 +237,7 @@ export async function createEcosystemInvite(data: {
   }
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/setup/invite/${token}`
-  logger.info('✅ Ecossistema criado com sucesso! URL:', inviteUrl)
+  logger.info('✅ Ecossistema criado com sucesso')
 
   return { 
     success: true, 
@@ -243,7 +250,7 @@ export async function createEcosystemInvite(data: {
  * Resgata o convite: Transfere a propriedade do estúdio para o usuário atual
  */
 export async function claimEcosystem(token: string) {
-  logger.info('➡️ Tentativa de resgate de ecossistema para token:', token)
+  logger.info('➡️ Tentativa de resgate de ecossistema')
   
   let user = null;
   const authClient = await getAuthenticatedClient()
@@ -270,7 +277,7 @@ export async function claimEcosystem(token: string) {
 
   if (!user) throw new Error("Não autenticado")
 
-  logger.info('✅ Usuário autenticado para resgate:', user.id)
+  logger.info('✅ Usuário autenticado para resgate')
 
   const adminClient = await getAdminClient()
   // Aqui realmente precisamos do AdminClient para trocar dono, ou que o usuário tenha permissão.

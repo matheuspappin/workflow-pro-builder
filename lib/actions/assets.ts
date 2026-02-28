@@ -3,7 +3,7 @@ import { Asset, CreateAssetDTO, UpdateAssetDTO, AssetStatus } from '@/types/asse
 import { addDays, isBefore, isAfter, parseISO } from 'date-fns';
 
 export async function getAssets(studentId?: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   let query = supabase.from('assets').select('*');
   
   if (studentId) {
@@ -21,7 +21,7 @@ export async function getAssets(studentId?: string) {
 }
 
 export async function getAssetById(id: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('assets')
     .select('*, student:students(name, email)')
@@ -37,7 +37,7 @@ export async function getAssetById(id: string) {
 }
 
 export async function getAssetByQrCode(qrCode: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('assets')
     .select('*, student:students(name, email)')
@@ -53,7 +53,7 @@ export async function getAssetByQrCode(qrCode: string) {
 }
 
 export async function createAsset(data: CreateAssetDTO) {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Gerar QR Code hash se não existir (simples uuid ou hash)
   const qr_code = crypto.randomUUID();
@@ -77,7 +77,7 @@ export async function createAsset(data: CreateAssetDTO) {
 }
 
 export async function updateAsset(id: string, data: Partial<UpdateAssetDTO>) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: updatedAsset, error } = await supabase
     .from('assets')
     .update(data)

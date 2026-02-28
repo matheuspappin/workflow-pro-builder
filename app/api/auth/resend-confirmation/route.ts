@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
     // Usar o service_role_key para reenviar o e-mail de confirmação
     const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data, error } = await adminSupabase.auth.admin.resendConfirmationForEmail(email);
+    const { data, error } = await adminSupabase.auth.resend({
+      type: 'signup',
+      email,
+    });
 
     if (error) {
       logger.error('Erro ao reenviar e-mail de confirmação:', error);

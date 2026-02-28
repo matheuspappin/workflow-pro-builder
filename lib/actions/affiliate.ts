@@ -3,10 +3,12 @@
 import { getAuthenticatedClient } from "@/lib/server-utils";
 import { getStripe } from "@/lib/stripe";
 import logger from "@/lib/logger";
+import { maskId } from "@/lib/sanitize-logs";
 
 export async function createStripeConnectAccountLink(userId: string, returnUrl: string) {
   const stripe = getStripe();
   const client = await getAuthenticatedClient();
+  if (!client) throw new Error("Não autenticado");
 
   // Fonte única de verdade para o Stripe Account ID do afiliado: tabela 'partners'
   const { data: partnerData, error: partnerError } = await client
@@ -21,7 +23,7 @@ export async function createStripeConnectAccountLink(userId: string, returnUrl: 
   }
 
   if (!partnerData) {
-    logger.error(`Usuário ${userId} não possui um registro na tabela 'partners'.`);
+    logger.error('Usuário não possui registro na tabela partners.', { userId: maskId(userId) });
     throw new Error("Usuário não identificado como parceiro/afiliado.");
   }
 
@@ -32,7 +34,7 @@ export async function createStripeConnectAccountLink(userId: string, returnUrl: 
     const { data: { user } } = await client.auth.getUser();
     const email = user?.email;
 
-    logger.info(`Criando nova conta Stripe Connect para o parceiro ${userId}`);
+    logger.info('Criando nova conta Stripe Connect para o parceiro');
     
     // Crie uma nova conta Express no Stripe Connect
     const account = await stripe.accounts.create({
@@ -71,6 +73,7 @@ export async function createStripeConnectAccountLink(userId: string, returnUrl: 
 
 export async function getAffiliateProfile(userId: string) {
   const client = await getAuthenticatedClient();
+  if (!client) return null;
   
   // Fonte única de verdade: tabela 'partners'
   const { data: partnerProfile, error } = await client
@@ -89,6 +92,7 @@ export async function getAffiliateProfile(userId: string) {
 
 export async function getAffiliatePayoutSettings(userId: string) {
   const client = await getAuthenticatedClient();
+  if (!client) return null;
   const { data, error } = await client
     .from('affiliate_payout_settings')
     .select('*')
@@ -104,6 +108,7 @@ export async function getAffiliatePayoutSettings(userId: string) {
 
 export async function saveAffiliatePayoutSettings(userId: string, settings: { payout_frequency?: string; minimum_payout_amount?: number }) {
   const client = await getAuthenticatedClient();
+  if (!client) throw new Error("Não autenticado");
   const { error } = await client
     .from('affiliate_payout_settings')
     .upsert({ user_id: userId, ...settings }, { onConflict: 'user_id' });

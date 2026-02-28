@@ -293,7 +293,7 @@ function SettingsContent() {
   const [expandedIntegration, setExpandedIntegration] = useState<"whatsapp" | "payment" | "supabase" | null>(null)
 
   const [geminiModels, setGeminiModels] = useState<any[]>([])
-  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>("gemini-2.0-flash")
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>("gemini-2.5-flash")
   const [loadingModels, setLoadingModels] = useState(false)
 
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
@@ -310,6 +310,7 @@ function SettingsContent() {
   const [invoices, setInvoices] = useState<any[]>([])
   const [creditPackages, setCreditPackages] = useState<any[]>([])
   const [loadingCredits, setLoadingCredits] = useState(false)
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
   const [integratedWhatsApp, setIntegratedWhatsApp] = useState<any>(null)
   const [reports, setReports] = useState<any[]>([])
   const [loadingReports, setLoadingReports] = useState(false)
@@ -1013,7 +1014,7 @@ function SettingsContent() {
       toast({
         title: "Aviso de Sincronização",
         description: "Os dados foram salvos localmente, mas não conseguimos atualizar o servidor. Verifique sua conexão.",
-        variant: "warning",
+        variant: "default",
       })
     }
 
@@ -1209,7 +1210,7 @@ function SettingsContent() {
               </CardContent>
             </Card>
 
-            <EcosystemSettings studioId={studioSettings.id || studioId} />
+            <EcosystemSettings studioId={studioSettings.id || studioId || ""} />
           </TabsContent>
 
           {/* Notificacoes Tab */}
@@ -2251,7 +2252,7 @@ function SettingsContent() {
           </TabsContent>
           {enabledModules.gamification && (
             <TabsContent value="gamificacao" className="space-y-6">
-              <GamificationSettings studioId={studioId} />
+              <GamificationSettings studioId={studioId || ""} />
             </TabsContent>
           )}
 

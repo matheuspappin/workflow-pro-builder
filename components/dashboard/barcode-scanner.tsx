@@ -49,16 +49,13 @@ export function BarcodeScanner({ onScanSuccess, isOpen, onClose }: BarcodeScanne
       scannerRef.current = scanner
 
       await scanner.start(
-        { 
-          facingMode: "environment",
-        }, 
+        { facingMode: "environment" },
         {
-          fps: 30, // Aumentar ainda mais para 30 FPS para maior fluidez
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            // Box retangular ainda mais otimizado para 1D
-            const width = Math.min(viewfinderWidth * 0.85, 400);
-            const height = Math.min(viewfinderHeight * 0.3, 150);
-            return { width, height };
+          fps: 30,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const width = Math.min(viewfinderWidth * 0.85, 400)
+            const height = Math.min(viewfinderHeight * 0.3, 150)
+            return { width, height }
           },
           aspectRatio: 1.0,
           formatsToSupport: [
@@ -69,12 +66,10 @@ export function BarcodeScanner({ onScanSuccess, isOpen, onClose }: BarcodeScanne
             Html5QrcodeSupportedFormats.UPC_A,
             Html5QrcodeSupportedFormats.UPC_E,
             Html5QrcodeSupportedFormats.ITF,
-            Html5QrcodeSupportedFormats.QR_CODE
+            Html5QrcodeSupportedFormats.QR_CODE,
           ],
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          }
-        },
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        } as any,
         (decodedText) => {
           // Sucesso
           onScanSuccess(decodedText)

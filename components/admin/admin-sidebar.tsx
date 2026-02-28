@@ -22,9 +22,57 @@ import {
   Layers,
   FireExtinguisher,
   ChevronDown,
+  Activity,
+  Shield,
+  Stethoscope,
+  Wrench,
+  Hammer,
+  Truck,
+  Car,
+  Scissors,
+  Dumbbell,
+  ChefHat,
+  Leaf,
+  Music,
+  Camera,
+  Home,
+  BookOpen,
+  GraduationCap,
+  ShoppingCart,
+  Briefcase,
+  Package,
+  Heart,
+  Globe,
+  Zap,
+  Star,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { clearLocalUser } from "@/lib/constants/storage-keys"
+
+// Mapa de ícones por nome (igual ao usado nas páginas de verticalização)
+const ICON_MAP: Record<string, React.ElementType> = {
+  FireExtinguisher, Shield, Stethoscope, Wrench, Hammer, Truck, Car,
+  Scissors, Dumbbell, ChefHat, Leaf, Music, Camera, Home, BookOpen,
+  GraduationCap, ShoppingCart, Briefcase, Package, Heart, Globe, Layers,
+  Zap, Star, Users, Settings, Building2,
+}
+
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  active: { label: 'Ativo', className: 'text-emerald-400 bg-emerald-500/20' },
+  beta: { label: 'Beta', className: 'text-amber-400 bg-amber-500/20' },
+  coming_soon: { label: 'Breve', className: 'text-white/40 bg-white/5' },
+}
+
+interface SidebarVerticalization {
+  id: string
+  name: string
+  slug: string
+  icon_name: string
+  icon_color: string
+  status: string
+  admin_url?: string
+}
 
 interface AdminSidebarProps {
   collapsed: boolean
@@ -35,6 +83,7 @@ interface AdminSidebarProps {
 
 const mainMenuItems = [
   { icon: LayoutDashboard, label: "Visão Geral", href: "/admin" },
+  { icon: Activity, label: "Status do Ecossistema", href: "/admin/ecosystem-status" },
   { icon: Building2, label: "Tenants (Empresas)", href: "/admin/studios" },
   { icon: Handshake, label: "Afiliados", href: "/admin/affiliates" },
   { icon: PlusCircle, label: "Novo Ecossistema", href: "/admin/ecosystems/new" },
@@ -46,27 +95,43 @@ const mainMenuItems = [
   { icon: Settings, label: "Configurações Globais", href: "/admin/settings" },
 ]
 
-const verticalizations = [
-  {
-    icon: FireExtinguisher,
-    label: "Fire Control",
-    href: "/admin/verticalizations/fire-protection",
-    color: "text-red-400",
-    badge: "Ativo",
-  },
-]
-
 export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: AdminSidebarProps) {
   const pathname = usePathname()
   const [verticalizationsOpen, setVerticalizationsOpen] = useState(
     pathname.startsWith('/admin/verticalizations')
   )
+  const [verticalizations, setVerticalizations] = useState<SidebarVerticalization[]>([])
+  const [loadingVerticals, setLoadingVerticals] = useState(false)
+
+  // Carrega verticalizações dinamicamente via API
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchVerticalizations() {
+      setLoadingVerticals(true)
+      try {
+        const res = await fetch('/api/admin/verticalizations', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) {
+          setVerticalizations(Array.isArray(data) ? data : [])
+        }
+      } catch {
+        // silencia erros de rede
+      } finally {
+        if (!cancelled) setLoadingVerticals(false)
+      }
+    }
+
+    fetchVerticalizations()
+    return () => { cancelled = true }
+  }, [])
 
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch (e) {}
-    localStorage.removeItem("danceflow_user")
+    clearLocalUser('default')
     window.location.href = "/login"
   }
 
@@ -74,7 +139,7 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
     <>
       {/* Overlay para Mobile */}
       {mobileOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 lg:hidden"
           onClick={onMobileClose}
         />
@@ -82,25 +147,25 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
 
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full bg-slate-950 text-slate-50 border-r border-slate-800 flex flex-col transition-all duration-300 z-50 lg:z-40",
+          "fixed left-0 top-0 h-full bg-black text-white border-r border-white/10 flex flex-col transition-all duration-300 z-50 lg:z-40",
           mobileOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0",
           collapsed ? "lg:w-[72px]" : "lg:w-64"
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
           <Link href="/admin" className="flex items-center gap-2" onClick={onMobileClose}>
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
+            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
             {(!collapsed || mobileOpen) && (
-              <span className="text-lg font-bold tracking-tight">
-                Workflow <span className="text-indigo-400">Admin</span>
+              <span className="text-lg font-black tracking-tight">
+                AKAAI <span className="text-white/50">HUB</span>
               </span>
             )}
           </Link>
           {mobileOpen && (
-            <Button variant="ghost" size="icon" onClick={onMobileClose} className="lg:hidden text-slate-400">
+            <Button variant="ghost" size="icon" onClick={onMobileClose} className="lg:hidden text-white/60 hover:text-white">
               <X className="w-5 h-5" />
             </Button>
           )}
@@ -120,8 +185,8 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
                       isActive
-                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/10"
-                        : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                        ? "bg-white/10 text-white border border-white/20"
+                        : "text-white/50 hover:bg-white/5 hover:text-white"
                     )}
                   >
                     <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -136,7 +201,7 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
           {(!collapsed || mobileOpen) && (
             <div className="pt-3">
               <div className="px-3 mb-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
                   Verticalizações
                 </p>
               </div>
@@ -147,8 +212,8 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
                   pathname.startsWith('/admin/verticalizations')
-                    ? "bg-slate-800 text-slate-100"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                    ? "bg-white/5 text-white border border-white/10"
+                    : "text-white/50 hover:bg-white/5 hover:text-white"
                 )}
               >
                 <Layers className="w-5 h-5 flex-shrink-0" />
@@ -160,8 +225,8 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
               </button>
 
               {verticalizationsOpen && (
-                <ul className="mt-1 ml-4 pl-3 border-l border-slate-800 space-y-0.5">
-                  {/* Link para a central de verticalizações */}
+                <ul className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-0.5">
+                  {/* Central de verticalizações */}
                   <li>
                     <Link
                       href="/admin/verticalizations"
@@ -169,34 +234,70 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
                         pathname === '/admin/verticalizations'
-                          ? "bg-indigo-600/20 text-indigo-300 font-semibold"
-                          : "text-slate-500 hover:text-slate-200 hover:bg-slate-900"
+                          ? "bg-white/10 text-white font-semibold border border-white/20"
+                          : "text-white/50 hover:text-white hover:bg-white/5"
                       )}
                     >
-                      <Layers className="w-4 h-4" />
+                      <Layers className="w-4 h-4 flex-shrink-0" />
                       <span>Central de Soluções</span>
                     </Link>
                   </li>
-                  {verticalizations.map((v) => (
-                    <li key={v.href}>
-                      <Link
-                        href={v.href}
-                        onClick={onMobileClose}
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
-                          pathname.startsWith(v.href)
-                            ? "bg-slate-800 text-slate-100 font-semibold"
-                            : "text-slate-500 hover:text-slate-200 hover:bg-slate-900"
-                        )}
-                      >
-                        <v.icon className={cn("w-4 h-4", v.color)} />
-                        <span className="flex-1">{v.label}</span>
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-500/70 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                          {v.badge}
-                        </span>
-                      </Link>
+
+                  {/* Nova verticalização */}
+                  <li>
+                    <Link
+                      href="/admin/verticalizations/new"
+                      onClick={onMobileClose}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
+                        pathname === '/admin/verticalizations/new'
+                          ? "bg-white/10 text-white font-semibold border border-white/20"
+                          : "text-white/50 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <PlusCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>Nova Verticalização</span>
+                    </Link>
+                  </li>
+
+                  {/* Lista dinâmica de verticalizações */}
+                  {loadingVerticals && verticalizations.length === 0 && (
+                    <li className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-white/10 animate-pulse flex-shrink-0" />
+                        <div className="h-3 w-24 bg-white/10 rounded animate-pulse" />
+                      </div>
                     </li>
-                  ))}
+                  )}
+                  {verticalizations.map(v => {
+                    const IconComp = ICON_MAP[v.icon_name] || Layers
+                    const href = v.admin_url || `/admin/verticalizations/${v.slug}`
+                    const isActive = pathname.startsWith(href)
+                    const badge = STATUS_BADGE[v.status] || STATUS_BADGE.coming_soon
+                    return (
+                      <li key={v.id}>
+                        <Link
+                          href={href}
+                          onClick={onMobileClose}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
+                            isActive
+                              ? "bg-white/5 text-white font-semibold border border-white/10"
+                              : "text-white/50 hover:text-white hover:bg-white/5"
+                          )}
+                        >
+                          <IconComp className={cn("w-4 h-4 flex-shrink-0", v.icon_color)} />
+                          <span className="flex-1 truncate">{v.name}</span>
+                          <span className={cn(
+                            'text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0',
+                            badge.className
+                          )}>
+                            {badge.label}
+                          </span>
+                        </Link>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
@@ -210,8 +311,8 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
                 className={cn(
                   "flex items-center justify-center px-3 py-2.5 rounded-lg transition-all duration-200",
                   pathname.startsWith('/admin/verticalizations')
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                    ? "bg-white/10 text-white border border-white/20"
+                    : "text-white/50 hover:bg-white/5 hover:text-white"
                 )}
                 title="Verticalizações"
               >
@@ -222,12 +323,12 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
         </nav>
 
         {/* Footer */}
-        <div className="p-2 border-t border-slate-800">
+        <div className="p-2 border-t border-white/10">
           <button
             onClick={handleLogout}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full",
-              "text-slate-400 hover:bg-red-950/30 hover:text-red-400"
+              "text-white/50 hover:bg-white/5 hover:text-white"
             )}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
@@ -240,7 +341,7 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-slate-950 border border-slate-800 hover:bg-slate-900 text-slate-400 hidden lg:flex"
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-black border border-white/20 hover:bg-white/5 text-white/60 hidden lg:flex"
         >
           {collapsed ? (
             <ChevronRight className="w-4 h-4" />

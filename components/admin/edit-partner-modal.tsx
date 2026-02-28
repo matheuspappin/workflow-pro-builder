@@ -76,8 +76,7 @@ export function EditPartnerModal({ isOpen, onClose, onSuccess, partner }: EditPa
       
       toast({
         title: "Afiliado atualizado",
-        description: "Os dados do afiliado foram atualizados com sucesso.",
-        variant: "success"
+        description: "Os dados do afiliado foram atualizados com sucesso."
       })
       onSuccess()
       onClose()

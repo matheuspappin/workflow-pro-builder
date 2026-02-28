@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useVocabulary } from '@/hooks/use-vocabulary'
+import { useToast } from '@/hooks/use-toast'
 import { useOrganization } from '@/components/providers/organization-provider'
 import { supabase } from '@/lib/supabase'
-import { Loader2, FileText, Calendar, Clock, ChevronRight, LayoutDashboard, User, Shield, QrCode as QrCodeIcon } from 'lucide-react'
+import { Loader2, FileText, Calendar, Clock, ChevronRight, LayoutDashboard, User, Shield, QrCode as QrCodeIcon, CreditCard } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
@@ -24,6 +25,7 @@ import {
 export default function StudentOSPage() {
   const { vocabulary, t, language } = useVocabulary()
   const { businessModel, niche } = useOrganization()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<any[]>([])
   const [student, setStudent] = useState<any>(null)

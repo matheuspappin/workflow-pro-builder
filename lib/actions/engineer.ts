@@ -101,7 +101,7 @@ export async function getEngineerProjects(userId: string, filters?: { status?: s
             }
         }))
 
-        return { success: true, data: enriched as EngineerProject[] }
+        return { success: true, data: enriched as unknown as EngineerProject[] }
     } catch (error: any) {
         console.error('Erro ao carregar projetos do engenheiro:', error)
         return { success: false, error: error.message, data: [] }
@@ -112,43 +112,58 @@ export async function getEngineerProjectDetails(projectId: string, userId: strin
     if (!projectId || !userId) return { success: false, error: "Dados inválidos.", data: null }
 
     try {
-        const { data: professional, error: profError } = await supabaseAdmin
+        const { data: professionals, error: profError } = await supabaseAdmin
             .from('professionals')
             .select('id')
             .eq('user_id', userId)
-            .single()
 
-        if (profError || !professional) {
+        if (profError || !professionals?.length) {
             return { success: false, error: "Perfil profissional não encontrado.", data: null }
         }
 
-        const { data, error } = await supabaseAdmin
+        const professionalIds = professionals.map(p => p.id)
+
+        // Query em etapas para evitar falhas em relações aninhadas complexas
+        const { data: base, error: baseError } = await supabaseAdmin
             .from('service_orders')
             .select(`
                 *,
                 studio:studios(id, name, slug),
-                customer:students(id, name, email, phone),
-                milestones:service_order_milestones(
-                    id, title, description, status, completed_at, order_index, metadata
-                ),
-                documents:service_order_documents(
-                    id, file_name, file_url, file_type, file_size, description, signed_at, created_at
-                ),
-                comments:service_order_comments(
-                    id, content, user_id, created_at
-                )
+                customer:students(id, name, email, phone)
             `)
             .eq('id', projectId)
-            .eq('professional_id', professional.id)
+            .in('professional_id', professionalIds)
             .single()
 
-        if (error || !data) {
+        if (baseError || !base) {
+            if (baseError) {
+                console.error('[getEngineerProjectDetails] Erro ao buscar projeto:', baseError.message, { projectId, code: baseError.code })
+            }
             return { success: false, error: "Projeto não encontrado ou sem permissão.", data: null }
         }
 
-        // Ordenar milestones por order_index
-        if (data.milestones) {
-            data.milestones.sort((a: any, b: any) => a.order_index - b.order_index)
+        // Buscar milestones, documents e comments em paralelo
+        const [milestonesRes, documentsRes, commentsRes] = await Promise.all([
+            supabaseAdmin
+                .from('service_order_milestones')
+                .select('id, title, description, status, completed_at, order_index, metadata')
+                .eq('service_order_id', projectId)
+                .order('order_index', { ascending: true }),
+            supabaseAdmin
+                .from('service_order_documents')
+                .select('id, title, file_name, file_url, file_type, file_size, description, signed_at, created_at')
+                .eq('service_order_id', projectId),
+            supabaseAdmin
+                .from('service_order_comments')
+                .select('id, content, user_id, created_at')
+                .eq('service_order_id', projectId)
+        ])
+
+        const data = {
+            ...base,
+            milestones: milestonesRes.data || [],
+            documents: documentsRes.data || [],
+            comments: commentsRes.data || [],
         }
 
         return { success: true, data }
@@ -162,21 +177,22 @@ export async function acceptProject(projectId: string, userId: string) {
     if (!projectId || !userId) return { success: false, error: "Dados inválidos." }
 
     try {
-        const { data: professional, error: profError } = await supabaseAdmin
+        const { data: professionals, error: profError } = await supabaseAdmin
             .from('professionals')
             .select('id, studio_id')
             .eq('user_id', userId)
-            .single()
 
-        if (profError || !professional) {
+        if (profError || !professionals?.length) {
             return { success: false, error: "Perfil profissional não encontrado." }
         }
+
+        const professionalIds = professionals.map(p => p.id)
 
         const { data: project, error: fetchError } = await supabaseAdmin
             .from('service_orders')
             .select('id, status, studio_id')
             .eq('id', projectId)
-            .eq('professional_id', professional.id)
+            .in('professional_id', professionalIds)
             .single()
 
         if (fetchError || !project) {
@@ -231,21 +247,22 @@ export async function rejectProject(projectId: string, userId: string, reason: s
     if (!projectId || !userId) return { success: false, error: "Dados inválidos." }
 
     try {
-        const { data: professional, error: profError } = await supabaseAdmin
+        const { data: professionals, error: profError } = await supabaseAdmin
             .from('professionals')
             .select('id, studio_id')
             .eq('user_id', userId)
-            .single()
 
-        if (profError || !professional) {
+        if (profError || !professionals?.length) {
             return { success: false, error: "Perfil profissional não encontrado." }
         }
+
+        const professionalIds = professionals.map(p => p.id)
 
         const { data: project, error: fetchError } = await supabaseAdmin
             .from('service_orders')
             .select('id, status, studio_id')
             .eq('id', projectId)
-            .eq('professional_id', professional.id)
+            .in('professional_id', professionalIds)
             .single()
 
         if (fetchError || !project) {
@@ -287,21 +304,22 @@ export async function updateEngineerProjectStatus(
     newStatus: 'in_progress' | 'waiting_parts' | 'finished'
 ) {
     try {
-        const { data: professional, error: profError } = await supabaseAdmin
+        const { data: professionals, error: profError } = await supabaseAdmin
             .from('professionals')
             .select('id, studio_id')
             .eq('user_id', userId)
-            .single()
 
-        if (profError || !professional) {
+        if (profError || !professionals?.length) {
             return { success: false, error: "Perfil profissional não encontrado." }
         }
+
+        const professionalIds = professionals.map(p => p.id)
 
         const { data: project } = await supabaseAdmin
             .from('service_orders')
             .select('id, status, studio_id')
             .eq('id', projectId)
-            .eq('professional_id', professional.id)
+            .in('professional_id', professionalIds)
             .single()
 
         if (!project) return { success: false, error: "Projeto não encontrado." }
@@ -334,23 +352,86 @@ export async function updateEngineerProjectStatus(
     }
 }
 
+export async function addEngineerProjectDocumentLink(
+    projectId: string,
+    userId: string,
+    data: { url: string; title?: string; description?: string }
+) {
+    if (!data?.url?.trim()) return { success: false, error: "Informe o link (URL)." }
+
+    const url = data.url.trim()
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        return { success: false, error: "O link deve começar com http:// ou https://" }
+    }
+
+    try {
+        const { data: professionals } = await supabaseAdmin
+            .from("professionals")
+            .select("id")
+            .eq("user_id", userId)
+
+        if (!professionals?.length) return { success: false, error: "Perfil não encontrado." }
+
+        const professionalIds = professionals.map((p) => p.id)
+
+        const { data: project, error: fetchError } = await supabaseAdmin
+            .from("service_orders")
+            .select("id, studio_id")
+            .eq("id", projectId)
+            .in("professional_id", professionalIds)
+            .single()
+
+        if (fetchError || !project) {
+            return { success: false, error: "Projeto não encontrado." }
+        }
+
+        let displayTitle = data.title?.trim()
+        if (!displayTitle) {
+            try {
+                displayTitle = new URL(url).hostname || "Link externo"
+            } catch {
+                displayTitle = "Link externo"
+            }
+        }
+        const { error } = await supabaseAdmin.from("service_order_documents").insert({
+            service_order_id: projectId,
+            studio_id: project.studio_id,
+            title: displayTitle,
+            file_url: url,
+            file_type: "link",
+            category: "outro",
+            description: data.description?.trim() || null,
+        })
+
+        if (error) throw error
+
+        revalidatePath(`/solutions/fire-protection/engineer/projetos/${projectId}`)
+        revalidatePath(`/solutions/fire-protection/architect/projetos/${projectId}`)
+        return { success: true }
+    } catch (error: any) {
+        console.error("Erro ao adicionar link:", error)
+        return { success: false, error: error.message || "Erro ao adicionar link." }
+    }
+}
+
 export async function addEngineerComment(projectId: string, userId: string, content: string) {
     if (!content?.trim()) return { success: false, error: "Comentário vazio." }
 
     try {
-        const { data: professional } = await supabaseAdmin
+        const { data: professionals } = await supabaseAdmin
             .from('professionals')
-            .select('id, studio_id')
+            .select('id')
             .eq('user_id', userId)
-            .single()
 
-        if (!professional) return { success: false, error: "Perfil não encontrado." }
+        if (!professionals?.length) return { success: false, error: "Perfil não encontrado." }
+
+        const professionalIds = professionals.map(p => p.id)
 
         const { data: project } = await supabaseAdmin
             .from('service_orders')
             .select('studio_id')
             .eq('id', projectId)
-            .eq('professional_id', professional.id)
+            .in('professional_id', professionalIds)
             .single()
 
         if (!project) return { success: false, error: "Projeto não encontrado." }
@@ -380,13 +461,23 @@ export async function updateEngineerMilestone(
     status: 'pending' | 'completed' | 'cancelled'
 ) {
     try {
-        const { data: professional } = await supabaseAdmin
+        const { data: professionals } = await supabaseAdmin
             .from('professionals')
-            .select('id, studio_id')
+            .select('id')
             .eq('user_id', userId)
+
+        if (!professionals?.length) return { success: false, error: "Perfil não encontrado." }
+
+        const professionalIds = professionals.map(p => p.id)
+
+        const { data: project } = await supabaseAdmin
+            .from('service_orders')
+            .select('studio_id')
+            .eq('id', projectId)
+            .in('professional_id', professionalIds)
             .single()
 
-        if (!professional) return { success: false, error: "Perfil não encontrado." }
+        if (!project) return { success: false, error: "Projeto não encontrado." }
 
         const { error } = await supabaseAdmin
             .from('service_order_milestones')
@@ -396,7 +487,7 @@ export async function updateEngineerMilestone(
             })
             .eq('id', milestoneId)
             .eq('service_order_id', projectId)
-            .eq('studio_id', professional.studio_id)
+            .eq('studio_id', project.studio_id)
 
         if (error) throw error
 
@@ -566,6 +657,7 @@ export async function joinStudioByLink(link: string, userId: string, userEmail: 
         }
 
         if (type === 'invite_code') {
+            // Tenta primeiro engineer_invite_code (códigos E...), depois technician_invite_code
             const codeResult = await handleJoinByInviteCode(identifier.toUpperCase(), userId, userEmail);
             if (codeResult.success) return codeResult;
             return await handleJoinBySlug(identifier, userId, userEmail);
@@ -671,25 +763,77 @@ async function handleJoinBySlug(slug: string, userId: string, userEmail: string)
 }
 
 async function handleJoinByInviteCode(code: string, userId: string, userEmail: string) {
+    const codeUpper = code.toUpperCase();
+
+    // 1. Código de engenheiro (formato E + 7 chars) - valida que a conta é de engenheiro/arquiteto
+    if (codeUpper.startsWith('E') && codeUpper.length >= 7) {
+        const engineerResult = await handleJoinByEngineerInviteCode(codeUpper, userId, userEmail);
+        if (engineerResult.success) return engineerResult;
+        if (engineerResult.error && !engineerResult.error.includes('não encontrado')) {
+            return engineerResult; // Erro de validação (ex: conta não é de engenheiro)
+        }
+    }
+
+    // 2. Código de técnico (8 chars) - fallback para compatibilidade
     const { data: studio, error: studioError } = await supabaseAdmin
         .from('studios')
         .select('id, name')
-        .eq('technician_invite_code', code.toUpperCase())
+        .eq('technician_invite_code', codeUpper)
         .single();
 
     if (studioError || !studio) {
         return { success: false, error: "Código de convite inválido ou não encontrado." };
     }
 
+    return await performProfessionalLink(studio.id, studio.name, userId, userEmail, 'engineer');
+}
+
+/** Valida e vincula usando engineer_invite_code - exige que a conta seja de engenheiro ou arquiteto */
+async function handleJoinByEngineerInviteCode(code: string, userId: string, userEmail: string) {
+    const { data: studio, error: studioError } = await supabaseAdmin
+        .from('studios')
+        .select('id, name')
+        .eq('engineer_invite_code', code)
+        .single();
+
+    if (studioError || !studio) {
+        return { success: false, error: "Código de convite de engenheiro não encontrado." };
+    }
+
+    // Validar que a conta é de engenheiro ou arquiteto (não técnico)
+    const { data: userProf } = await supabaseAdmin
+        .from('professionals')
+        .select('professional_type')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    const { data: userInternal } = await supabaseAdmin
+        .from('users_internal')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+
+    const isTechnician = 
+        userProf?.professional_type === 'technician' || 
+        userInternal?.role === 'teacher' || userInternal?.role === 'technician';
+
+    if (isTechnician) {
+        return { success: false, error: "Este código é exclusivo para engenheiros. Sua conta está registrada como técnico. Use o código de convite de técnicos no portal de técnicos." };
+    }
+
+    return await performProfessionalLink(studio.id, studio.name, userId, userEmail, userProf?.professional_type === 'architect' ? 'architect' : 'engineer');
+}
+
+async function performProfessionalLink(studioId: string, studioName: string, userId: string, userEmail: string, profType: 'engineer' | 'architect') {
     const { data: existingLink } = await supabaseAdmin
         .from('professionals')
         .select('id')
         .eq('user_id', userId)
-        .eq('studio_id', studio.id)
+        .eq('studio_id', studioId)
         .maybeSingle();
 
     if (existingLink) {
-        return { success: true, message: `Você já está vinculado ao ${studio.name}!` };
+        return { success: true, message: `Você já está vinculado ao ${studioName}!` };
     }
 
     const { data: standaloneRecord } = await supabaseAdmin
@@ -703,10 +847,10 @@ async function handleJoinByInviteCode(code: string, userId: string, userEmail: s
         const { error: updateError } = await supabaseAdmin
             .from('professionals')
             .update({
-                studio_id: studio.id,
+                studio_id: studioId,
                 email: userEmail,
                 status: 'active',
-                professional_type: 'engineer',
+                professional_type: profType,
             })
             .eq('id', standaloneRecord.id);
 
@@ -719,10 +863,10 @@ async function handleJoinByInviteCode(code: string, userId: string, userEmail: s
             .from('professionals')
             .insert({
                 user_id: userId,
-                studio_id: studio.id,
+                studio_id: studioId,
                 email: userEmail,
                 name: userEmail.split('@')[0],
-                professional_type: 'engineer',
+                professional_type: profType,
                 status: 'active',
             });
 
@@ -738,13 +882,14 @@ async function handleJoinByInviteCode(code: string, userId: string, userEmail: s
     await supabaseAdmin.auth.admin.updateUserById(userId, {
         user_metadata: {
             ...currentMetadata,
-            studio_id: studio.id,
-            role: 'engineer',
+            studio_id: studioId,
+            role: profType,
         }
     });
 
     revalidatePath('/solutions/fire-protection/engineer/perfil');
-    return { success: true, message: `Você agora faz parte do ${studio.name}!` };
+    revalidatePath('/solutions/fire-protection/architect/perfil');
+    return { success: true, message: `Você agora faz parte do ${studioName}!` };
 }
 
 async function handleJoinByToken(token: string, userId: string, userEmail: string) {

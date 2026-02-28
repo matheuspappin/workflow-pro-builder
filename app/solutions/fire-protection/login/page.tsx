@@ -148,10 +148,12 @@ function LoginContent() {
       </button>
 
       {/* Left Side - Fire Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-red-700 via-red-600 to-orange-600 p-12 flex-col justify-between relative overflow-hidden">
-        <div className="absolute inset-0 -z-10 opacity-20">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-[128px] -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-black rounded-full blur-[128px] translate-y-1/2 -translate-x-1/2" />
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-red-800 via-red-700 to-orange-700 p-12 flex-col justify-between relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22 opacity=%220.06%22/%3E%3C/svg%3E')] opacity-80 pointer-events-none" />
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-0 right-0 w-[32rem] h-[32rem] bg-amber-400/30 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-red-900/50 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2" />
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-orange-500/20 rounded-full blur-[80px] -translate-x-1/2 -translate-y-1/2" />
         </div>
 
         <Link href="/solutions/fire-protection" className="flex items-center gap-3">
@@ -191,9 +193,16 @@ function LoginContent() {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-8 bg-slate-950 relative overflow-hidden">
-        {/* Background pattern - grid sutil */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px] pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent pointer-events-none" />
+        {/* Background - gradient mesh atmosférico */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(239,68,68,0.15),transparent)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_80%_80%,rgba(249,115,22,0.08),transparent_50%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_40%_at_20%_60%,rgba(239,68,68,0.06),transparent)] pointer-events-none" />
+        {/* Grid + noise texture */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.015)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_50%,black_20%,transparent_70%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22 opacity=%220.04%22/%3E%3C/svg%3E')] opacity-40 pointer-events-none" />
+        {/* Linhas decorativas sutis */}
+        <div className="absolute top-0 left-1/4 w-px h-full bg-gradient-to-b from-transparent via-red-500/10 to-transparent pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-px h-full bg-gradient-to-b from-transparent via-orange-500/8 to-transparent pointer-events-none" />
         <div className="relative w-full max-w-md">
           <div className="lg:hidden mb-12 text-center">
             <Link href="/solutions/fire-protection" className="inline-flex items-center gap-3">
@@ -206,9 +215,11 @@ function LoginContent() {
             </Link>
           </div>
 
-          <Card className="relative overflow-hidden bg-slate-900/80 backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/50">
-            {/* Glow accent */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-px bg-gradient-to-r from-transparent via-red-500/60 to-transparent" />
+          <Card className="relative overflow-hidden bg-slate-900/90 backdrop-blur-2xl border border-white/[0.06] shadow-2xl shadow-black/60 ring-1 ring-white/[0.04]">
+            {/* Glow accent superior */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+            {/* Brilho sutil nas bordas */}
+            <div className="absolute -inset-px bg-gradient-to-b from-red-500/5 via-transparent to-transparent rounded-[inherit] [mask-image:linear-gradient(black,transparent_70%)] pointer-events-none" />
             <CardHeader className="text-center space-y-1 pt-8">
               <CardTitle className="text-2xl font-bold text-white tracking-tight">Acessar sistema</CardTitle>
               <CardDescription className="text-slate-500 text-sm">

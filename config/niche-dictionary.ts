@@ -513,6 +513,15 @@ export const nicheDictionary = {
       establishment: 'Empresa',
       category: 'Equipamento'
     },
+    environmental_compliance: {
+      name: 'Compliance Ambiental e Engenharia',
+      businessModel: 'MONETARY',
+      client: 'Cliente / Proprietário Rural',
+      provider: 'Engenheiro / Técnico',
+      service: 'Laudo / Vistoria / Regularização',
+      establishment: 'Consultoria / Escritório',
+      category: 'Tipo de Serviço'
+    },
     logistics: {
       name: 'Logística',
       businessModel: 'MONETARY',
@@ -1108,6 +1117,15 @@ export const nicheDictionary = {
       service: 'Inspection/OS',
       establishment: 'Company',
       category: 'Equipment'
+    },
+    environmental_compliance: {
+      name: 'Environmental Compliance & Engineering',
+      businessModel: 'MONETARY',
+      client: 'Client / Rural Owner',
+      provider: 'Engineer / Technician',
+      service: 'Report / Inspection / Regularization',
+      establishment: 'Consultancy / Office',
+      category: 'Service Type'
     },
     logistics: {
       name: 'Logistics',

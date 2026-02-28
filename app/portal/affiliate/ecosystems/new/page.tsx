@@ -301,7 +301,7 @@ export default function NewAffiliateEcosystemPage() {
                   <Label>Nicho de Atuação</Label>
                   <Select 
                     value={formData.niche} 
-                    onValueChange={v => setFormData({...formData, niche: v})}
+                    onValueChange={v => setFormData({...formData, niche: v as NicheType})}
                   >
                     <SelectTrigger>
                       <SelectValue />

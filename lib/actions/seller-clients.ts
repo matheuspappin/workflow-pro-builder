@@ -2,7 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { getUserProfile } from '@/lib/database-utils' // Assumindo que essa função retorna o user_id e studio_id
 
 // --- Actions para Vendedores (Seller) ---
 
