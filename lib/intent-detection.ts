@@ -3,7 +3,7 @@ import logger from './logger'
 
 // Tipos de intenção detectadas
 export interface DetectedIntent {
-  type: 'attendance_cancel' | 'attendance_confirm' | 'info_request' | 'general' | 'action_cancelled' | 'report_request' | 'analysis_request' | 'enrollment_request'
+  type: 'attendance_cancel' | 'attendance_confirm' | 'info_request' | 'general' | 'action_cancelled' | 'report_request' | 'analysis_request' | 'enrollment_request' | 'schedule_request' | 'price_inquiry' | 'service_info' | 'contact_request' | 'availability_check' | 'booking_confirmation'
   confidence: number
   data?: {
     studentId?: string
@@ -15,6 +15,11 @@ export interface DetectedIntent {
     student_name?: string
     student_phone?: string
     dance_style?: string
+    service_type?: string
+    preferred_date?: string
+    preferred_time?: string
+    professional_id?: string
+    duration?: number
   }
 }
 
@@ -30,7 +35,14 @@ const KEYWORDS = {
   CLASS: ['turma', 'aula', 'grade', 'horario', 'sala', 'lotacao', 'vagas'],
   GAMIFICATION: ['badge', 'conquista', 'premio', 'medalha', 'pontos', 'gamificacao'],
   LEAD: ['lead', 'interessado', 'prospect', 'experimental', 'venda', 'pipeline'],
-  ENROLLMENT: ['quero me matricular', 'fazer matricula', 'quero entrar', 'como faco para participar', 'quero ser aluno', 'fazer aula']
+  ENROLLMENT: ['quero me matricular', 'fazer matricula', 'quero entrar', 'como faco para participar', 'quero ser aluno', 'fazer aula'],
+  // Novos keywords para secretaria inteligente
+  SCHEDULE: ['agendar', 'marcar', 'horario', 'consulta', 'agora', 'hoje', 'amanha', 'semana', 'agenda', 'disponivel', 'vagas'],
+  PRICE: ['quanto custa', 'preco', 'valor', 'mensalidade', 'pacote', 'plano', 'cobrar', 'pagar'],
+  SERVICE: ['o que e', 'como funciona', 'servico', 'aula', 'atividade', 'modalidade', 'tipo'],
+  CONTACT: ['contato', 'telefone', 'endereco', 'local', 'onde fica', 'como chegar', 'whatsapp'],
+  AVAILABILITY: ['tem horario', 'disponibilidade', 'livre', 'vaga', 'tem espaco', 'aceita'],
+  BOOKING: ['confirmar agendamento', 'marcar horario', 'reservar', 'agendado', 'confirmado']
 }
 
 // Função para normalizar texto
@@ -84,6 +96,33 @@ export async function detectIntent(message: string, context?: any): Promise<Dete
     return { type: 'enrollment_request', confidence: 0.9, data: enrollmentData }
   }
 
+  // 7. Novas detecções para secretária inteligente
+  if (KEYWORDS.SCHEDULE.some(k => text.includes(k))) {
+    const scheduleData = await extractScheduleData(text, context)
+    return { type: 'schedule_request', confidence: 0.85, data: scheduleData }
+  }
+
+  if (KEYWORDS.PRICE.some(k => text.includes(k))) {
+    return { type: 'price_inquiry', confidence: 0.8 }
+  }
+
+  if (KEYWORDS.SERVICE.some(k => text.includes(k))) {
+    return { type: 'service_info', confidence: 0.75 }
+  }
+
+  if (KEYWORDS.CONTACT.some(k => text.includes(k))) {
+    return { type: 'contact_request', confidence: 0.8 }
+  }
+
+  if (KEYWORDS.AVAILABILITY.some(k => text.includes(k))) {
+    const availabilityData = await extractAvailabilityData(text, context)
+    return { type: 'availability_check', confidence: 0.85, data: availabilityData }
+  }
+
+  if (KEYWORDS.BOOKING.some(k => text.includes(k))) {
+    return { type: 'booking_confirmation', confidence: 0.9 }
+  }
+
   return { type: 'general', confidence: 0.5 }
 }
 
@@ -104,6 +143,49 @@ async function extractEnrollmentData(text: string, context?: any) {
     }
   }
 
+  return data
+}
+
+// Novas funções de extração para secretária inteligente
+async function extractScheduleData(text: string, context?: any) {
+  const data: any = {}
+  const studioId = context?.studio_id || context?.studioId
+  
+  // Extrair data
+  const today = new Date().toISOString().split('T')[0]
+  if (text.includes('hoje')) data.preferred_date = today
+  else if (text.includes('amanha')) {
+    const d = new Date(); d.setDate(d.getDate() + 1)
+    data.preferred_date = d.toISOString().split('T')[0]
+  }
+  
+  // Extrair hora
+  const timeMatch = text.match(/(\d{1,2}):(\d{2})/)
+  if (timeMatch) data.preferred_time = timeMatch[0]
+  
+  // Extrair tipo de serviço
+  if (text.includes('aula')) data.service_type = 'class'
+  else if (text.includes('consulta')) data.service_type = 'consultation'
+  else if (text.includes('avaliacao')) data.service_type = 'assessment'
+  
+  return data
+}
+
+async function extractAvailabilityData(text: string, context?: any) {
+  const data: any = {}
+  
+  // Extrair data
+  const today = new Date().toISOString().split('T')[0]
+  if (text.includes('hoje')) data.preferred_date = today
+  else if (text.includes('amanha')) {
+    const d = new Date(); d.setDate(d.getDate() + 1)
+    data.preferred_date = d.toISOString().split('T')[0]
+  }
+  
+  // Extrair tipo de serviço
+  if (text.includes('aula')) data.service_type = 'class'
+  else if (text.includes('consulta')) data.service_type = 'consultation'
+  
   return data
 }
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Plus, Clock, Users, GraduationCap, Loader2, Music } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 const COLORS = [
   "from-pink-500 to-rose-500",
@@ -151,9 +152,11 @@ export default function TurmasPage() {
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1 rounded-xl text-xs font-bold border-violet-200 text-violet-600 hover:bg-violet-50">
-                    Fazer Chamada
-                  </Button>
+                  <Link href={`/solutions/estudio-de-danca/dashboard/turmas/${turma.id}/chamada`}>
+                    <Button size="sm" variant="outline" className="flex-1 rounded-xl text-xs font-bold border-violet-200 text-violet-600 hover:bg-violet-50">
+                      Fazer Chamada
+                    </Button>
+                  </Link>
                   <Button size="sm" variant="outline" className="flex-1 rounded-xl text-xs font-bold">
                     Detalhes
                   </Button>

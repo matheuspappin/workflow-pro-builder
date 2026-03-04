@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 import logger from '@/lib/logger'
 
 /**
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const month = referenceMonth || new Date().toISOString().slice(0, 7)
 
@@ -133,6 +137,9 @@ export async function POST(request: NextRequest) {
     if (!studioId || !professional_id || amount == null) {
       return NextResponse.json({ error: 'studioId, professional_id e amount são obrigatórios' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const month = reference_month || new Date().toISOString().slice(0, 7)
     const value = Number(amount)

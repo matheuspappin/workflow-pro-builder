@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,130 @@ import {
   GraduationCap, BarChart3, Smartphone, Zap,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+// --- Background animado (toda a landing) ---
+
+function PageBackgroundCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    let animationId: number
+    let time = 0
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      canvas.width = window.innerWidth * dpr
+      canvas.height = window.innerHeight * dpr
+      ctx.scale(dpr, dpr)
+    }
+
+    const particles: { x: number; y: number; vx: number; vy: number; size: number; hue: number }[] = []
+    const particleCount = 80
+
+    const initParticles = () => {
+      particles.length = 0
+      const w = window.innerWidth
+      const h = window.innerHeight
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: (Math.random() - 0.5) * 0.3,
+          size: Math.random() * 2 + 0.5,
+          hue: 200 + Math.random() * 120,
+        })
+      }
+    }
+
+    const draw = () => {
+      const w = window.innerWidth
+      const h = window.innerHeight
+
+      ctx.fillStyle = "rgba(2, 6, 23, 0.12)"
+      ctx.fillRect(0, 0, w, h)
+
+      time += 0.005
+
+      // Ondas de gradiente animadas
+      const gradient = ctx.createLinearGradient(0, 0, w, h)
+      const t = Math.sin(time) * 0.5 + 0.5
+      gradient.addColorStop(0, `rgba(0, 255, 255, ${0.03 + t * 0.02})`)
+      gradient.addColorStop(0.5, `rgba(168, 85, 247, ${0.02 + (1 - t) * 0.02})`)
+      gradient.addColorStop(1, `rgba(236, 72, 153, ${0.02 + t * 0.015})`)
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, w, h)
+
+      // Partículas flutuantes
+      particles.forEach((p) => {
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0 || p.x > w) p.vx *= -1
+        if (p.y < 0 || p.y > h) p.vy *= -1
+      })
+
+      // Conexões entre partículas
+      particles.forEach((a, i) => {
+        particles.slice(i + 1).forEach((b) => {
+          const dx = a.x - b.x
+          const dy = a.y - b.y
+          const dist = Math.hypot(dx, dy)
+          if (dist < 140) {
+            const alpha = (1 - dist / 140) * 0.06
+            ctx.strokeStyle = `hsla(${(a.hue + b.hue) / 2}, 100%, 70%, ${alpha})`
+            ctx.lineWidth = 0.5
+            ctx.beginPath()
+            ctx.moveTo(a.x, a.y)
+            ctx.lineTo(b.x, b.y)
+            ctx.stroke()
+          }
+        })
+      })
+
+      particles.forEach((p) => {
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fillStyle = `hsla(${p.hue}, 100%, 70%, 0.35)`
+        ctx.fill()
+      })
+
+      animationId = requestAnimationFrame(draw)
+    }
+
+    const handleResize = () => {
+      resize()
+      initParticles()
+    }
+
+    resize()
+    initParticles()
+    window.addEventListener("resize", handleResize)
+    draw()
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      cancelAnimationFrame(animationId)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 w-full h-full object-cover pointer-events-none z-0"
+      style={{
+        width: "100vw",
+        height: "100vh",
+        background: "linear-gradient(180deg, #020617 0%, #0f172a 30%, #020617 70%, #0f172a 100%)",
+      }}
+    />
+  )
+}
 
 // --- Navbar ---
 
@@ -123,15 +247,178 @@ function Navbar() {
   )
 }
 
+// --- Hero Canvas (futurista) ---
+
+function HeroCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    let animationId: number
+    let time = 0
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      canvas.width = canvas.offsetWidth * dpr
+      canvas.height = canvas.offsetHeight * dpr
+      ctx.scale(dpr, dpr)
+    }
+
+    const particles: { x: number; y: number; vx: number; vy: number; size: number; hue: number }[] = []
+    const particleCount = 60
+    const gridSize = 60
+
+    const initParticles = () => {
+      particles.length = 0
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvas.offsetWidth,
+          y: Math.random() * canvas.offsetHeight,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          size: Math.random() * 2 + 0.5,
+          hue: 180 + Math.random() * 80, // cyan a magenta
+        })
+      }
+    }
+
+    const draw = () => {
+      const w = canvas.offsetWidth
+      const h = canvas.offsetHeight
+
+      // Clear com fade sutil
+      ctx.fillStyle = "rgba(2, 6, 23, 0.12)"
+      ctx.fillRect(0, 0, w, h)
+
+      time += 0.008
+
+      // Grid perspectiva futurista
+      ctx.strokeStyle = "rgba(0, 255, 255, 0.04)"
+      ctx.lineWidth = 1
+      const centerX = w / 2
+      const centerY = h / 2 + 100
+
+      for (let i = -15; i <= 15; i++) {
+        const x = centerX + i * gridSize + Math.sin(time) * 20
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(centerX + (x - centerX) * 1.2, h + 200)
+        ctx.stroke()
+      }
+      for (let i = -8; i <= 12; i++) {
+        const y = centerY + i * gridSize + Math.cos(time * 0.7) * 15
+        const perspective = 1 - (y - centerY) / (h - centerY) * 0.6
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(w * perspective + (1 - perspective) * centerX, y)
+        ctx.stroke()
+      }
+
+      // Partículas conectadas (network)
+      particles.forEach((p) => {
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0 || p.x > w) p.vx *= -1
+        if (p.y < 0 || p.y > h) p.vy *= -1
+      })
+
+      particles.forEach((a, i) => {
+        particles.slice(i + 1).forEach((b) => {
+          const dx = a.x - b.x
+          const dy = a.y - b.y
+          const dist = Math.hypot(dx, dy)
+          if (dist < 120) {
+            const alpha = (1 - dist / 120) * 0.15
+            ctx.strokeStyle = `hsla(${(a.hue + b.hue) / 2}, 100%, 70%, ${alpha})`
+            ctx.lineWidth = 0.5
+            ctx.beginPath()
+            ctx.moveTo(a.x, a.y)
+            ctx.lineTo(b.x, b.y)
+            ctx.stroke()
+          }
+        })
+      })
+
+      particles.forEach((p) => {
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fillStyle = `hsla(${p.hue}, 100%, 70%, 0.6)`
+        ctx.fill()
+      })
+
+      // Orbs luminosos
+      const orb1 = { x: w * 0.2, y: h * 0.3, r: 120 }
+      const orb2 = { x: w * 0.8, y: h * 0.6, r: 100 }
+      const orb3 = { x: w * 0.5, y: h * 0.2, r: 80 }
+
+      ;[orb1, orb2, orb3].forEach((orb, i) => {
+        const pulse = 1 + Math.sin(time + i) * 0.15
+        const gradient = ctx.createRadialGradient(
+          orb.x, orb.y, 0,
+          orb.x, orb.y, orb.r * pulse
+        )
+        gradient.addColorStop(0, i === 0 ? "rgba(0, 255, 255, 0.08)" : i === 1 ? "rgba(168, 85, 247, 0.08)" : "rgba(236, 72, 153, 0.06)")
+        gradient.addColorStop(0.5, "rgba(0, 255, 255, 0.02)")
+        gradient.addColorStop(1, "transparent")
+        ctx.fillStyle = gradient
+        ctx.beginPath()
+        ctx.arc(orb.x, orb.y, orb.r * pulse, 0, Math.PI * 2)
+        ctx.fill()
+      })
+
+      // Scanline sutil
+      const scanY = (h * 0.5 + Math.sin(time * 2) * h * 0.2) % h
+      const scanGradient = ctx.createLinearGradient(0, scanY - 30, 0, scanY + 30)
+      scanGradient.addColorStop(0, "transparent")
+      scanGradient.addColorStop(0.5, "rgba(0, 255, 255, 0.03)")
+      scanGradient.addColorStop(1, "transparent")
+      ctx.fillStyle = scanGradient
+      ctx.fillRect(0, 0, w, h)
+
+      animationId = requestAnimationFrame(draw)
+    }
+
+    const handleResize = () => {
+      resize()
+      initParticles()
+    }
+
+    resize()
+    initParticles()
+    window.addEventListener("resize", handleResize)
+    draw()
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      cancelAnimationFrame(animationId)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+      style={{ background: "linear-gradient(180deg, #020617 0%, #0f172a 40%, #020617 100%)" }}
+    />
+  )
+}
+
 // --- Hero ---
 
 function HeroSection() {
   return (
-    <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden bg-slate-950 text-white">
+    <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden bg-slate-950/90 text-white">
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-from)_0%,_transparent_70%)] from-violet-900/20 via-transparent to-transparent" />
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] bg-pink-600/10 rounded-full blur-[120px] animate-pulse delay-700" />
+        <HeroCanvas />
+        <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 via-transparent to-fuchsia-500/5" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(ellipse_80%_50%_at_50%_40%,rgba(0,255,255,0.06)_0%,transparent_60%)]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/15 rounded-full blur-[140px] animate-pulse" />
+        <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-500/15 rounded-full blur-[140px] animate-pulse" style={{ animationDelay: "700ms" }} />
       </div>
 
       <div className="container mx-auto px-6 relative z-10">
@@ -139,11 +426,11 @@ function HeroSection() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 backdrop-blur-md text-sm font-bold text-violet-400 mb-10 shadow-sm"
+            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 backdrop-blur-md text-sm font-bold text-cyan-300 mb-10 shadow-[0_0_20px_rgba(0,255,255,0.15)]"
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
             </span>
             Novo: Frequência automática via QR Code no app
           </motion.div>
@@ -155,7 +442,7 @@ function HeroSection() {
             className="text-5xl md:text-7xl lg:text-[90px] font-black tracking-tighter mb-8 leading-[0.95]"
           >
             Gestão Inteligente para <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-pink-400 to-violet-500">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-fuchsia-400 to-cyan-400 drop-shadow-[0_0_30px_rgba(0,255,255,0.2)]">
               Estúdios de Dança
             </span>
           </motion.h1>
@@ -176,12 +463,12 @@ function HeroSection() {
             className="flex flex-col sm:flex-row items-center justify-center gap-5"
           >
             <Link href="/solutions/estudio-de-danca/register">
-              <Button size="lg" className="h-16 px-10 text-xl rounded-full bg-violet-600 hover:bg-violet-700 shadow-[0_10px_40px_-10px_rgba(139,92,246,0.5)] hover:shadow-[0_15px_50px_-10px_rgba(139,92,246,0.6)] transition-all hover:scale-105 font-bold text-white border-none group">
+              <Button size="lg" className="h-16 px-10 text-xl rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-600 hover:from-cyan-400 hover:to-fuchsia-500 shadow-[0_0_40px_rgba(0,255,255,0.25)] hover:shadow-[0_0_60px_rgba(168,85,247,0.3)] transition-all hover:scale-105 font-bold text-white border-none group">
                 Começar Grátis
                 <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="h-16 px-10 text-xl rounded-full border-2 border-white/10 hover:bg-white/10 hover:text-white hover:border-white font-bold text-slate-300 bg-transparent">
+            <Button size="lg" variant="outline" className="h-16 px-10 text-xl rounded-full border-2 border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-300 hover:border-cyan-400 font-bold text-slate-300 bg-transparent backdrop-blur-sm">
               Ver Demonstração
             </Button>
           </motion.div>
@@ -199,7 +486,7 @@ function HeroSection() {
               { value: "4.9★", label: "Avaliação média" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
-                <p className="text-3xl font-black text-white">{stat.value}</p>
+                <p className="text-3xl font-black text-white drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]">{stat.value}</p>
                 <p className="text-sm text-slate-500 font-medium mt-1">{stat.label}</p>
               </div>
             ))}
@@ -216,7 +503,7 @@ function TeacherAppSection() {
   const [activeTab, setActiveTab] = useState<'chamada' | 'turma'>('chamada')
 
   return (
-    <section id="teacher-app" className="py-24 bg-slate-900 relative overflow-hidden">
+    <section id="teacher-app" className="py-24 bg-slate-900/90 relative overflow-hidden">
       <div className="container mx-auto px-6 relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight text-white">
@@ -350,7 +637,7 @@ function TeacherAppSection() {
 
 function GuardianPortalSection() {
   return (
-    <section id="guardian-portal" className="py-24 bg-slate-950 text-white relative overflow-hidden">
+    <section id="guardian-portal" className="py-24 bg-slate-950/90 text-white relative overflow-hidden">
       <div className="container mx-auto px-6 relative z-10">
         <div className="text-center mb-16">
           <Badge className="bg-pink-100 text-pink-600 border-none px-4 py-1 mb-4 uppercase tracking-widest text-[10px] font-black">Portal do Responsável</Badge>
@@ -459,7 +746,7 @@ function ManagementDashboard() {
   ]
 
   return (
-    <section id="management" className="py-24 bg-slate-950 relative overflow-hidden">
+    <section id="management" className="py-24 bg-slate-950/90 relative overflow-hidden">
       <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
         <div className="absolute top-[20%] right-[-5%] w-[400px] h-[400px] bg-violet-600/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[10%] left-[-5%] w-[400px] h-[400px] bg-pink-600/5 rounded-full blur-[100px]" />
@@ -676,7 +963,7 @@ function PricingSection() {
 
 function CTASection() {
   return (
-    <section className="py-32 bg-slate-950 relative overflow-hidden">
+    <section className="py-32 bg-slate-950/90 relative overflow-hidden">
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-from)_0%,_transparent_70%)] from-violet-900/30 via-transparent to-transparent" />
       </div>
@@ -720,7 +1007,7 @@ function CTASection() {
 
 function Footer() {
   return (
-    <footer className="bg-slate-950 border-t border-white/5 py-12">
+    <footer className="bg-slate-950/90 border-t border-white/5 py-12">
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2.5">
@@ -749,8 +1036,10 @@ function Footer() {
 
 export default function DanceStudioPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <Navbar />
+    <div className="relative min-h-screen text-white">
+      <PageBackgroundCanvas />
+      <div className="relative z-10">
+        <Navbar />
       <HeroSection />
       <TeacherAppSection />
       <GuardianPortalSection />
@@ -759,6 +1048,7 @@ export default function DanceStudioPage() {
       <PricingSection />
       <CTASection />
       <Footer />
+      </div>
     </div>
   )
 }

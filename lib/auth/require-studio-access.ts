@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { logAdmin } from '@/lib/admin-logs'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -40,14 +41,35 @@ export async function requireStudioAccess(
     return { userId: user.id, role }
   }
 
-  // Verifica se é dono do studio
-  const { data: owned } = await supabaseAdmin
+  // Verificar se o studio existe e está ativo
+  const { data: studioRecord } = await supabaseAdmin
     .from('studios')
-    .select('id')
+    .select('id, owner_id, status, subscription_status, trial_ends_at')
     .eq('id', studioId)
-    .eq('owner_id', user.id)
     .maybeSingle()
-  if (owned) return { userId: user.id, role }
+
+  if (!studioRecord) {
+    throw new StudioAccessError('Studio não encontrado', 404)
+  }
+
+  if (studioRecord.status === 'inactive') {
+    await logAdmin('warning', 'auth/studio-access', `Acesso bloqueado: studio ${studioId} inativo. User: ${user.id}`, { studio: studioId, metadata: { userId: user.id, reason: 'studio_inactive' } })
+    throw new StudioAccessError('Sua assinatura expirou ou o estúdio foi desativado.', 402)
+  }
+
+  // Verificar trial expirado (proteção extra caso o CRON não tenha rodado)
+  if (studioRecord.subscription_status === 'trialing' && studioRecord.trial_ends_at) {
+    const trialEnd = new Date(studioRecord.trial_ends_at)
+    if (trialEnd < new Date()) {
+      await logAdmin('warning', 'auth/studio-access', `Acesso bloqueado: trial expirado para studio ${studioId}. User: ${user.id}`, { studio: studioId, metadata: { userId: user.id, reason: 'trial_expired', trialEnd: studioRecord.trial_ends_at } })
+      throw new StudioAccessError('Seu período de teste expirou. Assine um plano para continuar.', 402)
+    }
+  }
+
+  // Verifica se é dono do studio
+  if (studioRecord.owner_id === user.id) {
+    return { userId: user.id, role }
+  }
 
   // Verifica se tem acesso via users_internal (admin, receptionist, finance, seller)
   const { data: ui } = await supabaseAdmin
@@ -128,4 +150,47 @@ export async function checkStudioAccess(
       response: NextResponse.json({ error: 'Erro interno de autorização' }, { status: 500 }),
     }
   }
+}
+
+/**
+ * Versão reforçada para operações críticas que requerem confirmação explícita de Super Admin
+ * Previne operações acidentais cross-tenant
+ */
+export async function requireStudioAccessWithValidation(
+  request: NextRequest,
+  studioId: string,
+  options: {
+    requireExplicit?: boolean,
+    operationType?: 'read' | 'write' | 'delete'
+  } = {}
+): Promise<{ userId: string; role: string }> {
+  const basic = await requireStudioAccess(request, studioId)
+  
+  // Se for Super Admin e operação for crítica, exigir confirmação explícita
+  if (options.requireExplicit && basic.role === 'super_admin') {
+    const confirmation = request.headers.get('x-admin-confirmation')
+    const operation = options.operationType || 'read'
+    
+    if (!confirmation) {
+      throw new StudioAccessError(
+        `Operação ${operation} crítica requer confirmação explícita. Header: x-admin-confirmation`, 
+        428
+      )
+    }
+    
+    // Log adicional para auditoria de operações críticas
+    await logAdmin('warning', 'auth/critical-operation', 
+      `Super Admin realizando operação crítica em studio ${studioId}`, 
+      { 
+        studio: studioId, 
+        metadata: { 
+          userId: basic.userId, 
+          operation, 
+          confirmation: confirmation.substring(0, 8) + '***'
+        } 
+      }
+    )
+  }
+  
+  return basic
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyLowCredits } from '@/lib/whatsapp';
+import { checkStudioAccess } from '@/lib/auth';
 import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
@@ -9,6 +10,9 @@ export async function POST(request: NextRequest) {
     if (!studentId || !studioId) {
       return NextResponse.json({ success: false, error: 'studentId e studioId são obrigatórios' }, { status: 400 });
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     await notifyLowCredits(studentId, studioId, remainingCredits);
 

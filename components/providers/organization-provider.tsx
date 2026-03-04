@@ -52,8 +52,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  // Carregar idioma do localStorage apenas após montar
+  // Carregar idioma do localStorage apenas após montar (evita hydration mismatch)
   useEffect(() => {
+    // Verificação adicional de client-side para evitar SSR issues
+    if (typeof window === 'undefined') return
+    
     const savedLang = localStorage.getItem('workflow_pro_lang') as 'pt' | 'en'
     if (savedLang && (savedLang === 'pt' || savedLang === 'en') && savedLang !== 'pt') {
       setState(prev => ({

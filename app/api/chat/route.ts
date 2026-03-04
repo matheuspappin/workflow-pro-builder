@@ -3,30 +3,43 @@ import { getStudentsData, getTeachersData, getFinancialData, getClassesData } fr
 import { supabase } from '@/lib/supabase'
 import logger from '@/lib/logger';
 import { detectIntent, executeIntent, generateConfirmationMessage } from '@/lib/intent-detection'
+import { aiMessageSchema } from '@/lib/validation/ai-chat-schema'
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, history, context } = await request.json()
-
-    if (!message) {
-      return NextResponse.json(
-        { error: 'Mensagem é obrigatória' },
-        { status: 400 }
-      )
-    }
-
-    // Verificar se a chave da API está configurada
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API key não configurada' },
-        { status: 500 }
-      )
-    }
+    // 1. Validar entrada
+    const body = await request.json()
+    const validated = aiMessageSchema.parse(body)
+    const { message, context, history } = validated
 
     // Buscar dados reais do banco (com fallback para dados mockados)
     let studentsData, teachersData, financialData, classesData
-    const studioId = context?.studio_id || context?.studioId || "00000000-0000-0000-0000-000000000000"
+    const studioId = context?.studio_id || "00000000-0000-0000-0000-000000000000"
+
+    // Verificar se a chave da API está configurada
+    let apiKey = process.env.OPENAI_API_KEY
+    
+    // Buscar API key do estúdio se disponível
+    if (studioId && studioId !== "00000000-0000-0000-0000-000000000000") {
+      const { data: studioKeys } = await supabase
+        .from('studio_api_keys')
+        .select('api_key')
+        .eq('studio_id', studioId)
+        .eq('service_name', 'openai')
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      if (studioKeys?.api_key) {
+        apiKey = studioKeys.api_key;
+      }
+    }
+    
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'API key não configurada. Configure nas configurações do estúdio.' },
+        { status: 500 }
+      )
+    }
 
     // 1. BUSCAR O RELATÓRIO DE CONTEXTO MAIS RECENTE (Fonte da Verdade)
     const { data: latestReport } = await supabase

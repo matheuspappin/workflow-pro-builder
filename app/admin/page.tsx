@@ -87,9 +87,9 @@ export default function AdminDashboard() {
           <GlassCard>
             <div className="flex justify-between items-start mb-2">
               <div className="p-2 bg-amber-500/20 rounded-lg"><Activity className="w-5 h-5 text-amber-400"/></div>
-              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">Estável</span>
+              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">Operacional</span>
             </div>
-            <h3 className="text-3xl font-black text-white">99.9%</h3>
+            <h3 className="text-3xl font-black text-white">{stats?.systemHealth?.uptime || '99.9'}%</h3>
             <p className="text-xs text-white/50 uppercase tracking-widest font-bold">Uptime do Sistema</p>
           </GlassCard>
 
@@ -198,14 +198,36 @@ export default function AdminDashboard() {
                   <Server className="w-6 h-6 text-emerald-400" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-lg text-white">Sistema Operacional</h4>
-                  <p className="text-sm text-white/50">Todos os serviços rodando conforme esperado.</p>
+                  <h4 className="font-bold text-lg text-white">
+                    {stats?.systemHealth?.status === 'operational' ? 'Sistema Operacional' : 'Sistema com Problemas'}
+                  </h4>
+                  <p className="text-sm text-white/50">
+                    {stats?.systemHealth?.message || 'Todos os serviços rodando conforme esperado.'}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold">Database: OK</span>
-                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold">Storage: OK</span>
-                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold">Auth: OK</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  stats?.systemHealth?.database === 'ok' 
+                    ? 'bg-emerald-500/20 text-emerald-400' 
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  Database: {stats?.systemHealth?.database || 'OK'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  stats?.systemHealth?.storage === 'ok' 
+                    ? 'bg-emerald-500/20 text-emerald-400' 
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  Storage: {stats?.systemHealth?.storage || 'OK'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  stats?.systemHealth?.auth === 'ok' 
+                    ? 'bg-emerald-500/20 text-emerald-400' 
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  Auth: {stats?.systemHealth?.auth || 'OK'}
+                </span>
               </div>
             </CardContent>
           </Card>

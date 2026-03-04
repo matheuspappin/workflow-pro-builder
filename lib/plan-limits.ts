@@ -72,23 +72,7 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasMarketplace: true,
     hasERP: false,
   },
-  "pro+": {
-    name: "Pro+",
-    price: 197,
-    maxStudents: 500,
-    maxProfessionals: 15, // Alterado de maxTeachers para maxProfessionals
-    hasWhatsApp: true,
-    hasAI: true,
-    hasFinance: true,
-    hasMultiUnit: false,
-    hasPOS: true,
-    hasInventory: true,
-    hasGamification: true,
-    hasLeads: true,
-    hasScanner: true,
-    hasMarketplace: true,
-    hasERP: false,
-  },
+  // "pro+" é alias para "pro-plus" — normalizado em isLimitReached()
   enterprise: {
     name: "Enterprise",
     price: 397,
@@ -119,7 +103,9 @@ export function isLimitReached(
   plan: string = 'gratuito',
   resource: keyof PlanLimits
 ): boolean {
-  const normalizedPlan = plan.toLowerCase();
+  let normalizedPlan = plan.toLowerCase();
+  // Normalizar aliases de plano
+  if (normalizedPlan === 'pro+') normalizedPlan = 'pro-plus';
   const limits = PLAN_LIMITS[normalizedPlan] || PLAN_LIMITS.gratuito;
   const limit = limits[resource];
   

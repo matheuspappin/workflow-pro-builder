@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import logger from "@/lib/logger"
 import { generateUniqueSlug } from "@/lib/utils/slug"
+import { logAdmin } from "@/lib/admin-logs"
 
 export interface VerticalData {
   name: string
@@ -136,6 +137,7 @@ export async function createVerticalization(data: VerticalData) {
   }
 
   logger.info('✅ Verticalização criada com ID:', vertical.id)
+  await logAdmin('success', 'super-admin/verticalization', `Verticalização "${data.name}" criada (slug: ${slug})`, { metadata: { verticalId: vertical.id, slug, niche: data.niche, createdBy: user.id } })
   return { success: true, vertical }
 }
 
@@ -247,6 +249,7 @@ export async function updateVerticalization(
   }
 
   logger.info('✅ Verticalização atualizada com sucesso')
+  await logAdmin('info', 'super-admin/verticalization', `Verticalização ${id} atualizada: ${Object.keys(updateData).join(', ')}`, { metadata: { verticalId: id, changes: Object.keys(updateData) } })
   return {
     ...vertical,
     tags: Array.isArray(vertical.tags) ? vertical.tags : [],
@@ -274,6 +277,7 @@ export async function updateVerticalizationModules(
   }
 
   logger.info('✅ Módulos atualizados com sucesso')
+  await logAdmin('info', 'super-admin/verticalization', `Módulos da verticalização ${id} atualizados`, { metadata: { verticalId: id, modules } })
 }
 
 export async function deleteVerticalization(id: string, accessToken?: string): Promise<void> {
@@ -292,6 +296,7 @@ export async function deleteVerticalization(id: string, accessToken?: string): P
   }
 
   logger.info('✅ Verticalização deletada')
+  await logAdmin('warning', 'super-admin/verticalization', `Verticalização ${id} deletada permanentemente`, { metadata: { verticalId: id } })
 }
 
 export interface TenantRow {

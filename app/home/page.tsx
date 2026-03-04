@@ -8,9 +8,19 @@ import {
   ArrowRight, Menu, X, ChevronRight, Shield, Sprout, Music,
   CreditCard, Bot, Zap, Users, Globe, Smartphone, BarChart3,
 } from "lucide-react"
+import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
 import { useOrganization } from "@/components/providers/organization-provider"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
+
+const LineupCard3D = dynamic(() => import("@/components/home/lineup-card-3d").then((m) => ({ default: m.LineupCard3D })), {
+  ssr: false,
+  loading: () => (
+    <div className="relative h-44 w-full overflow-hidden bg-zinc-900 animate-pulse">
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+    </div>
+  ),
+})
 
 type Language = 'pt' | 'en'
 
@@ -626,7 +636,7 @@ function ArchitectureSection() {
         >
           <p className="text-[10px] font-mono text-white/40 uppercase tracking-[0.35em] mb-4">Arquitetura</p>
           <h2 className="text-3xl md:text-5xl font-black tracking-tighter text-white mb-4">
-            4 PORTAIS. UMA ENGINE.
+            INUMEROS PORTAIS. UMA ENGINE.
           </h2>
           <p className="text-white/50 font-medium max-w-xl">
             AKAAI CORE é o coração do ecossistema. Portais interconectados sobre autenticação, pagamentos e gestão compartilhados.
@@ -876,7 +886,7 @@ function LineupSection() {
       description: 'A segurança não espera. Gestão de ativos e compliance com a precisão que a vida exige.',
       href: '/solutions/fire-protection',
       icon: Shield,
-      image: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800&q=80',
+      theme: 'fire' as const,
       modules: ['Ativos & QR Code', 'Ordem de Serviço', 'Vistorias digitais', 'PPCI', 'PDV', 'Relatórios IA'],
     },
     {
@@ -886,7 +896,7 @@ function LineupSection() {
       description: 'O campo é digital. Monitoramento via satélite e IA preditiva. Onde a terra encontra a tecnologia.',
       href: '/solutions/agroflowai',
       icon: Sprout,
-      image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80',
+      theme: 'agro' as const,
       modules: ['Propriedades geo-referenciadas', 'NDVI / Sentinel', 'NASA FIRMS', 'Documentos & alertas', 'OS de campo'],
     },
     {
@@ -896,7 +906,7 @@ function LineupSection() {
       description: 'Movimento é business. A arte de gerir talentos com a ciência da performance financeira.',
       href: '/solutions/estudio-de-danca',
       icon: Music,
-      image: 'https://images.unsplash.com/photo-1504609813442-a8924e83f76e?w=800&q=80',
+      theme: 'dance' as const,
       modules: ['Grade & turmas', 'Alunos & matrículas', 'Monetary Scanner', 'App Professor', 'App Aluno', 'QR de aula'],
     },
   ]
@@ -936,20 +946,8 @@ function LineupSection() {
             >
               <Link href={v.href}>
                 <div className="border border-zinc-800 bg-zinc-950/50 rounded-2xl overflow-hidden hover:border-zinc-700 transition-all duration-500 h-full flex flex-col">
-                  <div className="relative h-44 overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={v.image}
-                      alt={v.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                    <div className="absolute bottom-4 left-6 flex items-center gap-2">
-                      <v.icon className="w-8 h-8 text-white" />
-                      <span className="text-[10px] font-mono text-white/70 uppercase tracking-wider">
-                        Powered by AKAAI CORE
-                      </span>
-                    </div>
+                  <div className="relative overflow-hidden">
+                    <LineupCard3D icon={v.icon} index={i} theme={v.theme} />
                   </div>
                   <div className="p-8 flex-1 flex flex-col">
                     <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-3">{v.tagline}</p>

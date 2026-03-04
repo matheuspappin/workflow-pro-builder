@@ -5,8 +5,9 @@ import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DollarSign, CheckCircle2, Clock, AlertCircle, CreditCard, QrCode, Barcode, Loader2 } from "lucide-react"
+import { DollarSign, CheckCircle2, Clock, AlertCircle, CreditCard, QrCode, Barcode, Loader2, Calendar, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 type PayStatus = 'paid' | 'pending' | 'overdue'
 
@@ -26,6 +27,12 @@ export default function StudentFinanceiroPage() {
   const [loading, setLoading] = useState(true)
   const [payments, setPayments] = useState<any[]>([])
   const [studioId, setStudioId] = useState<string | null>(null)
+  const [studentCredits, setStudentCredits] = useState<any>(null)
+  const [packages, setPackages] = useState<any[]>([])
+  const [creditUsage, setCreditUsage] = useState<any[]>([])
+  const [businessModel, setBusinessModel] = useState<'CREDIT' | 'MONETARY'>('MONETARY')
+  const [isBuying, setIsBuying] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     async function load() {
@@ -37,6 +44,15 @@ export default function StudentFinanceiroPage() {
       if (!sid) { setLoading(false); return }
 
       try {
+        // Carregar business model
+        const { data: studio } = await supabase
+          .from('studios')
+          .select('business_model')
+          .eq('id', sid)
+          .single()
+        setBusinessModel(studio?.business_model || 'MONETARY')
+
+        // Carregar pagamentos (mensalidades)
         const res = await fetch(`/api/fire-protection/financeiro?studioId=${sid}`)
         const data = await res.json()
         if (Array.isArray(data)) {
@@ -49,7 +65,34 @@ export default function StudentFinanceiroPage() {
             pagamento: p.pagamento || p.paidAt || null,
           })))
         }
-      } catch { /* sem cobranças */ }
+
+        // Carregar créditos se for modelo CREDIT
+        if (studio?.business_model === 'CREDIT') {
+          const [creditsRes, packagesRes, usageRes] = await Promise.all([
+            supabase
+              .from('student_lesson_credits')
+              .select('*')
+              .eq('student_id', user.id)
+              .maybeSingle(),
+            supabase
+              .from('lesson_packages')
+              .select('*')
+              .eq('studio_id', sid)
+              .eq('is_active', true)
+              .order('lessons_count', { ascending: true }),
+            supabase
+              .from('student_credit_usage')
+              .select('*')
+              .eq('student_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(10)
+          ])
+          
+          setStudentCredits(creditsRes.data)
+          setPackages(packagesRes.data || [])
+          setCreditUsage(usageRes.data || [])
+        }
+      } catch { /* sem dados */ }
 
       setLoading(false)
     }
@@ -58,6 +101,53 @@ export default function StudentFinanceiroPage() {
 
   const pendentes = payments.filter(p => p.status === 'pending' || p.status === 'overdue')
   const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  const handlePayment = async (pkg: any) => {
+    setIsBuying(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Usuário não autenticado')
+
+      const response = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{
+            id: pkg.id,
+            name: pkg.name,
+            price: pkg.price,
+            quantity: 1,
+            type: 'package',
+            priceInCredits: pkg.lessons_count
+          }],
+          customerEmail: user.email,
+          successUrl: `${window.location.origin}/solutions/estudio-de-danca/student?payment=success`,
+          cancelUrl: `${window.location.origin}/solutions/estudio-de-danca/student/financeiro`,
+          metadata: {
+            student_id: user.id,
+            studio_id: studioId,
+            package_id: pkg.id,
+            credits: pkg.lessons_count.toString()
+          }
+        })
+      })
+
+      const data = await response.json()
+      if (response.ok && data.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error(data.error || 'Erro ao processar pagamento')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro na compra",
+        description: error.message,
+        variant: "destructive"
+      })
+    } finally {
+      setIsBuying(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -75,6 +165,94 @@ export default function StudentFinanceiroPage() {
         </div>
       ) : (
         <>
+          {/* Card de Créditos (modelo CREDIT) */}
+          {businessModel === 'CREDIT' && studentCredits && (
+            <Card className="bg-gradient-to-br from-violet-600 to-indigo-700 text-white border-none shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <p className="text-xs opacity-80 uppercase font-bold tracking-widest mb-1">Créditos de Aula</p>
+                    <h2 className="text-4xl font-black">{studentCredits.remaining_credits}</h2>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg backdrop-blur-md">
+                    <Calendar className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-2">
+                  <div 
+                    className="h-full bg-white" 
+                    style={{ width: `${(studentCredits.remaining_credits / studentCredits.total_credits) * 100}%` }}
+                  />
+                </div>
+                <p className="text-[10px] opacity-80 font-bold uppercase">
+                  Válido até: {new Date(studentCredits.expiry_date).toLocaleDateString('pt-BR')}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Comprar Pacotes (modelo CREDIT) */}
+          {businessModel === 'CREDIT' && (
+            <div className="space-y-4">
+              <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Comprar Pacote de Créditos</h3>
+              <div className="grid grid-cols-1 gap-3">
+                {packages.map((pkg) => (
+                  <Card key={pkg.id} className="border-2 border-slate-100 dark:border-slate-800 hover:border-violet-500/50 transition-all cursor-pointer group"
+                    onClick={() => handlePayment(pkg)}
+                  >
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-violet-600/10 flex items-center justify-center text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                          <Plus className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">{pkg.name}</p>
+                          <p className="text-xs text-muted-foreground">{pkg.lessons_count} aulas</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-sm">R$ {Number(pkg.price).toFixed(2).replace('.', ',')}</p>
+                        <p className="text-[10px] text-muted-foreground italic">~ R$ {(Number(pkg.price) / pkg.lessons_count).toFixed(2)}/aula</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Uso de Créditos (modelo CREDIT) */}
+          {businessModel === 'CREDIT' && creditUsage.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Uso de Créditos</h3>
+              <Card className="border-none shadow-sm">
+                <CardContent className="p-0">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {creditUsage.map((usage) => (
+                      <div key={usage.id} className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            usage.usage_type === 'refund' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold">{usage.notes || `Aula de ${new Date(usage.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(usage.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant={usage.usage_type === 'refund' ? "default" : "secondary"} className={usage.usage_type === 'refund' ? "bg-emerald-500" : ""}>
+                          {usage.usage_type === 'refund' ? '+1' : '-1'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           {/* Pendentes */}
           {pendentes.length > 0 && (
             <Card className={cn("border", pendentes.some(p => p.status === 'overdue') ? statusMap.overdue.border : statusMap.pending.border,

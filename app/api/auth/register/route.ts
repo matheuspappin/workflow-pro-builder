@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
             name: extraStudioName,
             slug: extraSlug,
             plan: selectedPlanId,
-            business_model: businessModel || 'CREDIT',
+            business_model: finalBusinessModel,
             status: 'active',
             subscription_status: selectedPlanId === 'gratuito' ? 'active' : 'trialing',
             trial_ends_at: selectedPlanId === 'gratuito' ? null : new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString(),
@@ -249,15 +249,15 @@ export async function POST(request: NextRequest) {
 
         const vocabulary = nicheDictionary.pt[niche as keyof typeof nicheDictionary.pt] || nicheDictionary.pt.dance
 
-        await supabaseAdmin.from('organization_settings').insert({
-          studio_id: studio.id,
+        const orgSettingsRows = createdStudioIds.map(sid => ({
+          studio_id: sid,
           niche: niche,
           enabled_modules: enabledModules,
           vocabulary: vocabulary,
           business_type: finalBusinessModel,
-          // multi_unit_limit: multiUnitQuantity
-        })
-        logger.info(`✅ Configurações do ecossistema (organization_settings) inseridas para nicho ${niche}.`);
+        }))
+        await supabaseAdmin.from('organization_settings').insert(orgSettingsRows)
+        logger.info(`✅ Configurações do ecossistema (organization_settings) inseridas para ${orgSettingsRows.length} estúdio(s), nicho ${niche}.`);
       }
     } else if (studioId) {
       // Se já temos um studioId (ex: registro de aluno em um estúdio específico)
@@ -287,7 +287,11 @@ export async function POST(request: NextRequest) {
 
     if (authError) {
       logger.error('❌ Erro ao criar auth user no Supabase Admin:', authError.message, authError.status, authError.name);
-      if (studio) await supabaseAdmin.from('studios').delete().eq('id', studio.id);
+      if (createdStudioIds.length > 0) {
+        await supabaseAdmin.from('studios').delete().in('id', createdStudioIds);
+      } else if (studio) {
+        await supabaseAdmin.from('studios').delete().eq('id', studio.id);
+      }
       // Mensagem mais amigável para erros comuns do Supabase
       let userFriendlyError = 'Não foi possível criar sua conta agora. Por favor, tente novamente com outro e-mail.';
       let errorCode = 'AUTH_USER_CREATION_FAILED';
@@ -306,7 +310,11 @@ export async function POST(request: NextRequest) {
 
     if (!authData.user) {
       logger.error('❌ Supabase Auth retornou authData.user nulo após signUp, mas sem erro explícito.', authData);
-      if (studio) await supabaseAdmin.from('studios').delete().eq('id', studio.id);
+      if (createdStudioIds.length > 0) {
+        await supabaseAdmin.from('studios').delete().in('id', createdStudioIds);
+      } else if (studio) {
+        await supabaseAdmin.from('studios').delete().eq('id', studio.id);
+      }
       throw new AppError('Erro inesperado no registro. Tente novamente.', 500, 'AUTH_USER_NULL_AFTER_SIGNUP');
     }
 
@@ -385,7 +393,7 @@ export async function POST(request: NextRequest) {
         cpf_cnpj: taxId,
         birth_date: birthDate || null,
         address: address || null,
-        professional_type: role === 'engineer' ? 'engineer' : (role === 'architect' ? 'architect' : 'technician'),
+        professional_type: role === 'engineer' ? 'engineer' : (role === 'architect' ? 'architect' : (role === 'teacher' ? 'teacher' : 'technician')),
         professional_registration: professionalRegistration || null,
         cau_registration: role === 'architect' ? professionalRegistration : null,
         status: 'active',

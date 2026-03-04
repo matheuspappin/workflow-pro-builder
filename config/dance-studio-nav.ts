@@ -13,10 +13,12 @@ import {
   Trophy,
   Music,
   UserCheck,
+  QrCode,
 } from "lucide-react"
 
 export type DanceStudioModuleKey =
   | "dashboard"
+  | "scanner"
   | "students"
   | "classes"
   | "financial"
@@ -65,6 +67,13 @@ export const DANCE_STUDIO_NAV_GROUPS: DanceStudioNavGroup[] = [
         label: "Professores",
         icon: GraduationCap,
         module: "classes",
+      },
+      {
+        id: "scanner",
+        href: "/solutions/estudio-de-danca/dashboard/scanner",
+        label: "Scanner QR",
+        icon: QrCode,
+        module: "scanner",
       },
     ],
   },

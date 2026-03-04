@@ -68,12 +68,13 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Se o user existe mas o cookie user-role não, tentamos recuperar do metadata
+  // Sincronizar cookie user-role com metadata do user (detecta mudanças de role)
   let userRole = request.cookies.get('user-role')?.value
-  if (user && !userRole) {
-    userRole = user.user_metadata?.role
-    if (userRole) {
-      response.cookies.set('user-role', userRole, {
+  if (user) {
+    const metadataRole = user.user_metadata?.role as string | undefined
+    if (metadataRole && metadataRole !== userRole) {
+      userRole = metadataRole
+      response.cookies.set('user-role', metadataRole, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -105,7 +106,7 @@ export async function proxy(request: NextRequest) {
     if (
       pathname.startsWith('/_next') ||
       pathname.startsWith('/favicon') ||
-      pathname.includes('.')
+      /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff2?|ttf|eot)$/i.test(pathname)
     ) {
       return response
     }
@@ -123,6 +124,23 @@ export async function proxy(request: NextRequest) {
     ]
     if (PUBLIC_API_ROUTES.some(r => pathname.startsWith(r))) {
       return response
+    }
+
+    // ─── Modo Manutenção ──────────────────────────────────────────────────────
+    // APÓS rotas públicas (auth/cron/webhooks devem funcionar em manutenção)
+    if (process.env.MAINTENANCE_MODE === 'true') {
+      const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/admin')
+      const isMaintenancePage = pathname === '/maintenance'
+      if (!isAdminPath && !isMaintenancePage) {
+        // APIs regulares recebem 503 JSON; páginas recebem redirect
+        if (pathname.startsWith('/api/')) {
+          return NextResponse.json(
+            { error: 'Sistema em manutenção. Tente novamente em alguns minutos.' },
+            { status: 503 }
+          )
+        }
+        return NextResponse.redirect(new URL('/maintenance', request.url))
+      }
     }
 
     // ─── API admin: 401 se não autenticado ────────────────────────────────────

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import logger from '@/lib/logger'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const VALID_SCENARIOS = ['enrollment', 'agendamento'] as const
@@ -146,9 +147,13 @@ export async function POST(request: NextRequest) {
       .select('id')
 
     if (error) {
-      console.error('Erro ao inserir conversas:', error)
+      logger.error('Erro ao inserir conversas:', error)
       return NextResponse.json(
-        { error: error.message, hint: 'Verifique se a migration 83 (ai_training_conversations) foi aplicada no Supabase.' },
+        { 
+          error: 'Falha ao salvar conversas no banco de dados', 
+          details: error.message,
+          hint: 'Verifique se a migration 83 (ai_training_conversations) foi aplicada no Supabase.' 
+        }, 
         { status: 500 }
       )
     }

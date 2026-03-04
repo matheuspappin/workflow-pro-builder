@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin'
 import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
+  // Verificação de segurança - apenas super admins
+  const { isAdmin } = await checkSuperAdminDetailed()
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   try {
     // 1. Total de Estúdios
     const { count: totalStudios } = await supabase

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger';
+import { logAdmin } from '@/lib/admin-logs';
 
 /**
  * CRON JOB: Limpeza e Gerenciamento de Ciclo de Vida dos Estúdios
@@ -30,7 +31,8 @@ export async function GET(request: NextRequest) {
     logger.info(`[CRON] Iniciando limpeza de estúdios: ${now}`)
 
     // 1. DESATIVAÇÃO: Estúdios com Trial vencido
-    // Regra: trial_ends_at < agora E subscription_status não é 'active' E status é 'active'
+    // Regra: trial_ends_at < agora E subscription_status = 'trialing' E status = 'active'
+    // NOTA: Usa eq('trialing') em vez de neq('active') para não afetar studios com subscription_status NULL (legados)
     const { data: toDeactivate, error: deactivateError } = await supabaseAdmin
       .from('studios')
       .update({ 
@@ -38,14 +40,16 @@ export async function GET(request: NextRequest) {
         updated_at: now 
       })
       .lt('trial_ends_at', now)
-      .neq('subscription_status', 'active')
+      .eq('subscription_status', 'trialing')
       .eq('status', 'active')
       .select('id, name')
 
     if (deactivateError) {
       logger.error('[CRON] Erro ao desativar estúdios:', deactivateError)
+      await logAdmin('error', 'cron/studios-cleanup', `Erro ao desativar estúdios: ${deactivateError.message}`)
     } else if (toDeactivate?.length) {
       logger.info(`[CRON] ${toDeactivate.length} estúdios desativados por fim de trial.`)
+      await logAdmin('warning', 'cron/studios-cleanup', `${toDeactivate.length} estúdios desativados por fim de trial`, { metadata: { studios: toDeactivate.map(s => ({ id: s.id, name: s.name })) } })
     }
 
     // 2. EXCLUSÃO: Estúdios inativos há mais de 15 dias
@@ -61,8 +65,10 @@ export async function GET(request: NextRequest) {
 
     if (deleteError) {
       logger.error('[CRON] Erro ao excluir estúdios:', deleteError)
+      await logAdmin('error', 'cron/studios-cleanup', `Erro ao excluir estúdios inativos: ${deleteError.message}`)
     } else if (toDelete?.length) {
       logger.info(`[CRON] ${toDelete.length} estúdios excluídos permanentemente por inatividade prolongada.`)
+      await logAdmin('warning', 'cron/studios-cleanup', `${toDelete.length} estúdios excluídos permanentemente (inativos >15 dias)`, { metadata: { studios: toDelete.map(s => ({ id: s.id, name: s.name })) } })
     }
 
     return NextResponse.json({

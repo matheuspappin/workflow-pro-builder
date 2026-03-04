@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,6 +10,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'Studio ID is required' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const { data, error } = await supabase
       .from('expenses')
@@ -32,6 +36,9 @@ export async function POST(request: NextRequest) {
     if (!studio_id || !description || !amount || !due_date) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studio_id)
+    if (!access.authorized) return access.response
 
     const { data, error } = await supabase
       .from('expenses')
@@ -64,6 +71,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'ID and Studio ID are required' }, { status: 400 })
     }
 
+    const access = await checkStudioAccess(request, studio_id)
+    if (!access.authorized) return access.response
+
     const { data, error } = await supabase
       .from('expenses')
       .update({
@@ -92,6 +102,9 @@ export async function DELETE(request: NextRequest) {
     if (!id || !studioId) {
       return NextResponse.json({ error: 'ID and Studio ID are required' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const { error } = await supabase
       .from('expenses')

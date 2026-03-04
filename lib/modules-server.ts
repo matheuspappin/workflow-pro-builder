@@ -2,6 +2,7 @@ import { cache } from "react"
 import { getAuthenticatedClient } from "@/lib/server-utils"
 import { normalizeModules, ModuleKey } from "@/config/modules"
 import logger from '@/lib/logger';
+import { logAdmin } from '@/lib/admin-logs';
 
 /**
  * Retorna as configurações completas do ecossistema no lado do servidor.
@@ -33,9 +34,9 @@ export const getServerOrganizationConfig = cache(async () => {
       studioId = profile.studio_id
     } else {
        // 3. Fallback para teachers e students
-       const { data: teacher } = await supabase.from('teachers').select('studio_id').eq('user_id', user.id).maybeSingle()
-       if (teacher?.studio_id) {
-         studioId = teacher.studio_id
+       const { data: professional } = await supabase.from('professionals').select('studio_id').eq('user_id', user.id).maybeSingle()
+       if (professional?.studio_id) {
+         studioId = professional.studio_id
        } else {
          const { data: student } = await supabase.from('students').select('studio_id').eq('id', user.id).maybeSingle()
          if (student?.studio_id) studioId = student.studio_id
@@ -46,6 +47,27 @@ export const getServerOrganizationConfig = cache(async () => {
   if (!studioId) {
     logger.warn(`getServerOrganizationConfig: User ${user.id} has no studio_id linked`)
     return null
+  }
+
+  // Verificar se o studio está ativo (enforcement de subscription/lifecycle)
+  const { data: studio } = await supabase
+    .from('studios')
+    .select('status, subscription_status, trial_ends_at')
+    .eq('id', studioId)
+    .maybeSingle()
+
+  if (!studio || studio.status === 'inactive') {
+    logger.warn(`getServerOrganizationConfig: Studio ${studioId} está inativo. Acesso bloqueado para user ${user.id}`)
+    return null
+  }
+
+  // Verificar trial expirado (proteção adicional caso o CRON não tenha rodado ainda)
+  if (studio.subscription_status === 'trialing' && studio.trial_ends_at) {
+    const trialEnd = new Date(studio.trial_ends_at)
+    if (trialEnd < new Date()) {
+      logger.warn(`getServerOrganizationConfig: Trial expirado para studio ${studioId}. Acesso bloqueado para user ${user.id}`)
+      return null
+    }
   }
 
   const { data: settings } = await supabase
@@ -89,6 +111,7 @@ export async function guardModule(moduleKey: ModuleKey) {
 
   if (!config.enabledModules[moduleKey]) {
     logger.error(`❌ Acesso bloqueado: Módulo [${moduleKey}] está desativado para o estúdio ${config.studioId}`)
+    logAdmin('warning', 'guard-module', `Módulo [${moduleKey}] bloqueado para studio ${config.studioId}`, { studio: config.studioId, metadata: { moduleKey, userId: config.user?.id } })
     throw new Error(`O módulo ${moduleKey} não está ativo para sua conta.`)
   }
 

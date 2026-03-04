@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 import logger from '@/lib/logger'
 
 /**
@@ -26,6 +27,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     // Listar pendentes (OS/sales pagas sem nota)
     const [pendingOrders, emittedNotes] = await Promise.all([
@@ -76,6 +80,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const results: Array<{
       id: string

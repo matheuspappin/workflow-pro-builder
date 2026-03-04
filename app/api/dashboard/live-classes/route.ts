@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkStudioAccess } from '@/lib/auth'
 import logger from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
@@ -19,6 +20,9 @@ export async function GET(req: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'ID do estúdio não fornecido.' }, { status: 400 });
     }
+
+    const access = await checkStudioAccess(req, studioId)
+    if (!access.authorized) return access.response
 
     // 1. Pegar dia da semana e hora atual (Ajustado para o fuso de Brasília)
     const now = new Date();

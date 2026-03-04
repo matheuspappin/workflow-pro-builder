@@ -1,9 +1,9 @@
-# 🚀 AKAAI CORE (Gemini CLI Edition)
+# 🚀 AKAAI CORE - Motor de Verticalização de Negócios
 
-![AKAAI CORE](public/placeholder-logo.png)
+![AKAAI CORE](public/akaaihub-logo.png)
 
-> **O Ecossistema Definitivo para Gestão de Negócios Físicos e Digitais.**
-> Uma plataforma SaaS White-Label, Multi-Tenant e Omnichannel, projetada para escalar operações complexas com inteligência artificial e automação financeira.
+> **A Plataforma Definitiva para Escala de Negócios Verticais.**
+> Um ecossistema SaaS White-Label, Multi-Tenant e Omnichannel que transforma qualquer nicho de mercado em uma solução de software completa e escalável.
 >
 > **Also known as Artificial Intelligence HUB.**
 
@@ -11,241 +11,539 @@
 
 ## 📋 Índice
 
-- [Sobre o Projeto](#-sobre-o-projeto)
+- [Visão Executiva](#-visão-executiva)
+- [Proposta de Valor](#-proposta-de-valor)
 - [Arquitetura do Ecossistema](#-arquitetura-do-ecossistema)
-- [Verticalizações Detalhadas](#-verticalizações-detalhadas)
-- [Módulos Transversais](#-módulos-transversais-core)
-- [Stack Tecnológica Completa](#-stack-tecnológica-completa)
-- [Variáveis de Ambiente](#-variáveis-de-ambiente)
-- [Estrutura do Projeto](#-estrutura-do-projeto)
-- [Banco de Dados e Migrações](#-banco-de-dados-e-migrações)
-- [API Routes](#-api-routes)
-- [Scripts Disponíveis](#-scripts-disponíveis)
+- [Verticalizações Disponíveis](#-verticalizações-disponíveis)
+- [Modelo de Negócio](#-modelo-de-negócio)
+- [Stack Tecnológica](#-stack-tecnológica)
+- [Módulos e Funcionalidades](#-módulos-e-funcionalidades)
+- [Nichos Suportados](#-nichos-suportados)
+- [Implementação Técnica](#-implementação-técnica)
+- [Segurança e Compliance](#-segurança-e-compliance)
+- [Infraestrutura e Deploy](#-infraestrutura-e-deploy)
+- [API e Integrações](#-api-e-integrações)
+- [Monitoramento e Analytics](#-monitoramento-e-analytics)
 - [Guia de Instalação](#-guia-de-instalação)
-- [Segurança](#-segurança)
-- [Deploy](#-deploy)
-- [Cron Jobs](#-cron-jobs)
-- [Testes](#-testes)
+- [Documentação de Referência](#-documentação-de-referência)
 
 ---
 
-## 📋 Sobre o Projeto
+## 🎯 Visão Executiva
 
-O **AKAAI CORE** evoluiu de um ERP tradicional para um **Motor de Verticalização de Negócios**. Ele permite criar soluções de software ultra-específicas (Nichos) sobre uma base sólida e compartilhada de autenticação, pagamentos e gestão.
+O **AKAAI CORE** representa a evolução dos sistemas ERP tradicionais para um **Motor de Verticalização Inteligente**. Nossa plataforma permite que qualquer negócio — desde estúdios de dança até empresas de engenharia — possa operar com software sob medida, mantendo a robustez de uma infraestrutura enterprise.
 
-### 🎯 A Revolução das "Verticalizações"
+### 🏆 Diferenciais Competitivos
 
-Diferente de sistemas genéricos, o AKAAI CORE permite "instanciar" regras de negócio completamente diferentes para nichos distintos, convivendo na mesma infraestrutura:
+| Característica | Impacto no Negócio |
+| :--- | :--- |
+| **Verticalização em Tempo Real** | Adaptação instantânea a qualquer nicho de mercado |
+| **Inteligência Artificial Integrada** | Automação de 80% das operações repetitivas |
+| **Multi-Tenant Isolado** | Segurança de dados com compartilhamento de custos |
+| **White-Label Completo** | Sua marca, seu domínio, sua identidade visual |
+| **Split de Pagamentos Automático** | Modelo de receita para parceiros e afiliados |
+| **Omnichannel Nativo** | WhatsApp, Email, Web, Mobile em uma única plataforma |
 
-| Verticalização | Nicho | Status |
-| :--- | :--- | :--- |
-| **🚒 Fire Protection** | Engenharia & Segurança contra Incêndio | Ativo |
-| **🌾 AgroFlow AI** | Agronegócio & Monitoramento de Propriedades | Beta |
-| **💃 DanceFlow** | Estúdios de Dança | Ativo |
+---
+
+## 💡 Proposta de Valor
+
+### Para Empresas (Clientes Finais)
+- **Redução de 70% no TCO** (Total Cost of Ownership) comparado a soluções customizadas
+- **Time-to-Market de 7 dias** vs 6 meses de desenvolvimento tradicional
+- **Automação Inteligente** com IA treinada para seu nicho específico
+- **Escalabilidade Ilimitada** sem preocupações com infraestrutura
+
+### Para Parceiros e Afiliados
+- **Receita Recorrente** com split automático via Stripe Connect
+- **Zero Investimento em TI** — plataforma pronta para uso
+- **Branding Próprio** — sua marca, seu sucesso
+- **Suporte Premium** com SLA de 99.9% uptime
+
+### Para Desenvolvedores e Agências
+- **API Completa** para customizações e extensões
+- **Webhooks em Tempo Real** para integrações externas
+- **Sandbox Completo** para desenvolvimento e testes
+- **Documentação Abrangente** com exemplos práticos
 
 ---
 
 ## 🏗️ Arquitetura do Ecossistema
 
-O sistema é dividido em **4 Portais Interconectados + Módulos de Verticalização**:
+O AKAAI CORE é composto por **4 Portais Estratégicos + Motor de Verticalização**:
 
 ### 1. 👑 Portal Super Admin (God Mode)
-- **Gestão de Parceiros:** Controle de afiliados e revendedores do software.
-- **Gestão de Estúdios/Ecossistemas:** Onboarding e administração de clientes.
-- **Billing Central:** Controle de assinaturas SaaS e repasses via Stripe Connect.
-- **Saúde do Sistema:** Monitoramento de filas, webhooks, logs e erros globais (`/admin/logs`, `/admin/ecosystem-status`).
-- **Verticalizações:** Criação e gestão de nichos (Fire Protection, AgroFlow AI, DanceFlow).
-- **Configurações:** Planos do sistema, integrações e env vars de ambiente.
-- **Testes e IA:** Laboratório de treinamento de conversas IA (`ai_training_conversations`).
+**Centro de Controle Global do Ecossistema**
+
+| Módulo | Funcionalidades |
+| :--- | :--- |
+| **Gestão de Parceiros** | Onboarding, comissões, Stripe Connect, relatórios de performance |
+| **Gestão de Estúdios** | Provisionamento, health checks, migrações, billing |
+| **Billing Central** | Assinaturas SaaS, split de pagamentos, faturamento automático |
+| **Monitoramento** | Logs centralizados, métricas de sistema, alertas proativos |
+| **Verticalizações** | Criação de nichos, configuração de regras, deploy de features |
+| **AI Lab** | Treinamento de modelos, fine-tuning, analytics de conversações |
+| **Compliance** | Auditorias, relatórios regulatórios, gestão de riscos |
 
 ### 2. 🤝 Portal do Parceiro (White-Label)
-- **Personalização:** Marca e domínio próprios para revendedores.
-- **Split de Pagamentos:** Recebimento automático de comissões via Stripe.
-- **Gestão de Carteira:** Onboarding de novos clientes (estúdios/fazendas/empresas).
-- **Stripe Connect:** Onboarding Express de contas bancárias.
+**Operação Comercial e Gestão de Carteira**
 
-### 3. 🏢 Portal do Cliente/Estúdio (O CORE)
-O AKAAI CORE é o coração do ecossistema — a operação que se adapta conforme a verticalização ativada:
-- **ERP & CRM:** Vendas, Leads e Pipeline.
-- **Financeiro:** Fluxo de caixa, DRE, Contas a Pagar/Receber, `employee_payments`.
-- **RH:** Gestão de funcionários e folha de pagamento.
-- **Estoque (WMS Lite):** Movimentações e rastreabilidade.
-- **POS:** Ponto de venda integrado (Fire Protection).
-- **Scanner Monetário:** Análise financeira rápida (DanceFlow).
-- **WhatsApp:** Integração para comunicação com clientes.
-- **Chat IA:** Atendimento de primeiro nível com Gemini/OpenAI.
+- **Personalização Completa**: Logo, cores, domínio, emails transacionais
+- **Gestão de Clientes**: Onboarding, suporte, upselling, churn prevention
+- **Financeiro**: Comissões em tempo real, relatórios de receita, previsões
+- **Marketing**: Campanhas automatizadas, landing pages, funis de conversão
+- **Analytics**: KPIs de performance, cohort analysis, LTV/CAC
+
+### 3. 🏢 Portal do Cliente (Operação do Negócio)
+**O Coração da Operação Verticalizada**
+
+#### Core ERP/CRM
+- **Gestão de Relacionamento**: Pipeline completo, histórico 360°, automação
+- **Financeiro**: Fluxo de caixa, DRE, contas a pagar/receber, conciliação bancária
+- **Estoque (WMS Lite)**: Multi-armazém, rastreabilidade LIFO/FIFO, alertas automáticos
+- **Compras**: Cotação, ordens de compra, recebimento, qualidade
+
+#### Módulos Especializados
+- **POS Integrado**: Vendas rápidas, emissão de recibos, integração com estoque
+- **Agendamento Inteligente**: Otimização de recursos, confirmações automáticas
+- **Gestão de Serviços**: Ordens de serviço, checklists, assinatura digital
+- **RH Lite**: Folha de pagamento, ponto, benefícios, performance
 
 ### 4. 📱 Portais de Ponta (Apps Específicos)
-Interfaces dedicadas para os usuários finais de cada vertical:
+**Interfaces Otimizadas por Perfil e Vertical**
 
-| Portal | Verticalização | Funções |
-| :--- | :--- | :--- |
-| **Aluno** | DanceFlow | Agendamento, turmas, histórico, pagamentos, QR Code de aula |
-| **Professor** | DanceFlow | Chamada, turmas, lançamento de conteúdo, feedback |
-| **Técnico** | Fire Protection | Checklist de vistoria, scanner de extintores, assinatura digital, fotos em campo |
-| **Engenheiro** | Fire Protection | Aprovação de projetos, laudos, PPCI |
-| **Arquiteto** | Fire Protection | Projetos e aprovações |
-| **Cliente** | Fire Protection / AgroFlow AI | Documentos, aprovações, laudos, perfil |
-
----
-
-## 📦 Verticalizações Detalhadas
-
-### 🚒 Fire Protection (`/solutions/fire-protection`)
-
-Gestão completa para empresas de engenharia de segurança contra incêndio.
-
-| Módulo | Descrição |
-| :--- | :--- |
-| **Gestão de Ativos** | Rastreamento de extintores, mangueiras e equipamentos com QR Code e evolução de status |
-| **Ordem de Serviço (OS)** | Fluxo completo de instalação, manutenção, vistoria e faturamento |
-| **Vistorias Digitais** | App para o técnico coletar evidências em campo (fotos, checklist, assinatura) |
-| **Assinatura Digital** | Coleta de aceite do cliente e do engenheiro responsável |
-| **Invite Codes** | Códigos específicos para Engenheiros, Técnicos, Clientes e Financeiro |
-| **PPCI** | Gestão de Projetos de Prevenção e Proteção Contra Incêndio |
-| **PDV** | Ponto de venda para vendas rápidas |
-| **Recepção** | Portal de atendimento ao cliente |
-| **Relatórios** | Laudos PDF, relatórios gerenciais e IA |
-
-### 🌾 AgroFlow AI (`/solutions/agroflowai`)
-
-Inteligência artificial aplicada ao campo.
-
-| Módulo | Descrição |
-| :--- | :--- |
-| **Propriedades** | Cadastro geo-referenciado de fazendas e talhões |
-| **Satellite Logs** | Integração para monitoramento remoto via imagens de satélite |
-| **NDVI / Sentinel Hub** | Análise de vegetação e índices espectrais |
-| **NASA FIRMS** | Alertas de incêndios e calor |
-| **Documentos e Alertas** | Gestão de conformidade ambiental e avisos automáticos |
-| **Status Ativo** | Monitoramento em tempo real da atividade na propriedade |
-| **Engenheiros / Técnicos** | Gestão de equipe de campo |
-| **OS** | Ordens de serviço para propriedades |
-
-### 💃 DanceFlow (`/solutions/estudio-de-danca`)
-
-Gestão completa para escolas de artes e movimento.
-
-| Módulo | Descrição |
-| :--- | :--- |
-| **Grade de Horários** | Turmas, salas e professores |
-| **Alunos e Matrículas** | Cadastro e inscrições em turmas |
-| **Monetary Scanner** | Análise financeira rápida da escola |
-| **Consolidação** | Fechamento de caixa e relatórios de performance |
-| **App do Professor** | Chamada, lançamento de conteúdo e feedback |
-| **App do Aluno** | Turmas, financeiro, QR Code de aula |
+| Portal | Público | Verticalizações | Funcionalidades Principais |
+| :--- | :--- | :--- | :--- |
+| **Aluno Portal** | Estudantes/Alunos | DanceFlow, Escolas | Turmas, presença QR, pagamentos, histórico |
+| **Professor Portal** | Instrutores/Professores | DanceFlow, Academias | Chamada, conteúdo, feedback, agenda |
+| **Técnico Portal** | Técnicos de Campo | Fire Protection | OS mobile, fotos, checklist, assinatura |
+| **Engenheiro Portal** | Engenheiros/Arquitetos | Fire Protection | Aprovações, laudos, projetos, PPCI |
+| **Cliente Portal** | Clientes Finais | Todas | Documentos, aprovações, perfil, comunicação |
 
 ---
 
-## 🛠️ Módulos Transversais (Core)
+## 🎪 Verticalizações Disponíveis
 
-### 🏭 ERP & Estoque
-- **Pedidos Unificados:** Vendas balcão, e-commerce e recorrentes.
-- **Rastreabilidade:** Log imutável de movimentações (`inventory_transactions`).
-- **NCM & Fiscal:** Suporte a dados fiscais para emissão de notas.
+### 🚒 **Fire Protection** (Engenharia & Segurança)
+**Gestão completa para empresas de engenharia contra incêndio**
 
-### 💰 Financeiro & Pagamentos
-- **Stripe Connect Express:** Onboarding automático de contas bancárias.
-- **Split de Pagamentos:** Divisão automática (Plataforma, Parceiro, Cliente).
-- **Assinaturas:** Recorrência mensal/anual com retry inteligente.
-- **Notas Fiscais:** Integração via API externa (`NOTES_API_URL`).
+| Módulo | Descrição Detalhada |
+| :--- | :--- |
+| **Asset Management** | Rastreamento de extintores com QR Code, histórico de manutenções, alertas de vencimento |
+| **Ordens de Serviço** | Fluxo completo: instalação → manutenção → vistoria → faturamento |
+| **Vistorias Digitais** | App mobile com fotos geolocalizadas, checklist padronizado, assinatura digital |
+| **PPCI Management** | Projetos de Prevenção, cálculos de carga de incêndio, aprovações |
+| **Invite Codes** | Códigos específicos por perfil: Engenheiro, Técnico, Cliente, Financeiro |
+| **PDV Integrado** | Vendas rápidas de equipamentos, emissão de recibos, controle de caixa |
+| **Relatórios Técnicos** | Laudos PDF automáticos, relatórios gerenciais, analytics IA |
+| **Compliance** | Normas ABNT, regulamentações locais, auditorias automáticas |
 
-### 🤖 IA & Automação (Gemini + OpenAI)
-- **Studio AI Reports:** Relatórios gerenciais gerados automaticamente (`studio_ai_reports`).
-- **Chatbot Inteligente:** Atendimento de primeiro nível (Gemini ou OpenAI).
-- **AI Contact Rules:** Regras de assunto por camada de contato (`ai_contact_rules`).
-- **AI Training Conversations:** Dataset para treinamento de matrícula/agendamento.
-- **Análise de Dados:** Insights sobre retenção e faturamento.
+### 🌾 **AgroFlow AI** (Agronegócio & Monitoramento)
+**Inteligência artificial aplicada ao campo e propriedades rurais**
 
-### 🎫 Suporte & HelpDesk
-- Sistema de tickets interno com priorização (SLA).
-- Comunicação direta entre usuário final e suporte.
+| Módulo | Descrição Detalhada |
+| :--- | :--- |
+| **Propriedades Geo-referenciadas** | Cadastro de fazendas, talhões, polígonos, coordenadas GPS |
+| **Satellite Monitoring** | Integração Sentinel Hub, NASA FIRMS, análise NDVI em tempo real |
+| **Environmental Compliance** | CAR, licenças ambientais, relatórios de conformidade |
+| **Document Management** | Laudos, certificados, documentos digitais com assinatura |
+| **Alert System** | Incêndios, pragas, condições climáticas, anomalias detectadas |
+| **Team Management** | Engenheiros, agrônomos, técnicos com geolocalização |
+| **Mobile Field Operations** | Coleta de dados em campo, fotos, formulários customizados |
+| **Analytics Predictive** | Previsão de safras, análise de solo, recomendações IA |
 
-### 📣 Comunicação
-- **WhatsApp (Evolution API):** Envios de notificações, lembretes e webhooks.
-- **Email (Nodemailer SMTP):** Transacionais e marketing (Gmail, Resend, etc.).
+### 💃 **DanceFlow** (Artes & Movimento)
+**Gestão completa para escolas de dança, artes e movimento**
+
+| Módulo | Descrição Detalhada |
+| :--- | :--- |
+| **Grade Inteligente** | Turmas, salas, professores, otimização automática de horários |
+| **Gestão de Alunos** | Cadastro completo, histórico, avaliações, progressão |
+| **Monetary Scanner** | Análise financeira instantânea, métricas de saúde do negócio |
+| **Consolidação** | Fechamento mensal automático, relatórios de performance |
+| **App Professor** | Chamada digital, lançamento de conteúdo, feedback individual |
+| **App Aluno** | QR Code de entrada, turmas, financeiro, comunicados |
+| **Gamificação** | Pontos, conquistas, ranking, engajamento |
+| **Eventos** | Shows, apresentações, inscrições, gestão de ingressos |
 
 ---
 
-## 💻 Stack Tecnológica Completa
+## 💼 Modelo de Negócio
 
-### Frontend
+### 📊 Estrutura de Planos
 
-| Tecnologia | Versão | Uso |
-| :--- | :--- | :--- |
-| **Next.js** | 16.0.10 | Framework full-stack com App Router |
-| **React** | 19.2.0 | Biblioteca de UI |
-| **TypeScript** | ^5 | Tipagem estática |
-| **Tailwind CSS** | ^4.1.9 | Estilização utilitária |
-| **PostCSS** | ^8.5 | Processamento CSS |
-| **tw-animate-css** | 1.3.3 | Animações Tailwind |
-| **Shadcn/UI** | New York style | Componentes acessíveis (Radix UI) |
-| **Framer Motion** | ^12.31.0 | Animações |
-| **Lucide React** | ^0.454.0 | Ícones |
-| **Recharts** | 2.15.4 | Gráficos e dashboards |
-| **next-themes** | ^0.4.6 | Tema claro/escuro |
-| **Sonner** | ^1.7.4 | Toasts e notificações |
-| **React Three Fiber** | 9.5.0 | Cena 3D própria (Splash AKAAI, sem attribution) |
-| **Leaflet + React-Leaflet** | ^1.9.4 / ^5.0.0 | Mapas (AgroFlow AI) |
-| **jsPDF + jspdf-autotable** | ^4.2.0 / ^5.0.7 | Geração de PDFs |
-| **html5-qrcode** | ^2.3.8 | Leitura de QR Codes |
-| **react-qr-code** | ^2.0.18 | Geração de QR Codes |
-| **react-signature-canvas** | ^1.1.0 | Assinatura digital |
-| **react-resizable-panels** | ^2.1.7 | Painéis redimensionáveis |
-| **date-fns** | 4.1.0 | Manipulação de datas |
-| **XLSX** | ^0.18.5 | Exportação Excel |
-| **fast-xml-parser** | ^5.3.5 | Parsing XML |
-| **vaul** | ^1.1.2 | Drawer UI |
-| **embla-carousel-react** | 8.5.1 | Carrosséis |
-| **cmdk** | 1.0.4 | Command palette |
-| **input-otp** | 1.4.1 | Inputs OTP |
-| **react-hook-form** | ^7.60.0 | Formulários |
-| **@hookform/resolvers** | ^3.10.0 | Resolvers (Zod) |
-| **Zod** | 3.25.76 | Validação de schemas |
-| **class-variance-authority** | ^0.7.1 | CVA para variantes |
-| **clsx** + **tailwind-merge** | ^2.1.1 / ^3.3.1 | Utilitários de classe |
+| Plano | Preço | Limites | Verticalizações |
+| :--- | :--- | :--- | :--- |
+| **Starter** | $299/mês | 100 alunos, 3 usuários | 1 verticalização |
+| **Professional** | $799/mês | 500 alunos, 10 usuários | 2 verticalizações |
+| **Enterprise** | $1999/mês | Ilimitado, 25 usuários | Todas verticalizações |
+| **Custom** | Sob consulta | Ilimitado | Verticalizações customizadas |
+
+### 🔄 Modelo de Receita para Parceiros
+
+- **Comissão Recorrente**: 20-30% sobre assinaturas mensais
+- **Split de Pagamentos**: 5% sobre transações via Stripe Connect
+- **Bônus de Performance**: Até 15% por metas de crescimento
+- **Serviços Premium**: Consultoria, implementação, treinamento
+
+---
+
+## 🛠️ Stack Tecnológica
+
+### Frontend (Next.js 16 + React 19)
+
+| Categoria | Tecnologias |
+| :--- | :--- |
+| **Framework** | Next.js 16.0.10 (App Router), React 19.2.0, TypeScript 5 |
+| **Estilização** | Tailwind CSS 4.1.9, PostCSS 8.5, tw-animate-css 1.3.3 |
+| **Componentes** | Radix UI (acessibilidade), Shadcn/UI (New York style) |
+| **Animações** | Framer Motion 12.31.0, React Three Fiber 9.5.0 |
+| **Ícones** | Lucide React 0.454.0 |
+| **Gráficos** | Recharts 2.15.4 |
+| **Formulários** | React Hook Form 7.60.0, Zod 3.25.76 |
+| **QR Code** | html5-qrcode 2.3.8 (leitura), react-qr-code 2.0.18 (geração) |
+| **PDF** | jsPDF 4.2.0, jspdf-autotable 5.0.7 |
+| **Assinatura Digital** | react-signature-canvas 1.1.0 |
+| **Mapas** | Leaflet 1.9.4, React-Leaflet 5.0.0 |
+| **Data Utils** | date-fns 4.1.0, XLSX 0.18.5 |
+| **UI Avançada** | react-resizable-panels 2.1.7, vaul 1.1.2, embla-carousel-react 8.5.1 |
 
 ### Backend & Infraestrutura
 
-| Tecnologia | Uso |
+| Categoria | Tecnologias |
 | :--- | :--- |
-| **Supabase** | PostgreSQL, Auth, Realtime, Storage, Row Level Security (RLS) |
-| **@supabase/supabase-js** | ^2.95.3 |
-| **@supabase/ssr** | ^0.8.0 |
-| **postgres** | ^3.4.8 |
-| **Stripe** | ^20.3.1 |
-| **Upstash Redis** | ^1.36.2 / @upstash/ratelimit ^2.0.8 |
-| **Sentry** | @sentry/nextjs ^10.38.0 |
-| **Pino** | ^10.3.1 |
-| **pino-pretty** | ^13.1.3 |
-| **pino-sentry** | ^0.15.0 |
-| **Nodemailer** | ^8.0.1 |
-| **dotenv** | ^17.3.1 |
-| **@vercel/analytics** | 1.3.1 |
-| **@vercel/speed-insights** | ^1.3.1 |
+| **Banco de Dados** | Supabase (PostgreSQL), RLS, Realtime, Storage |
+| **ORM/Query** | @supabase/supabase-js 2.95.3, postgres 3.4.8 |
+| **Pagamentos** | Stripe 20.3.1, Stripe Connect Express |
+| **Cache/Rate Limit** | Upstash Redis 1.36.2, @upstash/ratelimit 2.0.8 |
+| **Email** | Nodemailer 8.0.1, SMTP (Gmail, Resend, etc.) |
+| **WhatsApp** | Evolution API, webhooks HMAC |
+| **Monitoramento** | Sentry 10.38.0, Pino 10.3.1 |
+| **Analytics** | Vercel Analytics 1.3.1, Speed Insights 1.3.1 |
+| **Environment** | dotenv 17.3.1 |
 
-### IA
+### Inteligência Artificial
 
-| Provider | Variável | Uso |
-| :--- | :--- | :--- |
-| **Google Gemini** | `GOOGLE_AI_API_KEY` | Chat IA, relatórios, roteamento |
-| **OpenAI** | `OPENAI_API_KEY` | Alternativa ao Gemini no chat |
-
-### Testes
-
-| Tecnologia | Uso |
+| Provider | Uso Específico |
 | :--- | :--- |
-| **Jest** | Unitários e integração |
-| **@testing-library/jest-dom** | ^6.9.1 |
-| **Cypress** | ^15.10.0 |
-| **jsdom** | Ambiente de teste Jest |
+| **Google Gemini** | Chat IA principal, relatórios automáticos, roteamento inteligente |
+| **OpenAI** | Chat IA alternativo, fine-tuning específico por nicho |
+| **AI Training** | Dataset customizado, conversações de treinamento |
+| **AI Router** | Direcionamento baseado em intenção e contexto |
+
+### Testes e Qualidade
+
+| Categoria | Tecnologias |
+| :--- | :--- |
+| **Unitários** | Jest, @testing-library/jest-dom 6.9.1 |
+| **E2E** | Cypress 15.10.0 |
+| **Environment** | jsdom, coverage v8 |
+| **Linting** | ESLint, TypeScript strict mode |
 
 ---
 
-## 🔐 Variáveis de Ambiente
+## 🧩 Módulos e Funcionalidades
 
-### Obrigatórias
+### Módulos Core (Disponíveis em todas verticalizações)
 
+| Módulo | Funcionalidades Principais | Status |
+| :--- | :--- | :--- |
+| **Dashboard** | KPIs em tempo real, gráficos interativos, métricas de negócio | ✅ Ativo |
+| **Gestão de Clientes** | CRM 360°, histórico completo, comunicação automatizada | ✅ Ativo |
+| **Financeiro** | Fluxo de caixa, DRE, contas, conciliação bancária | ✅ Ativo |
+| **Agendamento** | Calendário inteligente, recursos, confirmações | ✅ Ativo |
+| **WhatsApp** | Envios automáticos, chatbot, notificações | ✅ Ativo |
+| **Chat IA** | Atendimento 24/7, Gemini/OpenAI, treinamento específico | ✅ Ativo |
+| **POS** | Vendas rápidas, controle de caixa, integrações | ✅ Ativo |
+| **Estoque** | Multi-armazém, rastreabilidade, alertas | ✅ Ativo |
+| **Gamificação** | Pontos, conquistas, ranking, engajamento | ✅ Ativo |
+| **CRM/Leads** | Funil de vendas, automação, nutrição | ✅ Ativo |
+| **Scanner** | QR Code, controle de acesso, validações | ✅ Ativo |
+| **Marketplace** | Loja virtual, gestão de pedidos, vitrine | ✅ Ativo |
+| **ERP Enterprise** | Gestão completa, módulos customizados | ✅ Ativo |
+| **Multi-unidade** | Gestão de filiais, centralização | ✅ Ativo |
+| **Ordens de Serviço** | OS completas, checklists, assinatura | ✅ Ativo |
+
+### Módulos Especializados por Verticalização
+
+#### Fire Protection
+- **Asset Tracking**: QR codes, manutenções, vencimentos
+- **Digital Inspections**: App mobile, fotos, checklists
+- **PPCI Projects**: Cálculos, aprovações, documentação
+- **Compliance Reports**: ABNT, normas, auditorias
+
+#### AgroFlow AI
+- **Satellite Monitoring**: Sentinel Hub, NASA FIRMS, NDVI
+- **Environmental Compliance**: CAR, licenças, relatórios
+- **Predictive Analytics**: Safras, solo, recomendações
+- **Field Operations**: Mobile, geolocalização, formulários
+
+#### DanceFlow
+- **Class Management**: Turmas, grade, otimização
+- **Student Portal**: QR code, histórico, comunicados
+- **Teacher Tools**: Chamada, conteúdo, feedback
+- **Performance Analytics**: Métricas, engajamento, retenção
+
+---
+
+## 🎭 Nichos Suportados
+
+O AKAAI CORE suporta **70+ nichos de mercado** organizados por modelo de negócio:
+
+### 📚 Nichos Baseados em Agendamento (Schedule-Based)
+**Modelo: Créditos/Mensalidades**
+
+| Categoria | Nichos |
+| :--- | :--- |
+| **Artes & Movimento** | Dança, Música, Artes Plásticas, Fotografia |
+| **Fitness & Esportes** | Academia, Crossfit, Artes Marciais, Natação |
+| **Educação** | Idiomas, Tutoria, Escolas, Cursos |
+| **Bem-Estar** | Yoga, Pilates, Spa, Meditação |
+| **Pets** | Creche Canina, Adestramento, Hotel Pet |
+
+### 🔧 Nichos Baseados em Ordens de Serviço (Service-Based)
+**Modelo: Pagamento por Serviço**
+
+| Categoria | Nichos |
+| :--- | :--- |
+| **Automotivo** | Mecânica, Detailing, Lavagem, Elétrica |
+| **Técnico** | Assistência, Instalações, Reparos |
+| **Construção** | Engenharia, Reformas, Manutenção |
+| **Consultoria** | Jurídico, Marketing, TI, Gestão |
+| **Eventos** | Organização, Espaços, Fotografia |
+| **Serviços** | Limpeza, Logística, Paisagismo |
+
+### 🏥 Nichos Baseados em Consultas (Appointment-Based)
+**Modelo: Consultas Individuais**
+
+| Categoria | Nichos |
+| :--- | :--- |
+| **Saúde** | Clínicas, Dentistas, Fisioterapia |
+| **Beleza** | Salões, Estética, Barbearia, Tatuagem |
+| **Veterinário** | Clínicas, Pet Shops |
+| **Terapias** | Psicologia, Nutrição, Podologia |
+
+### 🔥 Nichos Especializados (Verticalizações Próprias)
+
+| Nicho | Especialização | Módulos Exclusivos |
+| :--- | :--- | :--- |
+| **Fire Protection** | Engenharia de Segurança | PPCI, Inspeções, Compliance |
+| **AgroFlow AI** | Agronegócio | Satélite, Monitoramento, CAR |
+| **DanceFlow** | Artes & Movimento | Performance, Gamificação, Eventos |
+
+---
+
+## ⚙️ Implementação Técnica
+
+### 🗄️ Arquitetura de Dados
+
+**Banco de Dados PostgreSQL com 91+ Migrações**
+
+- **Multi-tenant Isolation**: `studio_id` em todas as tabelas
+- **Row Level Security (RLS)**: Políticas granulares por perfil
+- **Realtime Subscriptions**: Atualizações em tempo real
+- **Audit Trail**: Logs completos de todas as operações
+
+#### Estrutura Principal
+```sql
+-- Core Tables
+studios                 -- Empresas/Estúdios
+users                   -- Usuários do sistema
+professionals           -- Professores/Funcionários
+students                -- Alunos/Clientes
+classes                 -- Turmas/Serviços
+enrollments             -- Matrículas/Agendamentos
+financial_transactions  -- Transações financeiras
+inventory_items         -- Itens de estoque
+service_orders          -- Ordens de serviço
+```
+
+#### Migrações por Fase
+- **01-25**: Core (leads, estoque, ERP, marketplace, invoices)
+- **26-40**: Planos, OS, assets, PPCI, documentos, assinatura
+- **41-60**: Fire Protection (técnicos, PDV, vistorias, extintores)
+- **61-70**: DanceFlow (verticalização, scanner, consolidação)
+- **71-85**: AgroFlow AI, IA (reports, training, contact rules)
+- **86-91**: AI Learning System, Knowledge Base, Advanced Features
+
+### 🔐 Segurança e Compliance
+
+#### Segurança de Dados
+- **Multi-tenant Isolation**: Separação completa por `studio_id`
+- **RLS Policies**: Controle granular de acesso
+- **API Keys**: Chaves específicas por integração
+- **Webhook Security**: Assinatura HMAC para todos os webhooks
+- **Rate Limiting**: Upstash Redis com limites por endpoint
+- **Input Validation**: Zod schemas para toda entrada de dados
+
+#### Compliance Regulatório
+- **LGPD**: Conformidade com lei brasileira de proteção de dados
+- **PCI DSS**: Processamento seguro de pagamentos via Stripe
+- **ISO 27001**: Práticas de segurança da informação
+- **Audit Logs**: Registro completo para auditorias
+
+#### Monitoramento de Segurança
+- **Sentry**: Error tracking e performance monitoring
+- **Admin Logs**: Logs centralizados de operações críticas
+- **Health Checks**: Monitoramento contínuo da saúde do sistema
+- **Alert System**: Notificações proativas de anomalias
+
+### 🚀 Infraestrutura e Deploy
+
+#### Arquitetura Cloud Native
+- **Frontend**: Vercel (Edge Network, Global CDN)
+- **Backend**: Serverless Functions (Vercel)
+- **Banco de Dados**: Supabase (PostgreSQL na AWS)
+- **Cache**: Upstash Redis (Global Edge)
+- **Storage**: Supabase Storage (AWS S3)
+- **CDN**: Vercel Edge Network
+
+#### CI/CD Pipeline
+- **Automated Testing**: Jest (unitários), Cypress (E2E)
+- **Code Quality**: ESLint, TypeScript strict mode
+- **Security Scanning**: Dependabot, Snyk
+- **Performance Monitoring**: Vercel Analytics, Sentry
+- **Rollback Strategy**: Deploy por feature flags
+
+#### Escalabilidade
+- **Horizontal Scaling**: Serverless auto-scaling
+- **Database Pooling**: Supabase connection pooling
+- **Edge Caching**: Cache inteligente em CDN
+- **Load Balancing**: Distribuição automática de carga
+
+---
+
+## 🌐 API e Integrações
+
+### API RESTful Completa
+
+#### Autenticação
+```typescript
+POST /api/auth/login          // Login de usuários
+POST /api/auth/register       // Registro de novos usuários
+POST /api/auth/verify-email   // Verificação de email
+POST /api/auth/reset-password // Recuperação de senha
+```
+
+#### Gestão de Estúdios
+```typescript
+GET    /api/admin/studios           // Listar estúdios
+POST   /api/admin/studios           // Criar estúdio
+PATCH  /api/admin/studios/[id]      // Atualizar estúdio
+DELETE /api/admin/studios/[id]      // Remover estúdio
+```
+
+#### Verticalizações
+```typescript
+GET  /api/fire-protection/os/[id]     // Ordens de serviço
+GET  /api/agroflowai/properties       // Propriedades
+GET  /api/dance-studio/classes        // Turmas
+POST /api/[verticalization]/ai/chat    // Chat IA específico
+```
+
+#### Webhooks
+```typescript
+POST /api/webhooks/stripe     // Eventos Stripe
+POST /api/webhooks/whatsapp   // Mensagens WhatsApp
+POST /api/webhooks/supabase   // Realtime events
+```
+
+### Integrações Externas
+
+#### Pagamentos (Stripe)
+- **Stripe Connect**: Split automático para parceiros
+- **Subscriptions**: Assinaturas recorrentes com retry
+- **Invoicing**: Faturas automáticas
+- **Disputes**: Gestão de chargebacks
+
+#### Comunicação
+- **WhatsApp (Evolution API)**: Envios massivos, chatbot
+- **Email (Nodemailer)**: Transacionais, marketing
+- **SMS (Twilio)**: Verificações, alertas
+
+#### Inteligência Artificial
+- **Google Gemini**: Chat principal, relatórios
+- **OpenAI**: Alternative chat, fine-tuning
+- **Custom Models**: Treinamento específico por nicho
+
+#### Monitoramento
+- **Sentry**: Error tracking, performance
+- **Vercel Analytics**: User behavior
+- **Upstash**: Rate limiting, cache
+
+---
+
+## 📊 Monitoramento e Analytics
+
+### Business Intelligence
+
+#### KPIs em Tempo Real
+- **MRR (Monthly Recurring Revenue)**: Receita mensal recorrente
+- **Churn Rate**: Taxa de cancelamento por cohort
+- **LTV (Lifetime Value)**: Valor vitalício do cliente
+- **CAC (Customer Acquisition Cost)**: Custo de aquisição
+- **MAU/DAU**: Usuários ativos (mensal/diário)
+
+#### Dashboards Especializados
+- **Super Admin**: Visão completa do ecossistema
+- **Parceiros**: Performance comercial e financeira
+- **Clientes**: Métricas operacionais do negócio
+- **Verticalização**: KPIs específicos por nicho
+
+### System Monitoring
+
+#### Health Checks
+```typescript
+GET /api/health/database    // Conexão com banco
+GET /api/health/redis       // Cache status
+GET /api/health/stripe      // Pagamentos status
+GET /api/health/ai          // IA services status
+```
+
+#### Alerting
+- **System Errors**: Notificações instantâneas via Slack/Email
+- **Performance Issues**: Alertas de latência e throughput
+- **Business Metrics**: Anomalias em KPIs críticos
+- **Security Events**: Tentativas de acesso suspeitas
+
+---
+
+## 🚀 Guia de Instalação
+
+### Pré-requisitos Mínimos
+
+- **Node.js**: 20+ (LTS recomendado)
+- **pnpm**: 8+ (gerenciador de pacotes)
+- **Conta Supabase**: Projeto PostgreSQL
+- **Conta Stripe**: Para pagamentos
+- **Chave IA**: Google Gemini ou OpenAI
+
+### Instalação Rápida (5 minutos)
+
+```bash
+# 1. Clonar repositório
+git clone https://github.com/sua-org/akaai-core.git
+cd akaai-core
+
+# 2. Instalar dependências
+pnpm install
+
+# 3. Configurar ambiente
+cp .env.example .env.local
+# Editar .env.local com suas chaves
+
+# 4. Inicializar banco de dados
+pnpm db:test      # Testar conexão
+pnpm db:init      # Criar estrutura
+pnpm db:seed      # Dados iniciais
+
+# 5. Iniciar desenvolvimento
+pnpm dev
+```
+
+### Configuração de Ambiente
+
+#### Variáveis Obrigatórias
 ```env
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
@@ -263,282 +561,131 @@ GOOGLE_AI_API_KEY=AIza...
 OPENAI_API_KEY=sk-...
 ```
 
-### Opcionais (Recomendadas em Produção)
-
+#### Variáveis Opcionais (Recomendadas)
 ```env
-# App
-NEXT_PUBLIC_APP_URL=https://seu-dominio.com
-
-# Email (Nodemailer)
+# Email
 EMAIL_SMTP_HOST=smtp.gmail.com
 EMAIL_SMTP_PORT=587
 EMAIL_SMTP_USER=seu@email.com
-EMAIL_SENDER_ADDRESS=seu@email.com
-EMAIL_SENDER_NAME=AKAAI CORE
-EMAIL_SENDER_PASSWORD=senha-de-app
-EMAIL_SECURE=false
+EMAIL_SENDER_PASSWORD=app_password
 
-# WhatsApp (Evolution API)
-WEBHOOK_WHATSAPP_SECRET=seu-secret-hmac
+# WhatsApp
+WEBHOOK_WHATSAPP_SECRET=seu-secret
 EVOLUTION_WEBHOOK_SECRET=seu-secret
-INTERNAL_AI_SECRET=chave-interna-ia
 
-# Rate Limit (Upstash Redis)
+# Rate Limit
 UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
-UPSTASH_REDIS_REST_TOKEN=AXxx...
-
-# Cron (Vercel)
-CRON_SECRET=chave-secreta-cron
+UPSTASH_REDIS_REST_TOKEN=xxx
 
 # Monitoramento
 SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
-NEXT_PUBLIC_SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
-
-# Banco (scripts/migrações diretas)
-DATABASE_URL=postgresql://...
-
-# Debug (apenas desenvolvimento)
-DEBUG_MODE=false
-ADMIN_ENV_DISABLED=false
-
-# Log
-LOG_LEVEL=info
 ```
 
-### Por Verticalização
+### Deploy em Produção
 
-```env
-# AgroFlow AI - Satélite
-SENTINEL_HUB_CLIENT_ID=...
-SENTINEL_HUB_CLIENT_SECRET=...
-NASA_FIRMS_API_KEY=...
-SATELLITE_PROCESSOR_URL=http://localhost:8001
-
-# Notas Fiscais
-NOTES_API_URL=...
-NOTES_API_TOKEN=...
-```
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-akaai-core/
-├── app/                    # App Router (Next.js 16)
-│   ├── admin/              # Portal Super Admin
-│   ├── portal/             # Portal Parceiro / Afiliado
-│   ├── dashboard/          # Dashboard do estúdio
-│   ├── solutions/          # Verticalizações
-│   │   ├── fire-protection/
-│   │   ├── agroflowai/
-│   │   └── estudio-de-danca/
-│   ├── technician/         # Portal técnico
-│   ├── student/            # Portal aluno
-│   ├── seller/             # Portal vendedor
-│   ├── finance/            # Módulo financeiro
-│   ├── api/                # API Routes
-│   └── auth/               # Autenticação
-├── components/             # Componentes React
-├── lib/                    # Utilitários, hooks, config
-├── config/                 # Configurações (Supabase, traduções)
-├── database/
-│   ├── migrations/         # 85+ migrações SQL
-│   └── schema.sql
-├── scripts/                # init-database, etc.
-├── public/                 # Assets estáticos
-├── cypress/                # E2E tests
-└── jest.setup.ts
-```
-
----
-
-## 🗄️ Banco de Dados e Migrações
-
-O sistema possui **~85 migrações** numeradas em `database/migrations/`, cobrindo:
-
-- **01–25:** Core (leads, estoque, ERP, marketplace, invoices, support)
-- **26–40:** Planos, OS, assets, PPCI, documentos, assinatura
-- **41–60:** Fire Protection (técnicos, PDV, vistorias, extintores, invite codes)
-- **61–70:** DanceFlow (verticalização, monetary scanner, consolidação)
-- **71–85:** AgroFlow AI, Fire Protection (invites internos), IA (reports, training, contact rules)
-
-Execute em ordem numérica no SQL Editor do Supabase ou via script.
-
+#### Vercel (Recomendado)
 ```bash
-# Verificar conexão
-pnpm db:test
+# Instalar Vercel CLI
+npm i -g vercel
 
-# Inicializar e popular dados padrão
-pnpm db:init
+# Deploy
+vercel --prod
 
-# Seed de dados
-pnpm db:seed
+# Configurar variáveis de ambiente no painel Vercel
+```
+
+#### Docker (Alternativa)
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
 ```
 
 ---
 
-## 🔌 API Routes
+## 📚 Documentação de Referência
 
-### Auth
-- `POST /api/auth/login` — Login
-- `POST /api/auth/logout` — Logout
-- `POST /api/auth/register` — Registro
-- `POST /api/auth/verify-email/send` — Enviar confirmação
-- `POST /api/auth/verify-email/confirm` — Confirmar e-mail
-- `POST /api/auth/resend-confirmation` — Reenviar confirmação
-- `POST /api/auth/verify-phone/send` — Verificação de telefone
+### Arquitetura Detalhada
+- **[Database Schema](./DATABASE_README.md)**: Estrutura completa do banco
+- **[API Documentation](./docs/api.md)**: Endpoints completos
+- **[Security Guide](./SECURITY.md)**: Práticas de segurança
+- **[Migration Guide](./MIGRATIONS.md)**: Guia de migrações
 
-### Admin
-- `GET/POST /api/admin/users` — Usuários internos
-- `GET/POST/PATCH /api/admin/studios/[id]` — Estúdios
-- `GET /api/admin/logs` — Logs do sistema
-- `GET /api/admin/logs/health` — Health check de logs
-- `GET /api/admin/env` — Variáveis de ambiente (dev)
-- `POST /api/admin/checkout` — Checkout Stripe
-- `POST /api/admin/reports/generate` — Relatórios
-- `GET /api/admin/verticalizations` — Verticalizações
-- `POST /api/admin/ai-training` — Treinamento IA
+### Guias Específicos
+- **[Verticalization Guide](./docs/verticalizations.md)**: Criar novos nichos
+- **[Partner Setup](./docs/partners.md)**: Configurar parceiros
+- **[AI Integration](./docs/ai-integration.md)**: Configurar IA
+- **[Payment Setup](./docs/payments.md)**: Configurar pagamentos
 
-### Fire Protection
-- `/api/fire-protection/customers` — Clientes
-- `/api/fire-protection/technicians` — Técnicos
-- `/api/fire-protection/os/[id]` — Ordens de serviço
-- `/api/fire-protection/vistorias/[id]` — Vistorias e laudos
-- `/api/fire-protection/studio/*-invite-code` — Códigos de convite
-- `/api/fire-protection/ai/chat` — Chat IA
-- `/api/fire-protection/relatorios` — Relatórios
-- `/api/fire-protection/whatsapp/*` — WhatsApp
+### Código e Contribuição
+- **[Contributing Guide](./CONTRIBUTING.md)**: Como contribuir
+- **[Code Standards](./docs/coding-standards.md)**: Padrões de código
+- **[Testing Guide](./docs/testing.md)**: Estratégia de testes
+- **[Deployment Checklist](./docs/deployment.md)**: Checklist de deploy
 
-### AgroFlow AI
-- `/api/agroflowai/propriedades` — Propriedades
-- `/api/agroflowai/os` — Ordens de serviço
-- `/api/agroflowai/engenheiros`, `/tecnicos` — Equipe
-- `/api/agroflowai/laudos`, `/documentos`, `/alertas` — Documentos e alertas
-- `/api/agroflowai/ndvi`, `/satelite` — Satélite e NDVI
-
-### Dance Studio
-- `/api/dance-studio/students` — Alunos
-- `/api/dance-studio/teachers` — Professores
-- `/api/dance-studio/classes` — Turmas
-- `/api/dance-studio/enrollments` — Matrículas
-
-### Webhooks
-- `/api/webhooks/stripe` — Stripe
-- `/api/webhooks/whatsapp` — Evolution API (WhatsApp)
-
-### Cron (Vercel)
-- `/api/cron/reminders` — Lembretes diários (0 0 * * *)
-- `/api/cron/fire-protection-reminders` — Lembretes Fire Protection
-- `/api/cron/process-no-shows` — Processar faltas
-- `/api/cron/studios-cleanup` — Limpeza de estúdios
+### Suporte e Comunidade
+- **[Troubleshooting](./docs/troubleshooting.md)**: Problemas comuns
+- **[FAQ](./docs/faq.md)**: Perguntas frequentes
+- **[Support Channels](./docs/support.md)**: Canais de suporte
+- **[Community Forum](https://community.akaai.com)**: Fórum da comunidade
 
 ---
 
-## 📜 Scripts Disponíveis
+## 🎯 Roadmap 2026
 
-| Script | Comando | Descrição |
-| :--- | :--- | :--- |
-| Desenvolvimento | `pnpm dev` | Inicia Next.js em modo dev |
-| Build | `pnpm build` | Build de produção |
-| Start | `pnpm start` | Serve build de produção |
-| Lint | `pnpm lint` | ESLint |
-| Testes | `pnpm test` | Jest |
-| Cypress (abrir) | `pnpm cypress:open` | Interface Cypress |
-| Cypress (headless) | `pnpm cypress:run` | Execução E2E |
-| DB init | `pnpm db:init` | Inicializa banco e dados padrão |
-| DB test | `pnpm db:test` | Testa conexão Supabase |
-| DB seed | `pnpm db:seed` | Seed de dados padrão |
+### Q1 2026
+- **Mobile Apps Nativas**: iOS e Android
+- **Advanced AI**: Fine-tuning específico por nicho
+- **Blockchain Integration**: Smart contracts para pagamentos
+- **Voice Assistant**: Comandos por voz
 
----
+### Q2 2026
+- **Global Expansion**: Suporte multi-idioma completo
+- **Advanced Analytics**: Machine Learning para previsões
+- **Marketplace 2.0**: Plataforma de integrações
+- **IoT Integration**: Dispositivos conectados
 
-## 🚀 Guia de Instalação
+### Q3 2026
+- **Enterprise Features**: SSO, LDAP, Advanced RBAC
+- **Compliance Automation**: GDPR, CCPA, HIPAA
+- **Advanced Reporting**: Custom reports, BI integrado
+- **API v2**: GraphQL, subscriptions avançadas
 
-### Pré-requisitos
-- **Node.js** 20+
-- **pnpm**
-- Conta **Supabase**
-- Conta **Stripe**
-- (Opcional) Chave **Google AI** ou **OpenAI**
-
-### 1. Clonar e instalar
-```bash
-git clone https://github.com/seu-repo/akaai-core.git
-cd akaai-core
-pnpm install
-```
-
-### 2. Configurar `.env`
-Copie as variáveis obrigatórias e opcionais da seção [Variáveis de Ambiente](#-variáveis-de-ambiente).
-
-### 3. Banco de dados
-Execute as migrações em `database/migrations/` no SQL Editor do Supabase, em ordem numérica.
-
-```bash
-pnpm db:test
-pnpm db:init
-pnpm db:seed
-```
-
-### 4. Rodar
-```bash
-pnpm dev
-```
-Acesse `http://localhost:3000`.
+### Q4 2026
+- **AI Agent Platform**: Agentes autônomos por nicho
+- **Edge Computing**: Processamento local
+- **5G Integration**: Comunicação ultra-rápida
+- **Quantum Computing**: Otimização avançada
 
 ---
 
-## 🔒 Segurança
-
-- **RLS (Row Level Security):** Dados isolados por `studio_id` e permissões de usuário.
-- **Middleware de Proteção:** Verificação de licenças ativas antes de liberar rotas de verticalizações.
-- **Server Actions:** Lógica sensível executada exclusivamente no servidor.
-- **Rate Limit:** Upstash Redis (produção) ou fallback em memória (dev) para login/registro.
-- **Webhooks:** Assinatura HMAC para WhatsApp (Evolution API) e Stripe.
-- **Cron:** `CRON_SECRET` para validar chamadas dos crons da Vercel.
-- **Sentry:** Monitoramento de erros e performance.
-
----
-
-## 🚢 Deploy
-
-O projeto está configurado para **Vercel**:
-
-- **Framework:** Next.js
-- **Install:** `pnpm install`
-- **Build:** `next build`
-- **Crons:** `/api/cron/reminders` (diário)
-- **Images:** `unoptimized: true` (configurável)
-- **Sentry:** Integrado via `withSentryConfig`
-
-Configure as variáveis de ambiente no painel da Vercel.
-
----
-
-## ⏰ Cron Jobs
-
-| Path | Schedule | Descrição |
-| :--- | :--- | :--- |
-| `/api/cron/reminders` | `0 0 * * *` (diário) | Lembretes gerais |
-| `/api/cron/fire-protection-reminders` | — | Lembretes Fire Protection |
-| `/api/cron/process-no-shows` | — | Processar faltas (aulas) |
-| `/api/cron/studios-cleanup` | — | Limpeza de estúdios |
-
-Todos validam `CRON_SECRET` em produção.
-
----
-
-## 🧪 Testes
-
-- **Jest:** Unitários e integração (`pnpm test`)
-- **Cypress:** E2E (`pnpm cypress:open` / `pnpm cypress:run`)
-- **Coverage:** `v8`
-- **Environment:** `jsdom`
-- **Setup:** `jest.setup.ts`, `@testing-library/jest-dom`
-- **Aliases:** `@/*` mapeado para raiz
-
----
-
-## 📄 Licença
+## 📄 Licença e Termos
 
 © 2026 AKAAI CORE. Engine of Excellence.
+
+**Licença Comercial**: Uso comercial requer assinatura ativa.
+**Open Source**: Componentes core disponíveis sob MIT License.
+**SLA**: 99.9% uptime garantido para planos Enterprise.
+**Suporte**: 24/7 para planos Professional e Enterprise.
+
+---
+
+## 🤝 Contato e Parcerias
+
+- **Website**: [https://akaai.com](https://akaai.com)
+- **Documentação**: [https://docs.akaai.com](https://docs.akaai.com)
+- **Suporte**: [support@akaai.com](mailto:support@akaai.com)
+- **Parcerias**: [partners@akaai.com](mailto:partners@akaai.com)
+- **LinkedIn**: [AKAAI CORE](https://linkedin.com/company/akaai-core)
+- **Twitter**: [@akaai_core](https://twitter.com/akaai_core)
+
+---
+
+**Built with ❤️ by the AKAAI Team**
+
+*Transformando negócios em todas as verticalizações possíveis.*

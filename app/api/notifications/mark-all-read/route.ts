@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { checkStudioAccess } from '@/lib/auth';
 import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
@@ -9,6 +10,9 @@ export async function POST(req: NextRequest) {
     if (!userId || !studioId) {
       return NextResponse.json({ error: 'userId e studioId são obrigatórios' }, { status: 400 });
     }
+
+    const access = await checkStudioAccess(req, studioId)
+    if (!access.authorized) return access.response
 
     const { error } = await supabase
       .from('notifications')
