@@ -40,11 +40,14 @@ interface EmitRequest {
   observations?: string
 }
 
+type EmitCustomer = NonNullable<EmitRequest['customer']>
+type EmitItems = NonNullable<EmitRequest['items']>
+
 async function buildEmitPayloadFromSource(
   studioId: string,
   sourceType: 'erp_order' | 'service_order',
   sourceId: string
-): Promise<{ order_id: string; customer: EmitRequest['customer']; items: EmitRequest['items']; total_amount: number; observations?: string } | null> {
+): Promise<{ order_id: string; customer: EmitCustomer; items: EmitItems; total_amount: number; observations?: string } | null> {
   if (sourceType === 'service_order') {
     const { data: order } = await supabaseAdmin
       .from('service_orders')
@@ -99,8 +102,8 @@ export async function POST(request: NextRequest) {
     const body: EmitRequest = await request.json()
 
     let orderId: string
-    let customer: EmitRequest['customer']!
-    let items: EmitRequest['items']!
+    let customer: EmitCustomer
+    let items: EmitItems
     let totalAmount: number
     let observations: string | undefined
     const sourceType = body.source_type || 'erp_order'

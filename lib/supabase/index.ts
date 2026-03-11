@@ -41,7 +41,7 @@ function getOrCreateSupabase(): SupabaseClient {
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
     const client = getOrCreateSupabase()
-    const value = (client as Record<string, unknown>)[prop as string]
+    const value = (client as unknown as Record<string, unknown>)[prop as string]
     return typeof value === 'function' ? value.bind(client) : value
   }
 })

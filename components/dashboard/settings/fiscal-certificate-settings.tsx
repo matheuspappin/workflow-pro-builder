@@ -41,7 +41,7 @@ export function FiscalCertificateSettings({ studioId }: FiscalCertificateSetting
         setStatus({ configured: false })
         return
       }
-      if (res.ok) setStatus(data)
+      if (res.ok) setStatus({ configured: data.configured ?? false, environment: data.environment, valid_until: data.valid_until, updated_at: data.updated_at })
       else setStatus({ configured: false })
     } catch {
       setStatus({ configured: false })

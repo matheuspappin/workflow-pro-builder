@@ -126,7 +126,7 @@ export async function getDecryptedForStudio(studioId: string): Promise<Decrypted
   let pfxBuffer = cert.pfx_encrypted
   if (!pfxBuffer) return null
   if (!Buffer.isBuffer(pfxBuffer)) {
-    pfxBuffer = Buffer.from(pfxBuffer as ArrayBuffer | Uint8Array)
+    pfxBuffer = Buffer.from(pfxBuffer instanceof Uint8Array ? pfxBuffer : new Uint8Array(pfxBuffer as ArrayBuffer))
   }
 
   const pfxDecrypted = decryptBuffer(pfxBuffer, cert.pfx_iv, cert.pfx_auth_tag, key)
@@ -135,7 +135,7 @@ export async function getDecryptedForStudio(studioId: string): Promise<Decrypted
   let passwordBuffer = cert.pfx_password_encrypted
   if (!passwordBuffer) return null
   if (!Buffer.isBuffer(passwordBuffer)) {
-    passwordBuffer = Buffer.from(passwordBuffer as ArrayBuffer | Uint8Array)
+    passwordBuffer = Buffer.from(passwordBuffer instanceof Uint8Array ? passwordBuffer : new Uint8Array(passwordBuffer as ArrayBuffer))
   }
 
   const passwordDecrypted = decryptBuffer(
