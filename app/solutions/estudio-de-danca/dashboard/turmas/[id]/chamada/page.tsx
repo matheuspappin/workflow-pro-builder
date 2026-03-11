@@ -19,6 +19,7 @@ import {
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
+import { createCreditUsagePayment } from "@/lib/actions/credit-payments"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -143,9 +144,12 @@ export default function DanceFlowAttendancePage() {
         const { data: newSession } = await supabase
           .from('sessions')
           .insert({
+            studio_id: classData.studio_id,
             class_id: id,
+            scheduled_date: today,
             date: today,
-            status: 'scheduled',
+            actual_professional_id: classData.professional_id || null,
+            status: 'agendada',
             content_taught: ''
           })
           .select()
@@ -264,6 +268,16 @@ export default function DanceFlowAttendancePage() {
                 notes: `Presença em ${classInfo.name} (Registrado pela Admin)`
               })
 
+              // Registrar cobrança no financeiro (uso de crédito em aula)
+              await createCreditUsagePayment({
+                studioId: classInfo.studio_id,
+                studentId: student.id,
+                description: `Aula: ${classInfo.name}`,
+                creditsUsed: 1,
+                paymentSource: 'class',
+                referenceId: id,
+              })
+
               // Notificar se créditos baixos
               if (credits.remaining_credits - 1 <= 2) {
                 fetch('/api/whatsapp/notify-low-credits', {
@@ -313,10 +327,16 @@ export default function DanceFlowAttendancePage() {
         }
       }
 
-      // Atualizar conteúdo da aula
+      // Atualizar conteúdo da aula e marcar como realizada (dispara geração de pagamento do professor)
+      const presentCount = Object.values(attendance).filter(s => s === 'present' || s === 'confirmed').length
       await supabase
         .from('sessions')
-        .update({ content_taught: contentTaught })
+        .update({
+          content_taught: contentTaught,
+          status: 'realizada',
+          attendance_count: presentCount,
+          ...(classInfo?.professional_id && { actual_professional_id: classInfo.professional_id }),
+        })
         .eq('id', currentSession.id)
 
       toast({

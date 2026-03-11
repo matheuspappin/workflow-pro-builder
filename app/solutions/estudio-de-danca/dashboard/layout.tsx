@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Music, LogOut, Menu, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { getFilteredDanceStudioNav } from "@/config/dance-studio-nav"
-import { getVerticalizationBySlug } from "@/lib/actions/verticalization"
 import { getSessionKey, clearLocalUser } from "@/lib/constants/storage-keys"
 
 const DANCE_SESSION_KEY = getSessionKey('estudio-de-danca')
@@ -158,13 +157,33 @@ export default function DanceDashboardLayout({ children }: { children: React.Rea
     setMobileOpen(false)
   }, [pathname])
 
+  // Módulos controlados 100% pelo admin via planos (organization_settings.enabled_modules)
   useEffect(() => {
-    getVerticalizationBySlug('estudio-de-danca').then(v => {
-      if (v?.modules && Object.keys(v.modules).length > 0) {
-        setEnabledModules(v.modules)
+    if (!authorized) return
+    const loadConfig = async () => {
+      let studioId: string | null = null
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(DANCE_SESSION_KEY) : null
+      if (stored) {
+        try {
+          const user = JSON.parse(stored)
+          studioId = user.studio_id || user.studioId || null
+        } catch {}
       }
-    }).catch(() => {})
-  }, [])
+      if (!studioId) {
+        const { data: { session } } = await supabase.auth.getSession()
+        studioId = session?.user?.user_metadata?.studio_id ?? null
+      }
+      if (!studioId) return
+      try {
+        const res = await fetch(`/api/dance-studio/config?studioId=${encodeURIComponent(studioId)}`, { credentials: 'include' })
+        const data = await res.json()
+        if (res.ok && data.enabledModules && Object.keys(data.enabledModules).length > 0) {
+          setEnabledModules(data.enabledModules)
+        }
+      } catch {}
+    }
+    loadConfig()
+  }, [authorized])
 
   useEffect(() => {
     const userStr = typeof window !== 'undefined' ? localStorage.getItem(DANCE_SESSION_KEY) : null

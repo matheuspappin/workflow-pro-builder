@@ -688,7 +688,7 @@ export default function ClassesPage() {
           <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-center h-full">
-                <Button variant="ghost" size="sm" onClick={() => loadClasses()} disabled={loading}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => loadClasses()} disabled={loading}>
                   <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   {t.common.updateData}
                 </Button>
@@ -732,7 +732,7 @@ export default function ClassesPage() {
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2" onClick={() => setIsModalityDialogOpen(true)}>
+              <Button type="button" variant="outline" className="gap-2" onClick={() => setIsModalityDialogOpen(true)}>
                 <Tag className="w-4 h-4" />
                 {t.classes.newCategory.replace('{category}', vocabulary.category)}
               </Button>
@@ -895,10 +895,10 @@ export default function ClassesPage() {
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   {t.common.cancel}
                 </Button>
-                <Button onClick={handleAddClass} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Button type="button" onClick={handleAddClass} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   {t.classes.createNew.replace('{service}', vocabulary.service)}
                 </Button>
               </div>
@@ -1045,10 +1045,10 @@ export default function ClassesPage() {
               </div>
             )}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 {t.common.cancel}
               </Button>
-              <Button onClick={handleEditClass} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="button" onClick={handleEditClass} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {t.common.save}
               </Button>
             </div>
@@ -1197,10 +1197,10 @@ export default function ClassesPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsModalityDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsModalityDialogOpen(false)}>
                 {t.common.cancel}
               </Button>
-              <Button onClick={handleAddModality} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="button" onClick={handleAddModality} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {t.classes.newCategory.replace('{category}', vocabulary.category)}
               </Button>
             </div>

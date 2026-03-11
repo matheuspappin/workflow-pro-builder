@@ -261,7 +261,7 @@ export default function OrdensServicoPage() {
                 <ClipboardList className="w-5 h-5 text-emerald-400" />
                 Nova Ordem de Serviço
               </CardTitle>
-              <button onClick={() => setShowForm(false)} className="text-slate-500 hover:text-white">
+              <button type="button" onClick={() => setShowForm(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </CardHeader>

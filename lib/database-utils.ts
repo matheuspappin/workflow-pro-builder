@@ -5,6 +5,7 @@
 
 import { supabase } from './supabase'
 import logger from './logger'
+import { isProfessionalsLimitReachedForStudio } from './studio-limits'
 import { isLimitReached } from './plan-limits'
 
 /**
@@ -312,7 +313,7 @@ async function saveProfessional(professionalData: any, studioId: string | null =
     }
     return result
   } else {
-    // Create — verificar limite do plano antes de inserir
+    // Create — verificar limite do plano antes de inserir (respeita verticalization_plans)
     if (studioId) {
       const { count: currentCount } = await supabase
         .from('professionals')
@@ -320,15 +321,8 @@ async function saveProfessional(professionalData: any, studioId: string | null =
         .eq('studio_id', studioId)
         .eq('status', 'active')
 
-      const { data: studioData } = await supabase
-        .from('studios')
-        .select('plan')
-        .eq('id', studioId)
-        .single()
-
-      const plan = studioData?.plan || 'gratuito'
-      if (isLimitReached(currentCount || 0, plan, 'maxProfessionals')) {
-        throw new Error(`Limite de profissionais do plano ${plan} atingido. Faça upgrade para adicionar mais.`)
+      if (await isProfessionalsLimitReachedForStudio(studioId, currentCount || 0)) {
+        throw new Error('Limite de profissionais do plano atingido. Faça upgrade para adicionar mais.')
       }
     }
 
@@ -1393,13 +1387,17 @@ async function getChatSessions(studioId: string = getCurrentStudioIdSync()!) {
 }
 
 /**
- * Busca uma sessão específica
+ * Busca uma sessão específica (com isolamento por estúdio)
  */
-async function getChatSessionById(id: string) {
+async function getChatSessionById(id: string, studioId?: string) {
+  const sid = studioId || getCurrentStudioIdSync()
+  if (!sid) return null
+
   const { data, error } = await supabase
     .from('chat_sessions')
     .select('*')
     .eq('id', id)
+    .eq('studio_id', sid)
     .single()
 
   if (error) throw error
@@ -1407,13 +1405,17 @@ async function getChatSessionById(id: string) {
 }
 
 /**
- * Deleta uma sessão
+ * Deleta uma sessão (com isolamento por estúdio)
  */
-async function deleteChatSession(id: string) {
+async function deleteChatSession(id: string, studioId?: string) {
+  const sid = studioId || getCurrentStudioIdSync()
+  if (!sid) throw new Error('Studio ID é obrigatório para deletar sessão')
+
   const { error } = await supabase
     .from('chat_sessions')
     .delete()
     .eq('id', id)
+    .eq('studio_id', sid)
   
   if (error) throw error
   return true

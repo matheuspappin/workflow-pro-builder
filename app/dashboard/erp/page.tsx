@@ -14,19 +14,16 @@ import {
   Database, 
   ArrowUpRight, 
   ArrowDownRight,
-  Zap,
   ShieldCheck,
   Plus,
   RefreshCw,
   FileText,
   Users2,
   Box,
-  Receipt,
   Sparkles,
   AlertCircle,
   Lock,
   Trash2,
-  Upload
 } from "lucide-react"
 import {
   Dialog,
@@ -51,7 +48,6 @@ import {
   createERPOrder,
   getERPCatalog,
   getOrganizationSettings,
-  updateBusinessType,
   getStudioPlan,
   getERPDashboardStats,
   getSuppliers,
@@ -59,15 +55,13 @@ import {
   getPurchaseOrders,
   createPurchaseOrder,
   updateOrderShipping,
-  getInvoices,
-  getPendingInvoices,
-  emitInvoicesBatch,
-  downloadInvoicePDF,
+  getB2BStats,
   type IntegrationChannel,
   type ERPOrder,
   type OrganizationSettings as OrgSettings,
   type Supplier,
-  type PurchaseOrder
+  type PurchaseOrder,
+  type B2BStats,
 } from "@/lib/actions/erp"
 import { createProduct, deleteProduct } from "@/lib/actions/inventory"
 import {
@@ -89,9 +83,7 @@ export default function ERPPage() {
   const [settings, setSettings] = useState<OrgSettings | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
-  const [invoices, setInvoices] = useState<any[]>([])
-  const [pendingInvoices, setPendingInvoices] = useState<any[]>([])
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([])
+  const [b2bStats, setB2bStats] = useState<B2BStats | null>(null)
   
   // Categorias
   const [customCategories, setCustomCategories] = useState<string[]>([])
@@ -110,7 +102,6 @@ export default function ERPPage() {
   const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false)
   const [isNewSupplierModalOpen, setIsNewSupplierModalOpen] = useState(false)
   const [isNewPOModalOpen, setIsNewPOModalOpen] = useState(false)
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("channels")
   const [studioId, setStudioId] = useState<string | null>(null)
   
@@ -143,7 +134,7 @@ export default function ERPPage() {
           setStudioId(sId)
 
           if (sId) {
-             const [chData, ordData, catData, settsData, dbPlan, dashboardStats, suppliersData, poData, invoicesData, pendingData] = await Promise.all([
+             const [chData, ordData, catData, settsData, dbPlan, dashboardStats, suppliersData, poData, b2bData] = await Promise.all([
                getChannels(sId),
                getERPOrders(sId),
                getERPCatalog(sId),
@@ -152,8 +143,7 @@ export default function ERPPage() {
                getERPDashboardStats(sId),
                getSuppliers(sId),
                getPurchaseOrders(sId),
-               getInvoices(sId),
-               getPendingInvoices(sId)
+               getB2BStats(sId),
              ])
              
              setChannels(chData || [])
@@ -162,8 +152,7 @@ export default function ERPPage() {
              setSettings(settsData)
              setSuppliers(suppliersData || [])
              setPurchaseOrders(poData || [])
-             setInvoices(invoicesData || [])
-             setPendingInvoices(pendingData || [])
+             setB2bStats(b2bData)
              if (dashboardStats) setStats(dashboardStats)
              
              if (dbPlan) {
@@ -244,57 +233,42 @@ export default function ERPPage() {
     }
   }
 
-  const handleEmitInvoices = async () => {
-    if (selectedOrders.length === 0) {
-        toast({ title: t.common.attention, description: t.erp.selectAtLeastOneOrder, variant: "destructive" })
-        return
-    }
-
-    toast({ title: t.common.processing, description: t.erp.emittingInvoices.replace('{count}', selectedOrders.length.toString()) })
-    
+  const handleGenerateReport = async () => {
+    if (!studioId) return
     try {
-        if (!studioId) return
-        await emitInvoicesBatch(studioId, selectedOrders)
-        
-        const [updatedInvoices, updatedPending] = await Promise.all([
-            getInvoices(studioId),
-            getPendingInvoices(studioId)
-        ])
-        
-        setInvoices(updatedInvoices)
-        setPendingInvoices(updatedPending)
-        setSelectedOrders([])
-        
-        toast({ title: t.common.success, description: t.erp.invoicesIssuedAndSentByEmail })
+      const res = await fetch(`/api/admin/reports/generate?studioId=${studioId}&type=erp`)
+      if (!res.ok) throw new Error('Falha ao gerar relatório')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `relatorio-erp-${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: t.erp.reportGenerated, description: t.erp.pdfDownloadWillStart })
     } catch (err) {
-        toast({ title: t.common.error, description: t.erp.failedToProcessBatchInvoices, variant: "destructive" })
+      // Fallback: exportar CSV dos pedidos
+      if (erpOrders.length === 0) { toast({ title: "Sem dados para exportar" }); return }
+      const rows = [
+        ['ID', 'Canal', 'Cliente', 'Valor', 'Status', 'Data'].join(','),
+        ...erpOrders.map((o: any) => [
+          o.external_id || o.id?.slice(0, 8),
+          o.integration_channels?.name || 'Manual',
+          o.customer_name,
+          o.total_amount,
+          o.status,
+          o.created_at?.split('T')[0],
+        ].join(',')),
+      ].join('\n')
+      const blob = new Blob([rows], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `pedidos-erp-${Date.now()}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: t.erp.reportGenerated, description: 'Relatório CSV exportado' })
     }
-  }
-
-  const toggleOrderSelection = (id: string) => {
-    setSelectedOrders(prev => 
-        prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    )
-  }
-
-  const handleDownloadInvoice = async (invoiceId: string) => {
-    try {
-        const { url, filename } = await downloadInvoicePDF(invoiceId)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = filename
-        link.target = "_blank"
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        toast({ title: t.erp.downloadStarted, description: t.erp.downloadingFile.replace('{filename}', filename) })
-    } catch (err) {
-        toast({ title: t.common.error, description: t.erp.failedToDownloadInvoice, variant: "destructive" })
-    }
-  }
-
-  const handleGenerateReport = () => {
-    toast({ title: t.erp.reportGenerated, description: t.erp.pdfDownloadWillStart })
   }
 
   const handleCreateOrder = async (e: React.FormEvent) => {
@@ -326,14 +300,26 @@ export default function ERPPage() {
   }
 
   const handleSync = async (sku: string) => {
+    if (!studioId) return
     setIsSyncing(sku)
-    // Simulate sync delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    setIsSyncing(null)
-    toast({
-        title: t.erp.synchronized,
-        description: t.erp.productUpdatedInChannels.replace('{sku}', sku)
-    })
+    try {
+      const res = await fetch('/api/admin/integrations/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId, sku, action: 'sync_product' }),
+      })
+      if (res.ok) {
+        toast({ title: t.erp.synchronized, description: t.erp.productUpdatedInChannels.replace('{sku}', sku) })
+        const updatedCatalog = await getERPCatalog(studioId)
+        setCatalog(updatedCatalog)
+      } else {
+        throw new Error('Sync falhou')
+      }
+    } catch {
+      toast({ title: t.common.error, description: `Falha ao sincronizar SKU ${sku}`, variant: 'destructive' })
+    } finally {
+      setIsSyncing(null)
+    }
   }
 
   const handleConnectChannel = async (e: React.FormEvent) => {
@@ -405,47 +391,12 @@ export default function ERPPage() {
     }
   }
 
-  const handleUpdateBusinessType = async (type: any) => {
-    if (!studioId) return
-    try {
-        await updateBusinessType(studioId, type)
-        const newSettings = await getOrganizationSettings(studioId)
-        setSettings(newSettings)
-        toast({ title: t.erp.settingsUpdated, description: t.erp.nomenclatureChanged.replace('{type}', type) })
-        setIsSettingsModalOpen(false)
-    } catch (err) {
-        toast({ title: t.common.error, description: t.erp.failedToUpdateSettings, variant: "destructive" })
-    }
-  }
-
   if (loading) return null
 
   return (
     <ModuleGuard module="erp" showFullError>
       <div className="min-h-screen bg-background flex flex-col">
-        <Header title={t.sidebar.erp}>
-        <Dialog open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                    <Zap className="w-4 h-4" /> {t.erp.businessType}
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{t.erp.ecosystemCustomization}</DialogTitle>
-                    <DialogDescription>{t.erp.changeGlobalNomenclature}</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button variant={settings?.business_type === 'dance_school' ? 'default' : 'outline'} onClick={() => handleUpdateBusinessType('dance_school')}>{t.erp.danceSchool}</Button>
-                        <Button variant={settings?.business_type === 'tattoo_studio' ? 'default' : 'outline'} onClick={() => handleUpdateBusinessType('tattoo_studio')}>{t.erp.tattooStudio}</Button>
-                        <Button variant={settings?.business_type === 'gym' ? 'default' : 'outline'} onClick={() => handleUpdateBusinessType('gym')}>{t.erp.gymBox}</Button>
-                        <Button variant={settings?.business_type === 'clinic' ? 'default' : 'outline'} onClick={() => handleUpdateBusinessType('clinic')}>{t.erp.clinicHealth}</Button>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-      </Header>
+        <Header title={t.sidebar.erp} />
 
       <div className="flex-1 p-6 space-y-6">
         {/* KPI Cards */}
@@ -514,7 +465,6 @@ export default function ERPPage() {
             <TabsTrigger value="catalog" className="gap-2 shrink-0"><Database className="w-4 h-4" /> {t.erp.catalog}</TabsTrigger>
             <TabsTrigger value="logistics" className="gap-2 shrink-0"><Truck className="w-4 h-4" /> {t.erp.logistics}</TabsTrigger>
             <TabsTrigger value="supplies" className="gap-2 shrink-0"><Box className="w-4 h-4" /> {t.erp.supplies}</TabsTrigger>
-            <TabsTrigger value="finance" className="gap-2 shrink-0"><Receipt className="w-4 h-4" /> {t.erp.nfeFiscal}</TabsTrigger>
             <TabsTrigger value="crm" className="gap-2 shrink-0"><Users2 className="w-4 h-4" /> {t.erp.crmB2B}</TabsTrigger>
           </TabsList>
 
@@ -592,33 +542,64 @@ export default function ERPPage() {
               <Card className="md:col-span-2">
                 <CardHeader><CardTitle>{t.erp.channelPerformance}</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex justify-around py-6">
-                    <div className="text-center">
-                      <p className="text-3xl font-bold text-green-600">4.9</p>
-                      <p className="text-xs text-muted-foreground">{t.erp.reputationML}</p>
+                  {channels.filter(c => c.status === 'active').length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground flex flex-col items-center gap-2">
+                      <Globe className="w-8 h-8 opacity-20" />
+                      <p className="text-sm font-medium">{t.erp.noConnectedChannels}</p>
+                      <p className="text-xs">{t.erp.connectFirstStoreHint}</p>
                     </div>
-                    <div className="text-center border-x px-10">
-                      <p className="text-3xl font-bold text-blue-600">97%</p>
-                      <p className="text-xs text-muted-foreground">{t.erp.slaAmazon}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-3xl font-bold text-orange-600">4.8</p>
-                      <p className="text-xs text-muted-foreground">{t.erp.reviewShopee}</p>
-                    </div>
-                  </div>
-                  <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
-                    <div className="flex items-center gap-2 text-primary font-bold text-sm mb-1">
-                      <Sparkles className="w-4 h-4" /> {t.erp.aiInsight}
-                    </div>
-                    <p className="text-xs text-muted-foreground italic">
-                      {stats.orders.pending > 100 
-                        ? t.erp.highOrderVolume.replace('{pendingOrders}', stats.orders.pending.toString())
-                        : stats.revenue.growth > 10 
-                          ? t.erp.greatRevenueGrowth.replace('{revenueGrowth}', stats.revenue.growth.toString())
-                          : t.erp.stableSalesSuggestPromotion
-                      }
-                    </p>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-around py-6">
+                        {(() => {
+                          const active = channels.filter(c => c.status === 'active').slice(0, 3)
+                          const colorMap: Record<string, string> = {
+                            green: 'text-green-600',
+                            blue: 'text-blue-600',
+                            orange: 'text-orange-600',
+                            purple: 'text-purple-600',
+                            gray: 'text-muted-foreground',
+                          }
+                          const slots = [0, 1, 2].map(i => active[i] || null)
+                          return slots.map((ch, i) => (
+                            <div
+                              key={i}
+                              className={cn(
+                                "text-center",
+                                i === 1 && "border-x px-10",
+                                !ch && "opacity-25 pointer-events-none"
+                              )}
+                            >
+                              <p className={cn("text-3xl font-bold", ch ? colorMap[ch.config?.color ?? 'gray'] : 'text-muted-foreground')}>
+                                {ch
+                                  ? ch.config?.metric_value != null
+                                    ? `${ch.config.metric_value}${ch.config.metric_unit ?? ''}`
+                                    : '—'
+                                  : '—'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {ch
+                                  ? `${ch.config?.metric_label ?? 'Score'} · ${ch.name}`
+                                  : t.erp.waitingChannelData}
+                              </p>
+                            </div>
+                          ))
+                        })()}
+                      </div>
+                      <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                        <div className="flex items-center gap-2 text-primary font-bold text-sm mb-1">
+                          <Sparkles className="w-4 h-4" /> {t.erp.aiInsight}
+                        </div>
+                        <p className="text-xs text-muted-foreground italic">
+                          {stats.orders.pending > 100
+                            ? t.erp.highOrderVolume.replace('{pendingOrders}', stats.orders.pending.toString())
+                            : stats.revenue.growth > 10
+                              ? t.erp.greatRevenueGrowth.replace('{revenueGrowth}', stats.revenue.growth.toString())
+                              : t.erp.stableSalesSuggestPromotion}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -629,7 +610,7 @@ export default function ERPPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>{t.erp.omnichannelOrderManagement}</CardTitle>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleGenerateReport}><FileText className="w-4 h-4 mr-2" /> {t.erp.report}</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={handleGenerateReport}><FileText className="w-4 h-4 mr-2" /> {t.erp.report}</Button>
                   
                   <Dialog open={isNewOrderModalOpen} onOpenChange={setIsNewOrderModalOpen}>
                     <DialogTrigger asChild>
@@ -721,6 +702,23 @@ export default function ERPPage() {
           </TabsContent>
 
           <TabsContent value="catalog" className="space-y-4">
+            {/* Atalho para o módulo de Estoque completo */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Database className="w-4 h-4 text-primary" />
+                <span>Os produtos abaixo são gerenciados pelo módulo de <strong>Estoque</strong> — cadastre, dê entrada/saída e escaneie código de barras lá.</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 gap-2"
+                onClick={() => window.location.href = '/dashboard/estoque'}
+              >
+                <Box className="w-4 h-4" /> Ir para Estoque
+              </Button>
+            </div>
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -864,7 +862,7 @@ export default function ERPPage() {
                           <td className="p-4 text-right">{language === 'en' ? '$' : 'R$'} {p.price}</td>
                           <td className="p-4 text-right">
                             <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => handleSync(p.sku)} disabled={isSyncing === p.sku}>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => handleSync(p.sku)} disabled={isSyncing === p.sku}>
                                 <RefreshCw className={cn("w-4 h-4 mr-1", isSyncing === p.sku && "animate-spin")} />
                                 {t.erp.sync}
                               </Button>
@@ -910,7 +908,7 @@ export default function ERPPage() {
                             {o.status === 'shipped' ? t.erp.shipped : t.erp.awaitingShipment}
                         </Badge>
                         {o.status === 'paid' && (
-                            <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleUpdateShipping(o.id)}>
+                            <Button type="button" size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleUpdateShipping(o.id)}>
                                 {t.erp.dispatch}
                             </Button>
                         )}
@@ -1016,157 +1014,96 @@ export default function ERPPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="finance" className="space-y-4">
-            <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-lg border border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30">
-                <div>
-                    <h3 className="font-bold text-blue-700 dark:text-blue-300">{t.erp.smartImport}</h3>
-                    <p className="text-xs text-muted-foreground">{t.erp.automaticSupplierProductRegistration}</p>
-                </div>
-                <Button onClick={() => window.location.href='/dashboard/erp/import'} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                    <Upload className="w-4 h-4" /> {t.erp.importNFe}
-                </Button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                            {t.erp.pendingBilling}
-                            <Badge variant="outline" className="text-orange-500 border-orange-200">
-                                {pendingInvoices.length} {t.erp.awaiting}
-                            </Badge>
-                        </CardTitle>
-                        <CardDescription>{t.erp.readyForNFeEmission}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="rounded-md border overflow-x-auto mb-4">
-                            <table className="w-full text-sm">
-                                <thead className="bg-muted/50">
-                                    <tr className="text-left border-b">
-                                        <th className="p-4 w-10">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selectedOrders.length === pendingInvoices.length && pendingInvoices.length > 0}
-                                                onChange={() => {
-                                                    if (selectedOrders.length === pendingInvoices.length) setSelectedOrders([])
-                                                    else setSelectedOrders(pendingInvoices.map(p => p.id))
-                                                }}
-                                            />
-                                        </th>
-                                        <th className="p-4 font-medium">{t.erp.order}</th>
-                                        <th className="p-4 font-medium">{t.erp.client}</th>
-                                        <th className="p-4 font-medium">{t.common.value}</th>
-                                        <th className="p-4 font-medium">{t.common.status}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pendingInvoices.length === 0 ? (
-                                        <tr><td colSpan={5} className="p-4 text-center text-muted-foreground italic">{t.erp.noPendingBillingOrders}</td></tr>
-                                    ) : pendingInvoices.map((p) => (
-                                        <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
-                                            <td className="p-4">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={selectedOrders.includes(p.id)}
-                                                    onChange={() => toggleOrderSelection(p.id)}
-                                                />
-                                            </td>
-                                            <td className="p-4 font-mono font-bold text-xs">{p.external_id}</td>
-                                            <td className="p-4">{p.customer_name}</td>
-                                            <td className="p-4 font-bold">{language === 'en' ? '$' : 'R$'} {p.total_amount}</td>
-                                            <td className="p-4">
-                                                <Badge variant="outline" className="text-[10px] uppercase">
-                                                    {p.status}
-                                                </Badge>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <Button 
-                            className="w-full bg-green-600 hover:bg-green-700" 
-                            disabled={selectedOrders.length === 0}
-                            onClick={handleEmitInvoices}
-                        >
-                            <Receipt className="w-4 h-4 mr-2" />
-                            {t.erp.emitSelectedInvoice.replace('{count}', selectedOrders.length.toString())}
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="md:col-span-1">
-                    <CardHeader>
-                        <CardTitle>{t.erp.fiscalStatus}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="p-4 bg-muted/30 rounded-lg border flex items-center gap-3">
-                            <ShieldCheck className="w-8 h-8 text-green-500" />
-                            <div>
-                                <p className="text-sm font-bold">{t.erp.a1Certificate}</p>
-                                <p className="text-[10px] text-muted-foreground">{t.erp.validUntil} 12/2026</p>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <p className="text-xs font-bold uppercase text-muted-foreground">{t.erp.monthSummary}</p>
-                            <div className="flex justify-between text-sm">
-                                <span>{t.erp.totalIssued}:</span>
-                                <span className="font-bold text-green-600">{language === 'en' ? '$' : 'R$'} {invoices.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span>{t.erp.estimatedTaxes}:</span>
-                                <span className="font-bold text-orange-600">{language === 'en' ? '$' : 'R$'} {(invoices.reduce((acc, curr) => acc + curr.amount, 0) * 0.06).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card>
-              <CardHeader><CardTitle>{t.erp.issuedNotesHistory}</CardTitle></CardHeader>
-              <CardContent>
-                <div className="rounded-md border overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-muted/50">
-                            <tr className="text-left border-b">
-                                <th className="p-4 font-medium">{t.erp.invoiceNumber}</th>
-                                <th className="p-4 font-medium">{t.erp.client}</th>
-                                <th className="p-4 font-medium">{t.common.value}</th>
-                                <th className="p-4 font-medium">{t.common.date}</th>
-                                <th className="p-4 font-medium text-right">{t.common.actions}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {invoices.length === 0 ? (
-                                <tr><td colSpan={5} className="p-4 text-center text-muted-foreground italic">{t.erp.noRecentInvoicesIssued}</td></tr>
-                            ) : invoices.map((inv) => (
-                                <tr key={inv.id} className="border-b last:border-0 hover:bg-muted/30">
-                                    <td className="p-4 font-mono font-bold">{inv.number}</td>
-                                    <td className="p-4">{inv.customer}</td>
-                                    <td className="p-4 font-bold text-green-600">{language === 'en' ? '$' : 'R$'} {inv.amount}</td>
-                                    <td className="p-4 text-xs text-muted-foreground">{new Date(inv.date).toLocaleDateString(language === 'en' ? 'en-US' : 'pt-BR')}</td>
-                                    <td className="p-4 text-right">
-                                        <Button variant="ghost" size="sm" onClick={() => handleDownloadInvoice(inv.id)}>
-                                            <ArrowDownRight className="w-4 h-4 mr-1 rotate-90" />
-                                            {t.erp.pdf}
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="crm" className="space-y-4">
+            {/* KPI Cards B2B */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-6">
+                  <p className="text-xs font-medium text-muted-foreground">{t.erp.b2bPartnersCount}</p>
+                  <h3 className="text-2xl font-bold mt-1">{b2bStats?.totalPartners ?? 0}</h3>
+                  <p className="text-xs text-muted-foreground mt-2">{t.erp.recurringBuyersLabel}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <p className="text-xs font-medium text-muted-foreground">{t.erp.b2bTotalGMV}</p>
+                  <h3 className="text-2xl font-bold mt-1">
+                    {language === 'en' ? '$' : 'R$'}{' '}
+                    {(b2bStats?.totalGMV ?? 0).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR', { minimumFractionDigits: 2 })}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-2">{t.erp.totalVolumeLabel}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <p className="text-xs font-medium text-muted-foreground">{t.erp.avgTicketLabel}</p>
+                  <h3 className="text-2xl font-bold mt-1">
+                    {language === 'en' ? '$' : 'R$'}{' '}
+                    {(b2bStats?.avgOrderValue ?? 0).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR', { minimumFractionDigits: 2 })}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-2">{t.erp.perOrderLabel}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <p className="text-xs font-medium text-muted-foreground">{t.erp.activeThisMonthLabel}</p>
+                  <h3 className="text-2xl font-bold mt-1">{b2bStats?.activeThisMonth ?? 0}</h3>
+                  <p className="text-xs text-muted-foreground mt-2">{t.erp.customersWithPurchase}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tabela de Parceiros */}
             <Card>
-              <CardHeader><CardTitle>{t.erp.franchiseResaleManagement}</CardTitle></CardHeader>
-              <CardContent className="h-40 flex items-center justify-center text-muted-foreground italic border rounded-xl border-dashed">
-                <div className="text-center">
-                  <Users2 className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                  <p>{t.erp.b2bExpansionModule} {t.erp.activePartners.replace('{count}', '12')}</p>
-                </div>
+              <CardHeader>
+                <CardTitle>{t.erp.topB2BPartnersTitle}</CardTitle>
+                <CardDescription>{t.erp.recurringBuyersDesc}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!b2bStats?.partners?.length ? (
+                  <div className="text-center p-12 text-muted-foreground border rounded-xl border-dashed flex flex-col items-center gap-2">
+                    <Users2 className="w-8 h-8 opacity-20" />
+                    <p className="font-medium">{t.erp.noB2BPartnersYet}</p>
+                    <p className="text-xs">{t.erp.autoIdentifyB2BHint}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr className="text-left border-b">
+                          <th className="p-4 font-medium w-8">#</th>
+                          <th className="p-4 font-medium">{t.erp.client}</th>
+                          <th className="p-4 font-medium text-center">{t.erp.orders}</th>
+                          <th className="p-4 font-medium text-right">{t.erp.totalVolumeColumn}</th>
+                          <th className="p-4 font-medium text-right">{t.erp.avgTicketColumn}</th>
+                          <th className="p-4 font-medium text-right">{t.erp.lastPurchaseDate}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {b2bStats.partners.map((partner, i) => (
+                          <tr key={partner.name} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                            <td className="p-4 text-muted-foreground font-bold">{i + 1}</td>
+                            <td className="p-4 font-medium">{partner.name}</td>
+                            <td className="p-4 text-center">
+                              <Badge variant="outline">{partner.orderCount}</Badge>
+                            </td>
+                            <td className="p-4 text-right font-bold text-green-600">
+                              {language === 'en' ? '$' : 'R$'}{' '}
+                              {partner.totalSpend.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-4 text-right">
+                              {language === 'en' ? '$' : 'R$'}{' '}
+                              {(partner.totalSpend / partner.orderCount).toLocaleString(language === 'en' ? 'en-US' : 'pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-4 text-right text-xs text-muted-foreground">
+                              {new Date(partner.lastOrder).toLocaleDateString(language === 'en' ? 'en-US' : 'pt-BR')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

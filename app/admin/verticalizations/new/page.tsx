@@ -15,12 +15,15 @@ import { supabase } from "@/lib/supabase"
 import { createVerticalization } from "@/lib/actions/verticalization"
 import { nicheDictionary, NicheType } from "@/config/niche-dictionary"
 import { getDefaultModulesForNiche } from "@/config/niche-modules"
+import { Switch } from "@/components/ui/switch"
 import {
   Loader2, Check, ArrowLeft, Layers, Globe, Zap, Shield, Truck,
   Building2, Users, Settings, Heart, Scissors, Dumbbell, ChefHat,
   Stethoscope, Hammer, FireExtinguisher, Home, BookOpen, Wrench,
   Car, Leaf, Music, Camera, ShoppingCart, Briefcase, GraduationCap,
   Package, Star, Plus, X, Eye, Palette, ArrowRight,
+  LayoutDashboard, CalendarDays, DollarSign, ClipboardList, MessageSquare,
+  ScanLine, TrendingUp, BarChart3, Receipt, Puzzle, RefreshCw,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -73,6 +76,31 @@ const STATUS_OPTIONS = [
   { value: 'coming_soon', label: 'Em Breve', desc: 'Ainda em desenvolvimento', className: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
 ]
 
+const AVAILABLE_MODULES = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Painel principal com KPIs e resumos', color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+  { id: 'students', label: 'Gestão de Clientes', icon: Users, description: 'Cadastro e gerenciamento de clientes/alunos', color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  { id: 'classes', label: 'Agenda / Turmas', icon: CalendarDays, description: 'Agendamentos, turmas e horários de serviço', color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  { id: 'financial', label: 'Financeiro', icon: DollarSign, description: 'Cobranças, pagamentos e relatórios financeiros', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  { id: 'service_orders', label: 'Ordens de Serviço', icon: ClipboardList, description: 'OS, vistorias e controle de serviços técnicos', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, description: 'Notificações e automações via WhatsApp Business', color: 'text-green-400', bg: 'bg-green-500/10' },
+  { id: 'ai_chat', label: 'IA Chat', icon: Zap, description: 'Assistente inteligente com IA generativa', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  { id: 'pos', label: 'PDV (Ponto de Venda)', icon: ShoppingCart, description: 'Venda de produtos e serviços no balcão', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  { id: 'scanner', label: 'Scanner / Acesso', icon: ScanLine, description: 'Scanner QR para controle de acesso e validação', color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+  { id: 'inventory', label: 'Estoque', icon: Package, description: 'Controle de estoque, insumos e inventário', color: 'text-rose-400', bg: 'bg-rose-500/10' },
+  { id: 'leads', label: 'Leads (CRM)', icon: TrendingUp, description: 'Gestão de leads e funil de vendas', color: 'text-lime-400', bg: 'bg-lime-500/10' },
+  { id: 'gamification', label: 'Gamificação', icon: Star, description: 'Pontos, medalhas e sistema de engajamento', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+  { id: 'marketplace', label: 'Marketplace', icon: Globe, description: 'Loja online e marketplace público', color: 'text-teal-400', bg: 'bg-teal-500/10' },
+  { id: 'erp', label: 'ERP', icon: BarChart3, description: 'Gestão empresarial integrada e relatórios avançados', color: 'text-slate-400', bg: 'bg-slate-500/10' },
+  { id: 'multi_unit', label: 'Multi-unidade', icon: Building2, description: 'Gestão de múltiplas unidades e filiais', color: 'text-indigo-300', bg: 'bg-indigo-400/10' },
+  { id: 'fiscal', label: 'Emissor Fiscal (NF-e)', icon: Receipt, description: 'Emissão de Notas Fiscais Eletrônicas via SEFAZ', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+]
+
+const MODULE_PRESETS: { id: string; label: string; desc: string; getModules: (niche?: NicheType) => Record<string, boolean> }[] = [
+  { id: 'custom', label: 'Personalizado', desc: 'Padrão do nicho ou seleção manual', getModules: (niche) => getDefaultModulesForNiche(niche!) },
+  { id: 'basic', label: 'Básico (3 Módulos)', desc: 'Dashboard, Clientes e Financeiro', getModules: () => ({ dashboard: true, students: true, financial: true }) },
+  { id: 'professional', label: 'Profissional (Completo)', desc: 'Todos os módulos disponíveis', getModules: () => AVAILABLE_MODULES.reduce((acc, m) => ({ ...acc, [m.id]: true }), {} as Record<string, boolean>) },
+]
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -104,6 +132,10 @@ export default function NewVerticalizationPage() {
     status: 'coming_soon' as 'active' | 'beta' | 'coming_soon',
     tags: [] as string[],
   })
+  const [modules, setModules] = useState<Record<string, boolean>>(() =>
+    getDefaultModulesForNiche('fire_protection' as NicheType)
+  )
+  const [modulePreset, setModulePreset] = useState<string>('custom')
 
   // Auto-gera slug a partir do nome
   useEffect(() => {
@@ -111,6 +143,12 @@ export default function NewVerticalizationPage() {
       setFormData(prev => ({ ...prev, slug: slugify(prev.name) }))
     }
   }, [formData.name, slugEdited])
+
+  // Atualiza módulos quando o nicho muda (aplica padrão do nicho)
+  useEffect(() => {
+    setModules(getDefaultModulesForNiche(formData.niche))
+    setModulePreset('custom')
+  }, [formData.niche])
 
   const selectedIcon = ICON_OPTIONS.find(i => i.name === formData.icon_name) || ICON_OPTIONS[0]
   const selectedPalette = COLOR_PALETTES.find(p => p.iconColor === formData.icon_color) || COLOR_PALETTES[0]
@@ -155,12 +193,9 @@ export default function NewVerticalizationPage() {
         return
       }
 
-      // Inclui módulos padrão do nicho selecionado
-      const defaultModules = getDefaultModulesForNiche(formData.niche as NicheType)
-
       await createVerticalization({
         ...formData,
-        modules: defaultModules,
+        modules,
         accessToken: session.access_token,
       })
 
@@ -392,6 +427,106 @@ export default function NewVerticalizationPage() {
                     ))}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Módulos Ativos */}
+            <Card className="bg-slate-900/50 border-slate-800">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Puzzle className="w-5 h-5 text-indigo-400" />
+                  Módulos Ativos
+                </CardTitle>
+                <CardDescription>
+                  Selecione o que estará disponível neste plano.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-6">
+                <div className="flex flex-wrap gap-2">
+                  {MODULE_PRESETS.map(preset => {
+                    const isActive = modulePreset === preset.id
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          const mods = preset.id === 'custom'
+                            ? preset.getModules(formData.niche)
+                            : preset.getModules(undefined)
+                          setModules(mods)
+                          setModulePreset(preset.id)
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all text-left',
+                          isActive
+                            ? 'border-indigo-500/50 bg-indigo-500/10'
+                            : 'border-slate-800 bg-slate-950/50 hover:border-slate-700'
+                        )}
+                      >
+                        <span className={cn('text-sm font-bold', isActive ? 'text-white' : 'text-slate-400')}>
+                          {preset.label}
+                        </span>
+                        <span className="text-xs text-slate-600">{preset.desc}</span>
+                      </button>
+                    )
+                  })}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setModules(getDefaultModulesForNiche(formData.niche))
+                      setModulePreset('custom')
+                      toast.info('Padrão do nicho aplicado.')
+                    }}
+                    className="border-slate-700 text-slate-400 hover:text-white gap-2 ml-auto"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Padrão do Nicho
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {AVAILABLE_MODULES.map(mod => {
+                    const enabled = modules[mod.id] ?? false
+                    return (
+                      <div
+                        key={mod.id}
+                        onClick={() => {
+                          setModules(prev => ({ ...prev, [mod.id]: !(prev[mod.id] ?? false) }))
+                          setModulePreset('custom')
+                        }}
+                        className={cn(
+                          'flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200 select-none',
+                          enabled
+                            ? 'border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10'
+                            : 'border-slate-800 bg-slate-900/30 hover:border-slate-700'
+                        )}
+                      >
+                        <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all', enabled ? mod.bg : 'bg-slate-800')}>
+                          <mod.icon className={cn('w-4.5 h-4.5 transition-colors', enabled ? mod.color : 'text-slate-600')} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-sm font-semibold transition-colors', enabled ? 'text-white' : 'text-slate-500')}>
+                            {mod.label}
+                          </p>
+                          <p className="text-[10px] text-slate-600 truncate">{mod.description}</p>
+                        </div>
+                        <Switch
+                          checked={enabled}
+                          onCheckedChange={v => {
+                            setModules(prev => ({ ...prev, [mod.id]: v }))
+                            setModulePreset('custom')
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          className="flex-shrink-0"
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-slate-600">
+                  {Object.values(modules).filter(Boolean).length} módulos ativos
+                </p>
               </CardContent>
             </Card>
 

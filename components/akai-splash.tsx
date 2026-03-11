@@ -3,24 +3,18 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { SplashScene } from "@/components/splash-scene"
+import { ConstellationCanvas } from "@/components/constellation-canvas"
 
 const springTransition = { type: "spring" as const, stiffness: 100, damping: 20 }
 
 export function AkaiSplash() {
   return (
     <main className="relative w-full h-screen min-h-screen overflow-hidden bg-black">
-      {/* Cena 3D - espirais orgânicas vibrantes interativas */}
-      <SplashScene theme="aurora" />
-
-      {/* Overlay escuro sutil para legibilidade do texto */}
-      <div 
-        className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none"
-        aria-hidden
-      />
+      {/* Animação canvas: constelação + logo AK centralizado */}
+      <ConstellationCanvas />
 
       {/* Conteúdo central */}
-      <div className="absolute inset-0 flex flex-col items-center justify-end pb-24 md:pb-32 px-6 z-10 pointer-events-none">
+      <div className="absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-20 px-6 z-10 pointer-events-none">
         <div className="flex flex-col items-center gap-6 pointer-events-auto w-full max-w-lg">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}

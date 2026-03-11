@@ -35,7 +35,7 @@ const sugestoes = [
 const msgInicial: Message = {
   id: "0",
   role: "assistant",
-  content: "Olá! Sou o **assistente de IA do AgroFlow AI** 🌿\n\nPosso te ajudar com:\n• Consultas sobre propriedades, OS e laudos\n• Análise de clientes e engenheiros\n• Métricas e faturamento\n• Sugestões de ações para regularização\n\nComo posso ajudar hoje?",
+  content: "Olá! Sou a **Catarina**, sua assistente virtual especialista em regularização ambiental 🌿\n\nPosso te ajudar com:\n• Consultas sobre propriedades, OS e laudos\n• Análise de clientes e engenheiros\n• Métricas e faturamento\n• Sugestões de ações para regularização\n\nComo posso ajudar hoje?",
   timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
 }
 

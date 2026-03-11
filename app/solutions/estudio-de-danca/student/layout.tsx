@@ -5,12 +5,12 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
-import { Music, LayoutDashboard, Calendar, DollarSign, UserCircle, LogOut, Loader2 } from "lucide-react"
+import { Music, LayoutDashboard, Calendar, DollarSign, UserCircle, LogOut, Loader2, Zap } from "lucide-react"
 
 const navItems = [
   { href: "/solutions/estudio-de-danca/student",            label: "Início",        icon: LayoutDashboard },
   { href: "/solutions/estudio-de-danca/student/turmas",     label: "Minhas Turmas", icon: Calendar },
-  { href: "/solutions/estudio-de-danca/student/financeiro", label: "Mensalidades",  icon: DollarSign },
+  { href: "/solutions/estudio-de-danca/student/financeiro", label: "Créditos",      icon: DollarSign },
   { href: "/solutions/estudio-de-danca/student/perfil",     label: "Meu Perfil",    icon: UserCircle },
 ]
 
@@ -20,6 +20,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const [authorized, setAuthorized] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [credits, setCredits] = useState<number | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -45,12 +46,56 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     return () => sub.subscription.unsubscribe()
   }, [router])
 
+  // Carregar créditos e business model quando autorizado
+  useEffect(() => {
+    if (!authorized) return
+
+    let cleanup: (() => void) | undefined
+
+    async function loadCredits() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const studioId = user.user_metadata?.studio_id
+      if (!studioId) return
+
+      const { data: creditsRow } = await supabase
+        .from('student_lesson_credits')
+        .select('remaining_credits')
+        .eq('student_id', user.id)
+        .eq('studio_id', studioId)
+        .maybeSingle()
+
+      setCredits(creditsRow?.remaining_credits ?? 0)
+
+      const channel = supabase
+        .channel(`layout-credits-${user.id}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'student_lesson_credits',
+          filter: `student_id=eq.${user.id}`,
+        }, (payload: any) => {
+          if (payload.new?.remaining_credits != null) {
+            setCredits(payload.new.remaining_credits)
+          }
+        })
+        .subscribe()
+
+      cleanup = () => supabase.removeChannel(channel)
+    }
+
+    loadCredits()
+    return () => cleanup?.()
+  }, [authorized])
+
   const handleLogout = async () => {
     setLoggingOut(true)
     try {
       await fetch("/api/auth/logout", { method: "POST" })
       await supabase.auth.signOut()
       localStorage.removeItem("danceflow_user")
+      localStorage.removeItem("danceflow_student_vinculo")
       router.push("/solutions/estudio-de-danca/login")
     } finally {
       setLoggingOut(false)
@@ -82,14 +127,26 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           </div>
         </Link>
 
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-white/60 hover:text-violet-400 hover:bg-violet-600/10 text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
-        >
-          {loggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
-          Sair
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/solutions/estudio-de-danca/student/financeiro"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 hover:text-white transition-all border border-violet-500/20"
+          >
+            <Zap className="w-4 h-4 shrink-0" />
+            <span className="font-black text-sm tabular-nums">
+              {credits != null ? credits : "—"}
+            </span>
+            <span className="text-[10px] font-bold uppercase opacity-80">créditos</span>
+          </Link>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white/60 hover:text-violet-400 hover:bg-violet-600/10 text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+          >
+            {loggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+            Sair
+          </button>
+        </div>
       </header>
 
       {/* Desktop nav */}

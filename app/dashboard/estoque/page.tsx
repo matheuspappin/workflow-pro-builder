@@ -259,10 +259,10 @@ export default function InventoryPage() {
           </div>
           
           <div className="flex gap-2">
-            <Button size="lg" className="h-12 bg-primary hover:bg-primary/90 px-4" onClick={() => setIsNewProductOpen(true)}>
+            <Button type="button" size="lg" className="h-12 bg-primary hover:bg-primary/90 px-4" onClick={() => setIsNewProductOpen(true)}>
               <Plus className="w-5 h-5 mr-2" /> Novo Produto
             </Button>
-            <Button size="lg" variant="outline" className="h-12 border-primary/20 text-primary hover:bg-primary/5" onClick={() => setIsScannerOpen(true)}>
+            <Button type="button" size="lg" variant="outline" className="h-12 border-primary/20 text-primary hover:bg-primary/5" onClick={() => setIsScannerOpen(true)}>
               <Camera className="w-5 h-5 mr-2" /> Escanear
             </Button>
           </div>
@@ -444,7 +444,7 @@ export default function InventoryPage() {
               <Label>Código de Barras (SKU)</Label>
               <div className="flex gap-2">
                 <Input value={newProduct.sku} onChange={e => setNewProduct({...newProduct, sku: e.target.value})} />
-                <Button variant="outline" size="icon" onClick={() => setIsScannerOpen(true)}><Camera className="w-4 h-4" /></Button>
+                <Button type="button" variant="outline" size="icon" onClick={() => setIsScannerOpen(true)}><Camera className="w-4 h-4" /></Button>
               </div>
             </div>
             <div className="grid gap-2">
@@ -491,7 +491,7 @@ export default function InventoryPage() {
               </div>
             </div>
           </div>
-          <DialogFooter><Button onClick={handleCreateProduct} className="w-full">Salvar</Button></DialogFooter>
+          <DialogFooter><Button type="button" onClick={handleCreateProduct} className="w-full">Salvar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -508,7 +508,7 @@ export default function InventoryPage() {
               <Input value={transactionData.reason} onChange={e => setTransactionData({...transactionData, reason: e.target.value})} />
             </div>
           </div>
-          <DialogFooter><Button onClick={handleTransaction} className="w-full">Confirmar</Button></DialogFooter>
+          <DialogFooter><Button type="button" onClick={handleTransaction} className="w-full">Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -562,7 +562,7 @@ export default function InventoryPage() {
               </div>
             </div>
           )}
-          <DialogFooter><Button onClick={handleSaveEdit}>Salvar</Button></DialogFooter>
+          <DialogFooter><Button type="button" onClick={handleSaveEdit}>Salvar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

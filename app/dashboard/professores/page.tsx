@@ -647,10 +647,10 @@ function ProfessionalsContent() {
                     </div>
                   </div>
                     <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsInviteProfessionalDialogOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => setIsInviteProfessionalDialogOpen(false)}>
                       {t.common.cancel}
                     </Button>
-                    <Button onClick={handleInviteProfessional} disabled={isSendingInvite} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    <Button type="button" onClick={handleInviteProfessional} disabled={isSendingInvite} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                       {isSendingInvite ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : (inviteEmail ? t.providers.sendInvite : 'Gerar Link Público')}
                     </Button>
                   </div>
@@ -847,10 +847,10 @@ function ProfessionalsContent() {
               </div>
             )}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditModalOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)}>
                 {t.common.cancel}
               </Button>
-              <Button onClick={handleSaveEdit} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="button" onClick={handleSaveEdit} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {t.common.save}
               </Button>
             </div>

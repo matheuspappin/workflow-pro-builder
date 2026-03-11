@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const [enrollResult, attResult] = await Promise.all([
       supabase
         .from('enrollments')
-        .select('id, student_id, students(id, name, phone, photo_url, status)')
+        .select('id, student_id, students(id, name, phone, status)')
         .eq('class_id', classId)
         .eq('status', 'active'),
       supabase
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         studentId: e.student_id,
         name: s.name ?? 'Aluno',
         phone: s.phone ?? '',
-        photoUrl: s.photo_url ?? '',
+        photoUrl: '',
         studentStatus: s.status ?? 'active',
         attendanceId: att?.id ?? null,
         attendanceStatus: att?.status ?? null, // null = sem registro ainda

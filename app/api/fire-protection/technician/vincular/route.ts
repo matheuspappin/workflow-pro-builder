@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { isProfessionalsLimitReachedForStudio } from '@/lib/studio-limits'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -111,6 +112,14 @@ export async function POST(request: NextRequest) {
 
       if (updateError) throw updateError
     } else {
+      const { count } = await supabaseAdmin
+        .from('professionals')
+        .select('*', { count: 'exact', head: true })
+        .eq('studio_id', studio.id)
+        .eq('status', 'active')
+      if (await isProfessionalsLimitReachedForStudio(studio.id, count ?? 0)) {
+        return NextResponse.json({ error: 'A empresa atingiu o limite de profissionais para o plano atual.' }, { status: 403 })
+      }
       // Criar novo registro de professional
       const { error: insertError } = await supabaseAdmin
         .from('professionals')

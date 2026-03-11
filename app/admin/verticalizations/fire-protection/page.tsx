@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import { VerticalizationPlansCard } from "@/components/admin/verticalization-plans-card"
 
 interface FireProtectionStats {
   totalTenants: number
@@ -275,6 +276,15 @@ export default function FireProtectionAdminPage() {
             </Card>
           ))}
         </div>
+
+        {/* Planos e Preços */}
+        <VerticalizationPlansCard
+          verticalizationSlug="fire-protection"
+          verticalizationName="Fire Control"
+          landingUrl="/solutions/fire-protection"
+          iconColor="text-red-400"
+          iconBg="bg-red-500/10"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

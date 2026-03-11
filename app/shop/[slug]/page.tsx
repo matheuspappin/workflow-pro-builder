@@ -16,7 +16,6 @@ import {
   SheetTitle, 
   SheetTrigger 
 } from "@/components/ui/sheet"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 
 export default function ShopPage() {
@@ -105,25 +104,25 @@ export default function ShopPage() {
         }),
       }).then(res => res.json());
 
-      if (checkoutSession.url) {
-        window.location.href = checkoutSession.url;
-      } else {
-        throw new Error('Failed to create Stripe checkout session.');
+      if (!checkoutSession.url) {
+        throw new Error('Failed to create Stripe checkout session.')
       }
 
-      await createERPOrder(store.studio_id, {
-        customer_name: `${customerInfo.name} (${customerInfo.phone})`,
-        total_amount: cartTotal,
-        items: orderItemsList
-      })
+      // Criar pedido ERP ANTES de redirecionar para o Stripe
+      try {
+        await createERPOrder(store.studio_id, {
+          customer_name: `${customerInfo.name} (${customerInfo.phone})`,
+          total_amount: cartTotal,
+          items: orderItemsList,
+        })
+      } catch (erpErr) {
+        console.error('Erro ao criar pedido ERP (não crítico):', erpErr)
+        // Não bloquear o checkout por falha no ERP — o webhook do Stripe faz fallback
+      }
 
-      toast({ 
-        title: "Pedido Confirmado", 
-        description: `Obrigado! Enviamos a confirmação para ${customerInfo.email}.` 
-      })
-      
-      setCart([])
-      setIsCheckoutOpen(false)
+      // Redirecionar após criar o pedido
+      window.location.href = checkoutSession.url
+
     } catch (err) {
       toast({ title: "Erro", description: "Não foi possível processar o pedido.", variant: "destructive" })
     } finally {
@@ -361,12 +360,12 @@ export default function ShopPage() {
                     <div className="h-full flex flex-col items-center justify-center text-center space-y-4 text-gray-500">
                         <ShoppingBag className="w-12 h-12 opacity-20" />
                         <p>Sua sacola está vazia.</p>
-                        <Button variant="outline" onClick={() => setIsCheckoutOpen(false)}>Começar a comprar</Button>
+                        <Button type="button" variant="outline" onClick={() => setIsCheckoutOpen(false)}>Começar a comprar</Button>
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {cart.map((item, idx) => (
-                            <div key={idx} className="flex gap-4">
+                        {cart.map((item) => (
+                            <div key={item.product.id} className="flex gap-4">
                                 <div className="w-24 h-24 bg-gray-100 rounded-sm overflow-hidden flex-shrink-0">
                                      {item.product.image_url ? (
                                         <img src={item.product.image_url} className="w-full h-full object-cover" />
@@ -402,59 +401,40 @@ export default function ShopPage() {
                     </div>
                     <p className="text-xs text-gray-500 text-center">Frete e impostos calculados no checkout.</p>
                     
-                    {/* Checkout Form embedded inside Sheet for simplicity or Modal trigger */}
-                    <Dialog>
-                        <DialogContent>
-                             <DialogHeader><DialogTitle>Finalizar Pedido</DialogTitle></DialogHeader>
-                             <form id="checkout-form" onSubmit={handleCheckout} className="space-y-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label>Nome Completo</Label>
-                                    <Input required value={customerInfo.name} onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})} placeholder="Ex: João Silva" />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label>E-mail</Label>
-                                    <Input type="email" required value={customerInfo.email} onChange={e => setCustomerInfo({...customerInfo, email: e.target.value})} placeholder="joao@email.com" />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label>WhatsApp</Label>
-                                    <Input required value={customerInfo.phone} onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})} placeholder="(11) 99999-9999" />
-                                </div>
-                             </form>
-                             <DialogFooter>
-                                <Button type="submit" form="checkout-form" disabled={processing} className="w-full h-12 text-base" style={{ backgroundColor: primaryColor }}>
-                                    {processing ? <Loader2 className="animate-spin" /> : `Pagar R$ ${cartTotal.toFixed(2)}`}
-                                </Button>
-                             </DialogFooter>
-                        </DialogContent>
-                        {/* Trigger Button inside Sheet */}
-                        <div className="grid gap-2">
-                             {/* Hacky way to trigger the nested Dialog from the button, usually separate state is better but this keeps it contained */}
-                             <Button 
-                                className={`w-full h-14 text-base font-bold ${getButtonClass()}`} 
-                                style={{ backgroundColor: primaryColor }}
-                                onClick={() => {
-                                    // In a real app we'd close the sheet and open the modal properly via state
-                                    // For now we render the Dialog Trigger around this button or use a separate state
-                                    // Let's use the separate state approach in next iteration if needed, 
-                                    // but for now I'll implement the checkout form DIRECTLY in the sheet to be even more "Nike mobile" style
-                                }}
-                             >
-                                 Finalizar Compra
-                             </Button>
-                             {/* NOTE: Re-implementing the form trigger properly below */}
-                        </div>
-                    </Dialog>
-                    
-                    {/* Checkout Accordion / Form Direct Implementation for better UX */}
-                     <div className="bg-gray-50 p-4 rounded-lg">
+                    {/* Checkout Form direto no Sheet — sem Dialog aninhado desnecessário */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
                         <h4 className="font-bold mb-3 text-sm uppercase text-gray-500">Dados para Pagamento</h4>
-                        <form id="drawer-checkout" onSubmit={handleCheckout} className="space-y-3">
-                             <Input className="bg-white" required value={customerInfo.name} onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})} placeholder="Nome Completo" />
-                             <Input className="bg-white" type="email" required value={customerInfo.email} onChange={e => setCustomerInfo({...customerInfo, email: e.target.value})} placeholder="E-mail" />
-                             <Input className="bg-white" required value={customerInfo.phone} onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})} placeholder="WhatsApp" />
-                             <Button type="submit" disabled={processing} className={`w-full h-12 font-bold mt-2 ${getButtonClass()}`} style={{ backgroundColor: primaryColor }}>
-                                 {processing ? <Loader2 className="animate-spin" /> : `Pagar R$ ${cartTotal.toFixed(2)}`}
-                             </Button>
+                        <form onSubmit={handleCheckout} className="space-y-3">
+                            <Input
+                              className="bg-white"
+                              required
+                              value={customerInfo.name}
+                              onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})}
+                              placeholder="Nome Completo"
+                            />
+                            <Input
+                              className="bg-white"
+                              type="email"
+                              required
+                              value={customerInfo.email}
+                              onChange={e => setCustomerInfo({...customerInfo, email: e.target.value})}
+                              placeholder="E-mail"
+                            />
+                            <Input
+                              className="bg-white"
+                              required
+                              value={customerInfo.phone}
+                              onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                              placeholder="WhatsApp (11) 99999-9999"
+                            />
+                            <Button
+                              type="submit"
+                              disabled={processing}
+                              className={`w-full h-12 font-bold mt-2 ${getButtonClass()}`}
+                              style={{ backgroundColor: primaryColor }}
+                            >
+                              {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pagar R$ ${cartTotal.toFixed(2)}`}
+                            </Button>
                         </form>
                     </div>
                 </div>

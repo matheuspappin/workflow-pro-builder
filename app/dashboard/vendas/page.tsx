@@ -223,7 +223,7 @@ export default function POSPage() {
                   onChange={(e) => setPdvSearchInput(e.target.value)}
                 />
               </div>
-              <Button size="lg" className="h-12" onClick={() => setIsScannerOpen(true)}>
+              <Button type="button" size="lg" className="h-12" onClick={() => setIsScannerOpen(true)}>
                 <Camera className="w-5 h-5 mr-2" /> Escanear
               </Button>
             </div>
@@ -232,7 +232,12 @@ export default function POSPage() {
             <div className="space-y-4">
               <h3 className="font-bold text-lg">Produtos</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {products.filter(p => p.quantity > 0).slice(0, 8).map(p => (
+                {products.filter(p =>
+                  p.quantity > 0 &&
+                  (pdvSearchInput.trim() === '' ||
+                    p.name?.toLowerCase().includes(pdvSearchInput.toLowerCase()) ||
+                    p.sku?.toLowerCase().includes(pdvSearchInput.toLowerCase()))
+                ).slice(0, 8).map(p => (
                   <Card key={p.id} className="hover:border-primary cursor-pointer transition-all" onClick={() => addToCart(p)}>
                     <CardContent className="p-4 text-center">
                       <p className="font-bold text-sm truncate">{p.name}</p>
@@ -306,7 +311,7 @@ export default function POSPage() {
                     <p className="font-medium text-sm truncate">{item.product.name}</p>
                     <p className="text-xs text-muted-foreground">{formatPrice(item.product.selling_price)} x {item.quantity}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="text-red-500" onClick={() => setCart(cart.filter(i => i.product.id !== item.product.id))}>
+                  <Button type="button" variant="ghost" size="icon" className="text-red-500" onClick={() => setCart(cart.filter(i => i.product.id !== item.product.id))}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -341,13 +346,13 @@ export default function POSPage() {
             </div>
 
             <div className="grid gap-4">
-              <Button variant={paymentMethod === 'money' ? 'default' : 'outline'} className="h-16 justify-start gap-4" onClick={() => setPaymentMethod('money')}>
+              <Button type="button" variant={paymentMethod === 'money' ? 'default' : 'outline'} className="h-16 justify-start gap-4" onClick={() => setPaymentMethod('money')}>
                 <Banknote className="w-8 h-8" /> Dinheiro
               </Button>
-              <Button variant="outline" className="h-16 justify-start gap-4" onClick={() => handleFinalizeSale('pix')}>
+              <Button type="button" variant="outline" className="h-16 justify-start gap-4" onClick={() => handleFinalizeSale('pix')}>
                 <QrCode className="w-8 h-8" /> PIX (Stripe)
               </Button>
-              <Button variant="outline" className="h-16 justify-start gap-4" onClick={() => handleFinalizeSale('card')}>
+              <Button type="button" variant="outline" className="h-16 justify-start gap-4" onClick={() => handleFinalizeSale('card')}>
                 <CreditCard className="w-8 h-8" /> Cartão (Stripe)
               </Button>
             </div>
@@ -375,7 +380,7 @@ export default function POSPage() {
                     <span>{formatPrice(change)}</span>
                   </div>
                 )}
-                <Button className="w-full h-12 bg-green-600 hover:bg-green-700" onClick={() => handleFinalizeSale('money')} disabled={isFinalizingSale}>
+                <Button type="button" className="w-full h-12 bg-green-600 hover:bg-green-700" onClick={() => handleFinalizeSale('money')} disabled={isFinalizingSale}>
                   {isFinalizingSale ? <Loader2 className="animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
                   Confirmar e Finalizar
                 </Button>

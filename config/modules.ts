@@ -132,6 +132,15 @@ export const MODULE_DEFINITIONS = {
       'Assinatura digital do cliente',
       'Histórico de estados da OS'
     ]
+  },
+  fiscal: {
+    label: 'Emissor Fiscal (NF-e)',
+    default: false,
+    features: [
+      'Emissão de Notas Fiscais Eletrônicas',
+      'Integração direta com SEFAZ',
+      'Certificado digital A1 por tenant'
+    ]
   }
 } as const;
 

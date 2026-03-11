@@ -12,6 +12,8 @@ import { generateUniqueSlug } from '@/lib/utils/slug'
 import { SYSTEM_CONFIG } from '@/lib/config'
 import { nicheDictionary } from '@/config/niche-dictionary'
 import { getDefaultModulesForNiche, monetaryBasedNiches } from '@/config/niche-modules'
+import { isProfessionalsLimitReachedForStudio } from '@/lib/studio-limits'
+import { provisionWhatsAppForStudio } from '@/lib/whatsapp'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -52,6 +54,7 @@ export async function POST(request: NextRequest) {
       multiUnitQuantity = 1,
       language: registerLanguage,
       professionalRegistration,
+      verticalizationSlug,
     } = parsed.data
 
     // Normalização de roles vindo de diferentes portais
@@ -113,28 +116,53 @@ export async function POST(request: NextRequest) {
       // Determine plan ID
       let selectedPlanId = plan || 'gratuito'
       
-      // Handle custom plan - check if it exists, otherwise fallback to gratuito for the base record
+      // Handle custom plan - fallback to gratuito for base record (vertical ou system)
       if (selectedPlanId === 'custom') {
-        const { data: customPlan } = await supabaseAdmin.from('system_plans').select('id').eq('id', 'custom').maybeSingle()
-        if (!customPlan) {
-          selectedPlanId = 'gratuito' // Fallback safely
-        }
+        selectedPlanId = 'gratuito' // Base record; modules vêm do frontend
       }
-
-      // Buscar detalhes do plano para obter trial_days
-      const { data: planDetails } = await supabaseAdmin
-        .from('system_plans')
-        .select('trial_days, name') // Pegar nome para debug se precisar
-        .eq('id', selectedPlanId)
-        .maybeSingle()
-
-      const trialDays = planDetails?.trial_days || 14 // Default 14 dias se não configurado
-      
-      logger.info(`➡️ Criando estúdio com plano: ${selectedPlanId} (Trial: ${trialDays} dias)`)
 
       // Determine business model based on niche if not provided
       const defaultBusinessModel = niche && monetaryBasedNiches.includes(niche as any) ? 'MONETARY' : 'CREDIT';
       const finalBusinessModel = businessModel || defaultBusinessModel;
+
+      let verticalizationId: string | null = null
+      let verticalizationPlanId: string | null = null
+      let trialDays = 14
+
+      if (verticalizationSlug) {
+        const { data: vert } = await supabaseAdmin
+          .from('verticalizations')
+          .select('id')
+          .eq('slug', verticalizationSlug)
+          .eq('status', 'active')
+          .maybeSingle()
+        verticalizationId = vert?.id ?? null
+
+        if (verticalizationId && selectedPlanId !== 'custom') {
+          const { data: vp } = await supabaseAdmin
+            .from('verticalization_plans')
+            .select('id, trial_days')
+            .eq('verticalization_id', verticalizationId)
+            .eq('plan_id', selectedPlanId)
+            .eq('status', 'active')
+            .maybeSingle()
+          if (vp) {
+            verticalizationPlanId = vp.id
+            trialDays = vp.trial_days ?? 14
+          }
+        }
+      }
+
+      if (!verticalizationSlug) {
+        const { data: planDetails } = await supabaseAdmin
+          .from('system_plans')
+          .select('trial_days')
+          .eq('id', selectedPlanId)
+          .maybeSingle()
+        trialDays = planDetails?.trial_days ?? 14
+      }
+      
+      logger.info(`➡️ Criando estúdio com plano: ${selectedPlanId} (Trial: ${trialDays} dias)${verticalizationSlug ? ` [vertical: ${verticalizationSlug}]` : ''}`)
 
       const { data: newStudio, error: studioError } = await supabaseAdmin.from('studios')
         .insert({
@@ -145,7 +173,8 @@ export async function POST(request: NextRequest) {
           status: 'active',
           subscription_status: selectedPlanId === 'gratuito' ? 'active' : 'trialing',
           trial_ends_at: selectedPlanId === 'gratuito' ? null : new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString(),
-          // multi_unit_limit: multiUnitQuantity // Migration not applied yet
+          ...(verticalizationId && { verticalization_id: verticalizationId }),
+          ...(verticalizationPlanId && { verticalization_plan_id: verticalizationPlanId }),
         })
         .select()
         .single()
@@ -158,6 +187,8 @@ export async function POST(request: NextRequest) {
       logger.info('✅ Estúdio criado:', studio);
       
       createdStudioIds = [studio.id];
+
+      await provisionWhatsAppForStudio(studio.id, studio.slug);
 
       // Criar estúdios adicionais se multi-unidade for maior que 1
       if (multiUnitQuantity > 1) {
@@ -174,12 +205,14 @@ export async function POST(request: NextRequest) {
             status: 'active',
             subscription_status: selectedPlanId === 'gratuito' ? 'active' : 'trialing',
             trial_ends_at: selectedPlanId === 'gratuito' ? null : new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString(),
-            // multi_unit_limit: multiUnitQuantity,
+            ...(verticalizationId && { verticalization_id: verticalizationId }),
+            ...(verticalizationPlanId && { verticalization_plan_id: verticalizationPlanId }),
             owner_id: null // Será vinculado depois
           }).select('id').single();
 
           if (extraStudio) {
             createdStudioIds.push(extraStudio.id);
+            await provisionWhatsAppForStudio(extraStudio.id, extraSlug);
           }
         }
       }
@@ -216,35 +249,60 @@ export async function POST(request: NextRequest) {
 
       // Configurar Ecossistema (organization_settings) se nicho for fornecido
       if (niche) {
-        // 1. Obter módulos da verticalização ativa no banco (tem precedência sobre o hardcoded)
-        const { data: verticalizationData } = await supabaseAdmin
-          .from('verticalizations')
-          .select('modules')
-          .eq('niche', niche)
-          .eq('status', 'active')
-          .maybeSingle();
+        let enabledModules: any
 
-        let enabledModules: any = verticalizationData?.modules ?? getDefaultModulesForNiche(niche as any);
+        if (verticalizationSlug && verticalizationId) {
+          // Verticalização: usar verticalization_plans para módulos
+          if (plan === 'custom' && modules && Array.isArray(modules)) {
+            const base = getDefaultModulesForNiche(niche as any) as Record<string, boolean>
+            enabledModules = Object.fromEntries(Object.keys(base).map(k => [k, false]))
+            for (const id of modules as string[]) {
+              enabledModules[id] = true
+            }
+          } else if (verticalizationPlanId) {
+            const { data: vp } = await supabaseAdmin
+              .from('verticalization_plans')
+              .select('modules')
+              .eq('id', verticalizationPlanId)
+              .maybeSingle()
+            enabledModules = vp?.modules ?? getDefaultModulesForNiche(niche as any)
+          } else {
+            // Gratuito da vertical ou plano não encontrado
+            const { data: vp } = await supabaseAdmin
+              .from('verticalization_plans')
+              .select('modules')
+              .eq('verticalization_id', verticalizationId)
+              .eq('plan_id', 'gratuito')
+              .eq('status', 'active')
+              .maybeSingle()
+            enabledModules = vp?.modules ?? getDefaultModulesForNiche(niche as any)
+          }
+        } else {
+          // Nicho genérico: usar verticalizations.modules ou system_plans
+          const { data: verticalizationData } = await supabaseAdmin
+            .from('verticalizations')
+            .select('modules')
+            .eq('niche', niche)
+            .eq('status', 'active')
+            .maybeSingle()
+          enabledModules = verticalizationData?.modules ?? getDefaultModulesForNiche(niche as any)
 
-        // Logic for modules override (Custom Plan or Specific Plan Features)
-        if (plan === 'custom' && modules) {
-            // Use custom selected modules from frontend builder
-            enabledModules = modules;
-        } else if (selectedPlanId && selectedPlanId !== 'gratuito') {
-             // Se for um plano pago, verificamos se o plano dita módulos específicos
-             // (Geralmente planos definem LIMITES, não módulos funcionais, mas se houver override no banco...)
-             const { data: planData } = await supabaseAdmin
-                .from('system_plans')
-                .select('modules')
-                .eq('id', selectedPlanId)
-                .maybeSingle()
-             
-             if (planData?.modules) {
-                 // Mesclamos: O que o plano garante + O que o nicho precisa
-                 // Se o plano diz 'false' pra algo, respeitamos? Ou se diz 'true'?
-                 // Assumindo que o plano define o "pacote comercial", ele tem precedência.
-                 enabledModules = { ...enabledModules, ...planData.modules }
-             }
+          if (plan === 'custom' && modules && Array.isArray(modules)) {
+            const base = getDefaultModulesForNiche(niche as any) as Record<string, boolean>
+            enabledModules = Object.fromEntries(Object.keys(base).map(k => [k, false]))
+            for (const id of modules as string[]) {
+              enabledModules[id] = true
+            }
+          } else if (selectedPlanId && selectedPlanId !== 'gratuito') {
+            const { data: planData } = await supabaseAdmin
+              .from('system_plans')
+              .select('modules')
+              .eq('id', selectedPlanId)
+              .maybeSingle()
+            if (planData?.modules) {
+              enabledModules = { ...enabledModules, ...planData.modules }
+            }
+          }
         }
 
         const vocabulary = nicheDictionary.pt[niche as keyof typeof nicheDictionary.pt] || nicheDictionary.pt.dance
@@ -383,7 +441,19 @@ export async function POST(request: NextRequest) {
       logger.info('✅ Perfil de aluno criado com sucesso.');
     } else if (role === 'teacher' || role === 'engineer' || role === 'architect') {
       logger.info(`➡️ Tentando criar perfil de ${role} com dados:`, { user_id, studio_id: studio?.id || null, name, email, phone: cleanPhone });
-      
+
+      if (studio?.id) {
+        const { count } = await supabaseAdmin
+          .from('professionals')
+          .select('*', { count: 'exact', head: true })
+          .eq('studio_id', studio.id)
+          .eq('status', 'active')
+        if (await isProfessionalsLimitReachedForStudio(studio.id, count ?? 0)) {
+          await supabaseAdmin.auth.admin.deleteUser(user_id!);
+          throw new AppError('O estúdio atingiu o limite de profissionais para o plano atual.', 403, 'PLAN_LIMIT_REACHED');
+        }
+      }
+
       const { error: profError } = await supabaseAdmin.from('professionals').insert({
         user_id,
         studio_id: studio?.id || null, // Pode ser nulo para engenheiros/arquitetos

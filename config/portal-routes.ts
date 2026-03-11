@@ -6,6 +6,7 @@
 export const NICHE_TO_VERTICALIZATION: Record<string, string> = {
   fire_protection: 'fire-protection',
   environmental_compliance: 'agroflowai',
+  agroflowai: 'agroflowai',
   dance: 'estudio-de-danca',
 }
 
@@ -57,4 +58,15 @@ export function getPortalRoutes(niche: string | null | undefined): PortalRoutes 
  */
 export function getVerticalizationSlug(niche: string | null | undefined): string {
   return (niche && NICHE_TO_VERTICALIZATION[niche]) || 'fire-protection'
+}
+
+/**
+ * Retorna a URL de login apropriada para o nicho.
+ * Verticais (fire_protection, dance, environmental_compliance) → login da vertical.
+ * Nichos genéricos ou não mapeados → /login (genérico).
+ */
+export function getLoginUrlForNiche(niche: string | null | undefined): string {
+  const slug = niche && NICHE_TO_VERTICALIZATION[niche]
+  if (!slug) return '/login'
+  return ROUTES_BY_SLUG[slug as VerticalizationSlug]?.loginUrl ?? '/login'
 }

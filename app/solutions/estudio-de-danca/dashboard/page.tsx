@@ -1,79 +1,264 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Users, GraduationCap, Calendar, DollarSign, TrendingUp,
-  Plus, ArrowRight, Music, Copy, Check, UserPlus, Trophy,
+  Plus, ArrowRight, Music, Copy, UserPlus, Trophy,
+  Loader2, Link2, RefreshCw, CheckCheck, AlertCircle,
+  Clock, ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { getLocalUser } from "@/lib/constants/storage-keys"
+
+interface InviteCodeCardProps {
+  type: 'teacher' | 'student'
+  label: string
+  description: string
+  color: string
+  borderColor: string
+  titleColor: string
+  buttonColor: string
+}
+
+function InviteCodeCard({ type, label, description, color, borderColor, titleColor, buttonColor }: InviteCodeCardProps) {
+  const { toast } = useToast()
+  const [inviteCode, setInviteCode] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [regenerating, setRegenerating] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const loadCode = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/dance-studio/studio/invite-code", { credentials: "include" })
+      const data = await res.json()
+      const code = type === 'teacher' ? data.teacher_invite_code : data.student_invite_code
+      if (code) setInviteCode(code)
+    } catch {
+      setInviteCode("—")
+    } finally {
+      setLoading(false)
+    }
+  }, [type])
+
+  useEffect(() => { loadCode() }, [loadCode])
+
+  const handleCopy = () => {
+    if (!inviteCode || inviteCode === "—") return
+    navigator.clipboard.writeText(inviteCode)
+    setCopied(true)
+    toast({ title: "Código copiado!", description: `Compartilhe com o ${label.toLowerCase()} para que se vincule ao estúdio.` })
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleRegenerate = async () => {
+    if (!confirm(`Gerar um novo código invalidará o código atual de ${label}. Continuar?`)) return
+    setRegenerating(true)
+    try {
+      const res = await fetch("/api/dance-studio/studio/invite-code", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      })
+      const data = await res.json()
+      if (data.invite_code) {
+        setInviteCode(data.invite_code)
+        toast({ title: "Novo código gerado com sucesso!" })
+      }
+    } catch {
+      toast({ title: "Erro ao regenerar código", variant: "destructive" })
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  return (
+    <Card className={cn("border shadow-sm", borderColor, color)}>
+      <CardHeader className="pb-3">
+        <CardTitle className={cn("text-base font-bold flex items-center gap-2", titleColor)}>
+          <Link2 className="w-4 h-4" />
+          Código de Convite — {label}
+        </CardTitle>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center gap-2 text-slate-400 text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Carregando código...
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Código</p>
+              <p className="font-mono text-2xl font-black text-slate-900 dark:text-white tracking-[0.3em]">
+                {inviteCode || "—"}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                size="icon"
+                variant="outline"
+                className={cn("h-10 w-10 rounded-xl transition-all", copied && "bg-emerald-50 border-emerald-300 text-emerald-600")}
+                onClick={handleCopy}
+                title="Copiar código"
+              >
+                {copied ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-xl"
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                title="Gerar novo código"
+              >
+                <RefreshCw className={cn("w-4 h-4", regenerating && "animate-spin")} />
+              </Button>
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-slate-400 mt-3">
+          O {label.toLowerCase()} deve acessar <span className="font-bold text-slate-600 dark:text-slate-300">Meu Perfil → Estúdio Vinculado</span> e inserir este código.
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+interface DashboardStats {
+  alunos: number
+  professores: number
+  turmas: number
+  faturamento: number
+  faturamentoGrowth: number
+  turmasDeHoje: Array<{
+    id: string
+    name: string
+    dance_style: string | null
+    teacherName: string
+    slots: Array<{ day: string; time: string; end_time: string | null }>
+  }>
+}
 
 export default function DanceStudioDashboard() {
   const [user, setUser] = useState<any>(null)
+  const [studioId, setStudioId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [studioSlug, setStudioSlug] = useState("")
-  const [copyingRole, setCopyingRole] = useState<string | null>(null)
-  const [stats, setStats] = useState({
+  const [error, setError] = useState<string | null>(null)
+  const [stats, setStats] = useState<DashboardStats>({
     alunos: 0,
     professores: 0,
     turmas: 0,
     faturamento: 0,
+    faturamentoGrowth: 0,
+    turmasDeHoje: [],
   })
   const { toast } = useToast()
 
+  const loadStats = useCallback(async (sid: string) => {
+    try {
+      setError(null)
+      const res = await fetch(`/api/dance-studio/dashboard/stats?studioId=${encodeURIComponent(sid)}`, {
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erro ao carregar estatísticas")
+      setStats({
+        alunos: data.alunos ?? 0,
+        professores: data.professores ?? 0,
+        turmas: data.turmas ?? 0,
+        faturamento: data.faturamento ?? 0,
+        faturamentoGrowth: data.faturamentoGrowth ?? 0,
+        turmasDeHoje: data.turmasDeHoje ?? [],
+      })
+    } catch (e: any) {
+      setError(e.message)
+      setStats((prev) => ({ ...prev, turmasDeHoje: [] }))
+    }
+  }, [])
+
   useEffect(() => {
+    let cleanupFn: (() => void) | undefined
+
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      setUser(authUser)
 
-      const stored = localStorage.getItem("danceflow_user")
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        const slug = parsed.studioSlug || parsed.studio_slug || (parsed.studio && parsed.studio.slug) || ""
-        setStudioSlug(slug)
+      const stored = getLocalUser("estudio-de-danca")
+      const sid = stored?.studio_id ?? stored?.studioId ?? authUser?.user_metadata?.studio_id
 
-        const sid = parsed.studioId || parsed.studio_id || user?.user_metadata?.studio_id
-        if (sid) {
-          try {
-            const [studentsRes, teachersRes, classesRes] = await Promise.all([
-              fetch(`/api/dance-studio/students?studioId=${sid}`).then(r => r.json()).catch(() => []),
-              fetch(`/api/dance-studio/teachers?studioId=${sid}`).then(r => r.json()).catch(() => []),
-              fetch(`/api/dance-studio/classes?studioId=${sid}`).then(r => r.json()).catch(() => ({ classes: [] })),
-            ])
-            setStats({
-              alunos: Array.isArray(studentsRes) ? studentsRes.length : 0,
-              professores: Array.isArray(teachersRes) ? teachersRes.length : 0,
-              turmas: Array.isArray(classesRes?.classes) ? classesRes.classes.length : 0,
-              faturamento: 0,
-            })
-          } catch {}
-        }
+      if (sid) {
+        setStudioId(sid)
+        await loadStats(sid)
+
+        const channel = supabase
+          .channel(`dashboard-stats-${sid}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "students",
+              filter: `studio_id=eq.${sid}`,
+            },
+            () => loadStats(sid)
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "classes",
+              filter: `studio_id=eq.${sid}`,
+            },
+            () => loadStats(sid)
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "attendance",
+              filter: `studio_id=eq.${sid}`,
+            },
+            () => loadStats(sid)
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "payments",
+              filter: `studio_id=eq.${sid}`,
+            },
+            () => loadStats(sid)
+          )
+          .subscribe()
+
+        cleanupFn = () => { supabase.removeChannel(channel) }
+      } else {
+        setError("Estúdio não identificado. Faça login novamente.")
       }
       setLoading(false)
     }
     load()
-  }, [])
+    return () => { cleanupFn?.() }
+  }, [loadStats])
 
-  const handleCopyLink = async (role: string) => {
-    if (!studioSlug) {
-      toast({ title: "Slug não encontrado", description: "Faça logout e entre novamente.", variant: "destructive" })
-      return
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === "visible" && studioId) loadStats(studioId)
     }
-    const link = `${window.location.origin}/s/${studioSlug}/join?role=${role}`
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopyingRole(role)
-      toast({ title: "Link copiado!", description: `Convite copiado com sucesso.` })
-      setTimeout(() => setCopyingRole(null), 2000)
-    } catch {
-      toast({ title: "Erro ao copiar", variant: "destructive" })
-    }
-  }
+    document.addEventListener("visibilitychange", handler)
+    return () => document.removeEventListener("visibilitychange", handler)
+  }, [studioId, loadStats])
 
   const statCards = [
     {
@@ -105,7 +290,15 @@ export default function DanceStudioDashboard() {
     },
     {
       label: "Faturamento (mês)",
-      value: loading ? "..." : `R$ ${stats.faturamento.toLocaleString('pt-BR')}`,
+      value: loading ? "..." : `R$ ${stats.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      sub: stats.faturamentoGrowth !== 0 && !loading && (
+        <span className={cn(
+          "text-xs font-semibold mt-0.5 block",
+          stats.faturamentoGrowth >= 0 ? "text-emerald-600" : "text-rose-600"
+        )}>
+          {stats.faturamentoGrowth >= 0 ? "+" : ""}{stats.faturamentoGrowth}% em relação ao mês anterior
+        </span>
+      ),
       icon: DollarSign,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
@@ -120,13 +313,29 @@ export default function DanceStudioDashboard() {
     { label: "Financeiro", sub: "Cobranças e pagamentos", href: "/solutions/estudio-de-danca/dashboard/financeiro", icon: DollarSign, color: "bg-emerald-600 hover:bg-emerald-700" },
   ]
 
-  const invites = [
-    { role: "professional", label: "Convidar Professor", icon: GraduationCap, color: "text-pink-500", bg: "bg-pink-500/10" },
-    { role: "client", label: "Convidar Aluno", icon: Users, color: "text-violet-500", bg: "bg-violet-500/10" },
-  ]
-
   return (
     <div className="space-y-8">
+      {/* Error Banner */}
+      {error && (
+        <Card className="border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-900/10">
+          <CardContent className="py-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <p className="text-sm font-medium text-rose-800 dark:text-rose-200">{error}</p>
+            {studioId && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto border-rose-300 text-rose-700 hover:bg-rose-100"
+                onClick={() => loadStats(studioId)}
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Tentar novamente
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -137,12 +346,12 @@ export default function DanceStudioDashboard() {
             Painel de Controle — Estúdio de Dança
           </p>
         </div>
-        <Link href="/solutions/estudio-de-danca/dashboard/alunos">
-          <Button className="bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20">
+        <Button type="button" className="bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20" asChild>
+          <Link href="/solutions/estudio-de-danca/dashboard/alunos">
             <Plus className="w-4 h-4 mr-2" />
             Novo Aluno
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       {/* Quick Actions */}
@@ -171,13 +380,18 @@ export default function DanceStudioDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
           <Link key={stat.label} href={stat.href}>
-            <Card className={cn("border-l-4 bg-white dark:bg-slate-900/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer", stat.border)}>
+            <Card className={cn(
+              "border-l-4 bg-white dark:bg-slate-900/50 shadow-sm hover:shadow-md transition-all cursor-pointer",
+              loading && "animate-pulse",
+              stat.border
+            )}>
               <CardContent className="p-5">
                 <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-3", stat.bg)}>
                   <stat.icon className={cn("w-5 h-5", stat.color)} />
                 </div>
                 <p className={cn("text-3xl font-black", stat.color)}>{stat.value}</p>
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mt-1">{stat.label}</p>
+                {"sub" in stat && stat.sub}
               </CardContent>
             </Card>
           </Link>
@@ -186,7 +400,7 @@ export default function DanceStudioDashboard() {
 
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Próximas Aulas */}
+        {/* Turmas de Hoje */}
         <Card className="bg-white dark:bg-slate-900/50 shadow-sm border border-slate-200 dark:border-white/10">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
@@ -203,15 +417,47 @@ export default function DanceStudioDashboard() {
             </Link>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-10 text-slate-400">
-              <Music className="w-12 h-12 mx-auto mb-3 opacity-20" />
-              <p className="font-medium">Nenhuma turma cadastrada ainda</p>
-              <Link href="/solutions/estudio-de-danca/dashboard/turmas">
-                <Button className="mt-4 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl" size="sm">
-                  <Plus className="w-4 h-4 mr-1" /> Criar primeira turma
+            {loading ? (
+              <div className="flex items-center justify-center py-12 gap-2 text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm font-medium">Carregando...</span>
+              </div>
+            ) : stats.turmasDeHoje.length === 0 ? (
+              <div className="text-center py-10">
+                <Music className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                <p className="font-medium text-slate-500 dark:text-slate-400 mb-2">
+                  {stats.turmas === 0
+                    ? "Nenhuma turma cadastrada ainda"
+                    : "Nenhuma turma programada para hoje"}
+                </p>
+                <Button type="button" size="sm" className="bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl" asChild>
+                  <Link href="/solutions/estudio-de-danca/dashboard/turmas">
+                    <Plus className="w-4 h-4 mr-1" /> {stats.turmas === 0 ? "Criar primeira turma" : "Ver turmas"}
+                  </Link>
                 </Button>
-              </Link>
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {stats.turmasDeHoje.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/solutions/estudio-de-danca/dashboard/turmas/${t.id}/chamada`}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-6 h-6 text-violet-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 dark:text-white truncate">{t.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {t.slots.map((s) => `${s.time}`).join(", ")} · {t.teacherName}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-violet-600 flex-shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -227,62 +473,46 @@ export default function DanceStudioDashboard() {
                 <p className="font-bold text-white">Gamificação de Alunos</p>
                 <p className="text-sm text-white/70">Rankings, conquistas e engajamento</p>
               </div>
-              <Link href="/solutions/estudio-de-danca/dashboard/gamificacao">
-                <Button size="sm" variant="secondary" className="font-bold rounded-xl">
-                  Ver
-                </Button>
-              </Link>
+              <Button type="button" size="sm" variant="secondary" className="font-bold rounded-xl" asChild>
+                <Link href="/solutions/estudio-de-danca/dashboard/gamificacao">Ver</Link>
+              </Button>
             </CardContent>
           </Card>
 
-          {/* Links de convite */}
-          {studioSlug && (
-            <Card className="bg-white dark:bg-slate-900/50 shadow-sm border border-slate-200 dark:border-white/10">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-widest">
-                  Convites de Acesso
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {invites.map((inv) => (
-                  <div key={inv.role} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", inv.bg)}>
-                        <inv.icon className={cn("w-4 h-4", inv.color)} />
-                      </div>
-                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{inv.label}</span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-3 text-xs font-bold rounded-lg"
-                      onClick={() => handleCopyLink(inv.role)}
-                    >
-                      {copyingRole === inv.role ? (
-                        <Check className="w-3 h-3 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3 h-3 mr-1" />
-                      )}
-                      {copyingRole === inv.role ? "Copiado" : "Copiar link"}
-                    </Button>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          {/* Código de Convite — Professor */}
+          <InviteCodeCard
+            type="teacher"
+            label="Professor"
+            description="Compartilhe com professores para que se vinculem ao estúdio."
+            color="bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-600/10 dark:to-rose-600/10"
+            borderColor="border border-pink-200 dark:border-pink-600/20"
+            titleColor="text-pink-700 dark:text-pink-400"
+            buttonColor="bg-pink-600 hover:bg-pink-700"
+          />
 
-          {/* Leads */}
+          {/* Código de Convite — Aluno */}
+          <InviteCodeCard
+            type="student"
+            label="Aluno"
+            description="Compartilhe com alunos para que se vinculem ao estúdio."
+            color="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-600/10 dark:to-purple-600/10"
+            borderColor="border border-violet-200 dark:border-violet-600/20"
+            titleColor="text-violet-700 dark:text-violet-400"
+            buttonColor="bg-violet-600 hover:bg-violet-700"
+          />
+
+          {/* Clientes (CRM) */}
           <Card className="bg-white dark:bg-slate-900/50 shadow-sm border border-indigo-200 dark:border-indigo-600/20">
             <CardContent className="p-5 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-600/20 flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-6 h-6 text-indigo-600" />
               </div>
               <div>
-                <p className="font-bold text-slate-900 dark:text-white">Captação de Alunos</p>
-                <p className="text-sm text-slate-500">Gerencie leads e novas matrículas</p>
+                <p className="font-bold text-slate-900 dark:text-white">Clientes (CRM)</p>
+                <p className="text-sm text-slate-500">Quem comprou/visitou — converta em alunos</p>
               </div>
               <Link href="/solutions/estudio-de-danca/dashboard/leads" className="ml-auto">
-                <Button size="sm" variant="outline" className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl">
+                <Button type="button" size="sm" variant="outline" className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl">
                   Ver
                 </Button>
               </Link>

@@ -38,14 +38,14 @@ function PageBackgroundCanvas() {
     let time = 0
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
       canvas.width = window.innerWidth * dpr
       canvas.height = window.innerHeight * dpr
       ctx.scale(dpr, dpr)
     }
 
     const particles: { x: number; y: number; vx: number; vy: number; size: number; hue: number }[] = []
-    const particleCount = 80
+    const particleCount = 40
 
     const initParticles = () => {
       particles.length = 0
@@ -89,14 +89,15 @@ function PageBackgroundCanvas() {
         if (p.y < 0 || p.y > h) p.vy *= -1
       })
 
-      // Conexões entre partículas
+      // Conexões entre partículas (threshold reduzido para menos linhas)
+      const CONN_DIST = 100
       particles.forEach((a, i) => {
         particles.slice(i + 1).forEach((b) => {
           const dx = a.x - b.x
           const dy = a.y - b.y
           const dist = Math.hypot(dx, dy)
-          if (dist < 140) {
-            const alpha = (1 - dist / 140) * 0.06
+          if (dist < CONN_DIST) {
+            const alpha = (1 - dist / CONN_DIST) * 0.06
             ctx.strokeStyle = `hsla(${(a.hue + b.hue) / 2}, 100%, 70%, ${alpha})`
             ctx.lineWidth = 0.5
             ctx.beginPath()
@@ -122,13 +123,23 @@ function PageBackgroundCanvas() {
       initParticles()
     }
 
+    const handleVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animationId)
+      } else {
+        animationId = requestAnimationFrame(draw)
+      }
+    }
+
     resize()
     initParticles()
     window.addEventListener("resize", handleResize)
+    document.addEventListener("visibilitychange", handleVisibility)
     draw()
 
     return () => {
       window.removeEventListener("resize", handleResize)
+      document.removeEventListener("visibilitychange", handleVisibility)
       cancelAnimationFrame(animationId)
     }
   }, [])
@@ -200,19 +211,15 @@ function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/solutions/estudio-de-danca/login" className="hidden sm:block">
-            <Button variant="ghost" size="sm" className="font-semibold text-white hover:bg-white/10 hover:text-white transition-all">
-              Entrar
+            <Button size="sm" variant="ghost" className="font-semibold text-white hover:bg-white/10 hover:text-white transition-all" asChild>
+              <Link href="/solutions/estudio-de-danca/login">Entrar</Link>
             </Button>
-          </Link>
-          <Link href="/solutions/estudio-de-danca/register">
-            <Button size="sm" className="hidden sm:flex rounded-full px-6 bg-violet-600 hover:bg-violet-700 shadow-lg shadow-violet-600/20 hover:shadow-violet-600/40 hover:scale-105 transition-all duration-300 font-bold text-white border-none">
-              Criar Conta Grátis
+            <Button size="sm" className="hidden sm:flex rounded-full px-6 bg-violet-600 hover:bg-violet-700 shadow-lg shadow-violet-600/20 hover:shadow-violet-600/40 hover:scale-105 transition-all duration-300 font-bold text-white border-none" asChild>
+              <Link href="/solutions/estudio-de-danca/register">Criar Conta Grátis</Link>
             </Button>
-          </Link>
-          <Button variant="ghost" size="icon" className="md:hidden rounded-full hover:bg-white/10 text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
+                <Button type="button" variant="ghost" size="icon" className="md:hidden rounded-full hover:bg-white/10 text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
         </div>
       </div>
 
@@ -232,12 +239,12 @@ function Navbar() {
               ))}
               <div className="h-px bg-white/10 my-2" />
               <div className="grid grid-cols-2 gap-4 pt-2">
-                <Link href="/solutions/estudio-de-danca/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full rounded-xl border-white/10 hover:bg-white/5 text-white">Entrar</Button>
-                </Link>
-                <Link href="/solutions/estudio-de-danca/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full rounded-xl bg-violet-600 hover:bg-violet-700 text-white border-none">Criar Conta</Button>
-                </Link>
+                <Button type="button" variant="outline" className="w-full rounded-xl border-white/10 hover:bg-white/5 text-white" asChild>
+                  <Link href="/solutions/estudio-de-danca/login">Entrar</Link>
+                </Button>
+                <Button type="button" className="w-full rounded-xl bg-violet-600 hover:bg-violet-700 text-white border-none" asChild>
+                  <Link href="/solutions/estudio-de-danca/register">Criar Conta</Link>
+                </Button>
               </div>
             </div>
           </motion.div>
@@ -263,14 +270,14 @@ function HeroCanvas() {
     let time = 0
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
       canvas.width = canvas.offsetWidth * dpr
       canvas.height = canvas.offsetHeight * dpr
       ctx.scale(dpr, dpr)
     }
 
     const particles: { x: number; y: number; vx: number; vy: number; size: number; hue: number }[] = []
-    const particleCount = 60
+    const particleCount = 35
     const gridSize = 60
 
     const initParticles = () => {
@@ -462,13 +469,16 @@ function HeroSection() {
             transition={{ duration: 0.8, delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-5"
           >
-            <Link href="/solutions/estudio-de-danca/register">
-              <Button size="lg" className="h-16 px-10 text-xl rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-600 hover:from-cyan-400 hover:to-fuchsia-500 shadow-[0_0_40px_rgba(0,255,255,0.25)] hover:shadow-[0_0_60px_rgba(168,85,247,0.3)] transition-all hover:scale-105 font-bold text-white border-none group">
+            <Button size="lg" className="h-16 px-10 text-xl rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-600 hover:from-cyan-400 hover:to-fuchsia-500 shadow-[0_0_40px_rgba(0,255,255,0.25)] hover:shadow-[0_0_60px_rgba(168,85,247,0.3)] transition-all hover:scale-105 font-bold text-white border-none group" asChild>
+              <Link href="/solutions/estudio-de-danca/register">
                 Começar Grátis
                 <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-            <Button size="lg" variant="outline" className="h-16 px-10 text-xl rounded-full border-2 border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-300 hover:border-cyan-400 font-bold text-slate-300 bg-transparent backdrop-blur-sm">
+              </Link>
+            </Button>
+            <Button type="button" size="lg" variant="outline" className="h-16 px-10 text-xl rounded-full border-2 border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-300 hover:border-cyan-400 font-bold text-slate-300 bg-transparent backdrop-blur-sm" onClick={() => {
+              // Scroll to pricing or demo section
+              document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })
+            }}>
               Ver Demonstração
             </Button>
           </motion.div>
@@ -985,17 +995,15 @@ function CTASection() {
             Junte-se a centenas de estúdios que já modernizaram sua gestão com o DanceFlow.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/solutions/estudio-de-danca/register">
-              <Button size="lg" className="h-16 px-12 text-xl rounded-full bg-violet-600 hover:bg-violet-700 shadow-[0_10px_40px_-10px_rgba(139,92,246,0.6)] hover:scale-105 transition-all font-bold text-white border-none group">
+            <Button size="lg" className="h-16 px-12 text-xl rounded-full bg-violet-600 hover:bg-violet-700 shadow-[0_10px_40px_-10px_rgba(139,92,246,0.6)] hover:scale-105 transition-all font-bold text-white border-none group" asChild>
+              <Link href="/solutions/estudio-de-danca/register">
                 Criar Conta Grátis
                 <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-            <Link href="/solutions/estudio-de-danca/login">
-              <Button size="lg" variant="outline" className="h-16 px-12 text-xl rounded-full border-2 border-white/10 hover:bg-white/10 hover:text-white font-bold text-slate-300 bg-transparent">
-                Já tenho conta
-              </Button>
-            </Link>
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="h-16 px-12 text-xl rounded-full border-2 border-white/10 hover:bg-white/10 hover:text-white font-bold text-slate-300 bg-transparent" asChild>
+              <Link href="/solutions/estudio-de-danca/login">Já tenho conta</Link>
+            </Button>
           </div>
         </motion.div>
       </div>

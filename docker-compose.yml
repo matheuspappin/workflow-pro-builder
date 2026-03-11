@@ -21,6 +21,23 @@ services:
       retries: 3
       start_period: 60s
 
+  # ─── Microserviço Fiscal NF-e (PHP) ────────────────────────────────────────
+  fiscal-worker:
+    build:
+      context: ./microservices/fiscal-php
+      dockerfile: Dockerfile
+    container_name: akaai_fiscal_worker
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    networks:
+      - agroflow_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # ─── Next.js App (dev) ────────────────────────────────────────────────────
   # Descomente para rodar o Next.js também no Docker (opcional em dev):
   # nextjs:

@@ -142,4 +142,13 @@ export const MODULE_PRICING: Record<ModuleKey, ModulePricing> = {
     ],
     description: 'Ordens de Serviço (OS).',
   },
+  fiscal: {
+    price: 49.90,
+    benefits: [
+      'Emissão de Notas Fiscais Eletrônicas',
+      'Integração direta com SEFAZ',
+      'Certificado digital A1 por tenant'
+    ],
+    description: 'Emissor Fiscal (NF-e) via SEFAZ.',
+  },
 };

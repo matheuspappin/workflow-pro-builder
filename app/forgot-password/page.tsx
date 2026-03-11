@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, Suspense } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,8 +11,10 @@ import { Sparkles, Loader2, ArrowLeft, MailCheck } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get("returnTo") || "/login"
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSent, setIsSent] = useState(false)
@@ -22,7 +25,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/reset-password${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`,
       })
 
       if (error) {
@@ -95,7 +98,7 @@ export default function ForgotPasswordPage() {
                 >
                   Tentar outro e-mail
                 </Button>
-                <Link href="/login" className="block text-sm text-indigo-600 font-bold hover:underline">
+                <Link href={returnTo} className="block text-sm text-indigo-600 font-bold hover:underline">
                   Voltar para o login
                 </Link>
               </div>
@@ -130,7 +133,7 @@ export default function ForgotPasswordPage() {
                 </Button>
 
                 <Link 
-                  href="/login" 
+                  href={returnTo} 
                   className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-indigo-600 transition-colors py-2"
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -142,5 +145,17 @@ export default function ForgotPasswordPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    }>
+      <ForgotPasswordContent />
+    </Suspense>
   )
 }

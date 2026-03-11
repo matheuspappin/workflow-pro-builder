@@ -27,6 +27,7 @@ export const registerSchema = z.object({
   multiUnitQuantity: z.number().optional().default(1),
   language: z.string().optional(),
   professionalRegistration: z.string().optional(),
+  verticalizationSlug: z.string().optional(),
 })
 
 export type LoginInput = z.infer<typeof loginSchema>

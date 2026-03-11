@@ -135,10 +135,23 @@ DIRETRIZES:
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      logger.error('Erro na API do OpenAI:', errorData)
+      let errorMsg = 'Erro ao processar a resposta da IA'
+      try {
+        const errorData = await response.json()
+        logger.error('Erro na API do OpenAI:', errorData)
+        const openaiError = errorData?.error?.message || errorData?.message
+        if (response.status === 401 || openaiError?.toLowerCase().includes('invalid') || openaiError?.toLowerCase().includes('api key')) {
+          errorMsg = 'Chave da API inválida ou não configurada. Configure em Configurações do estúdio ou no .env (OPENAI_API_KEY).'
+        } else if (response.status === 429 || openaiError?.toLowerCase().includes('rate limit')) {
+          errorMsg = 'Limite de requisições excedido. Aguarde alguns minutos e tente novamente.'
+        } else if (openaiError) {
+          errorMsg = openaiError
+        }
+      } catch {
+        logger.error('Erro ao parsear resposta da OpenAI:', response.status)
+      }
       return NextResponse.json(
-        { error: 'Erro ao processar a resposta da IA' },
+        { error: errorMsg },
         { status: 500 }
       )
     }

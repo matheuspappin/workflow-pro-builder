@@ -57,7 +57,7 @@ export default function AdminLogsPage() {
   const [metrics, setMetrics] = useState<Metrics>({ errors24h: 0, warnings24h: 0, events24h: 0 })
   const [health, setHealth] = useState<HealthState | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'ai'>('all')
   const [isRealtime, setIsRealtime] = useState(true)
 
   const fetchLogs = useCallback(async () => {
@@ -204,7 +204,15 @@ export default function AdminLogsPage() {
     }
   }
 
-  const filteredLogs = logs.filter((log) => (filter === 'all' ? true : log.type === filter))
+  const isAISource = (source: string) => {
+    const s = (source || '').toLowerCase()
+    return s.includes('ai') || s.includes('catarina') || s.includes('gemini') || s.includes('chat')
+  }
+  const filteredLogs = logs.filter((log) => {
+    if (filter === 'all') return true
+    if (filter === 'ai') return isAISource(log.source)
+    return log.type === filter
+  })
 
   const dbStatus = health?.database?.status === 'operational'
   const dbLatency = health?.database?.latency ?? '—'
@@ -276,6 +284,14 @@ export default function AdminLogsPage() {
               className={filter === 'warning' ? 'bg-amber-500 text-white hover:bg-amber-600' : ''}
             >
               Avisos
+            </Button>
+            <Button 
+              variant={filter === 'ai' ? 'secondary' : 'outline'} 
+              size="sm" 
+              onClick={() => setFilter('ai')}
+              className={filter === 'ai' ? 'bg-purple-500 text-white hover:bg-purple-600' : ''}
+            >
+              IA / Catarina
             </Button>
           </div>
           <div className="flex gap-2 w-full md:w-auto flex-wrap">

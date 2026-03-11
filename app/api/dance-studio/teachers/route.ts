@@ -43,3 +43,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+// POST /api/dance-studio/teachers — criar professor (professional com professional_type = 'teacher')
+export async function POST(request: NextRequest) {
+  const body = await request.json()
+  const { studioId, name, email, phone } = body
+
+  if (!studioId || !name) {
+    return NextResponse.json({ error: 'studioId e name são obrigatórios' }, { status: 400 })
+  }
+
+  const access = await checkStudioAccess(request, studioId)
+  if (!access.authorized) return access.response
+
+  const supabase = getAdmin()
+
+  try {
+    const { data, error } = await supabase
+      .from('professionals')
+      .insert({
+        studio_id: studioId,
+        name,
+        email: email || `${name.toLowerCase().replace(/\s/g, '.')}@estudio.local`,
+        phone: phone || null,
+        professional_type: 'teacher',
+        status: 'active',
+      })
+      .select('id, name, email, phone, professional_type, status')
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json(data, { status: 201 })
+  } catch (error: any) {
+    logger.error('❌ [DANCE-STUDIO/TEACHERS POST] Erro:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

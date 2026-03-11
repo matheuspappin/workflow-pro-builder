@@ -151,12 +151,12 @@ export default function FireProtectionDashboard() {
             Painel de Controle — Segurança Contra Incêndio
           </p>
         </div>
-        <Link href="/solutions/fire-protection/dashboard/os/nova">
-          <Button className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/20">
+        <Button type="button" className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/20" asChild>
+          <Link href="/solutions/fire-protection/dashboard/os/nova">
             <Plus className="w-4 h-4 mr-2" />
             Nova OS
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       {/* Quick Actions */}
@@ -210,11 +210,11 @@ export default function FireProtectionDashboard() {
               </CardTitle>
               <CardDescription>Ordens de serviço recentes</CardDescription>
             </div>
-            <Link href="/solutions/fire-protection/dashboard/os">
-              <Button variant="ghost" size="sm" className="text-red-600 font-bold text-xs">
-                Ver todas <ArrowRight className="w-3 h-3 ml-1" />
+              <Button type="button" variant="ghost" size="sm" className="text-red-600 font-bold text-xs" asChild>
+                <Link href="/solutions/fire-protection/dashboard/os">
+                  Ver todas <ArrowRight className="w-3 h-3 ml-1" />
+                </Link>
               </Button>
-            </Link>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -225,11 +225,11 @@ export default function FireProtectionDashboard() {
               <div className="text-center py-10 text-slate-400">
                 <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-20" />
                 <p className="font-medium">Nenhuma OS registrada ainda</p>
-                <Link href="/solutions/fire-protection/dashboard/os/nova">
-                  <Button className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl" size="sm">
+                <Button type="button" className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl" size="sm" asChild>
+                  <Link href="/solutions/fire-protection/dashboard/os/nova">
                     <Plus className="w-4 h-4 mr-1" /> Criar primeira OS
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             ) : (
               <div className="space-y-2">
@@ -271,7 +271,7 @@ export default function FireProtectionDashboard() {
                 <p className="text-sm text-slate-500">Cadastre extintores para monitorar vencimentos</p>
               </div>
               <Link href="/solutions/fire-protection/dashboard/extintores" className="ml-auto">
-                <Button size="sm" variant="outline" className="border-rose-300 text-rose-600 hover:bg-rose-50 font-bold rounded-xl">
+                <Button type="button" size="sm" variant="outline" className="border-rose-300 text-rose-600 hover:bg-rose-50 font-bold rounded-xl">
                   Ver
                 </Button>
               </Link>
@@ -296,6 +296,7 @@ export default function FireProtectionDashboard() {
                       <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{inv.label}</span>
                     </div>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       className="h-7 px-3 text-xs font-bold rounded-lg"

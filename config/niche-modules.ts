@@ -16,6 +16,7 @@ export type ModuleConfig = {
   service_orders: boolean;
   erp: boolean;
   multi_unit: boolean;
+  fiscal: boolean;
   satellite_monitor?: boolean;
 };
 
@@ -35,6 +36,7 @@ const defaultModules: ModuleConfig = {
   service_orders: false,
   erp: false,
   multi_unit: false,
+  fiscal: false,
   satellite_monitor: false,
 };
 
@@ -407,6 +409,7 @@ export function getDefaultModulesForNiche(niche: NicheType): ModuleConfig {
     modules.pos = true;
     modules.inventory = true;
     modules.marketplace = true;
+    modules.fiscal = true;
   }
 
   // 3. Ajustes Específicos por Nicho
@@ -499,6 +502,7 @@ export function getDefaultModulesForNiche(niche: NicheType): ModuleConfig {
       modules.scanner = true;
       modules.inventory = true;
       modules.classes = true; // Lista de Coletas
+      modules.fiscal = true;
       break;
 
     case 'environmental_compliance':
@@ -509,6 +513,7 @@ export function getDefaultModulesForNiche(niche: NicheType): ModuleConfig {
       modules.whatsapp = true;
       modules.multi_unit = true;
       modules.satellite_monitor = true;
+      modules.fiscal = true;
       break;
   }
 

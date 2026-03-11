@@ -1,0 +1,16 @@
+{
+  "name": "akaai/fiscal-worker",
+  "description": "Microserviço NF-e - Emissor fiscal stateless",
+  "type": "project",
+  "require": {
+    "php": ">=8.2",
+    "nfephp-org/sped-nfe": "^5.0",
+    "slim/slim": "^4.12",
+    "slim/psr7": "^1.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "FiscalWorker\\": "src/"
+    }
+  }
+}

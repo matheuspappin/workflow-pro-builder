@@ -4,14 +4,16 @@ import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Loader2, ArrowRight, Building2, User, Mail, Wrench, CheckCircle2, Sparkles } from "lucide-react"
+import {
+  Loader2, ArrowRight, Building2, User, Mail, Wrench,
+  CheckCircle2, Sparkles, Music, GraduationCap, Users, DollarSign,
+} from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { getSupabaseClient } from "@/lib/supabase"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
 import { claimEcosystem } from "@/lib/actions/ecosystem"
+import { cn } from "@/lib/utils"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 interface InviteData {
@@ -33,24 +35,107 @@ interface InviteData {
 }
 
 type InviteStatus = 'loading' | 'valid' | 'invalid' | 'expired' | 'accepted'
+type NicheTheme = 'dance' | 'fire' | 'generic'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function isEcosystemInvite(invite: InviteData): boolean {
   return (
     invite.invite_type === 'ecosystem' ||
     invite.metadata?.invite_type === 'ecosystem' ||
-    // fallback: sem tipo profissional = ecossistema
     (!invite.role && !invite.metadata?.professional_type && !invite.metadata?.role)
   )
 }
 
-const PROFESSIONAL_LABELS: Record<string, string> = {
-  finance: 'Financeiro',
-  seller: 'Vendedor',
-  receptionist: 'Recepcionista',
-  engineer: 'Engenheiro',
-  architect: 'Arquiteto',
-  technician: 'Técnico',
+function getNicheTheme(niche?: string | null): NicheTheme {
+  if (niche === 'dance') return 'dance'
+  if (niche === 'fire_protection') return 'fire'
+  return 'generic'
+}
+
+// ─── Labels por role + nicho ─────────────────────────────────────────────────
+const ROLE_LABELS: Record<string, Record<string, string>> = {
+  dance: {
+    teacher: 'Professor',
+    student: 'Aluno',
+    finance: 'Financeiro',
+    admin: 'Administrador',
+    professional: 'Professor',
+  },
+  fire: {
+    finance: 'Financeiro',
+    seller: 'Vendedor',
+    receptionist: 'Recepcionista',
+    engineer: 'Engenheiro',
+    architect: 'Arquiteto',
+    technician: 'Técnico',
+    professional: 'Técnico',
+  },
+  generic: {
+    finance: 'Financeiro',
+    seller: 'Vendedor',
+    engineer: 'Engenheiro',
+    technician: 'Técnico',
+    teacher: 'Professor',
+    student: 'Aluno',
+  },
+}
+
+function getRoleLabel(role: string, theme: NicheTheme): string {
+  return ROLE_LABELS[theme]?.[role] || ROLE_LABELS.generic[role] || role
+}
+
+// ─── Redirect por nicho + role ────────────────────────────────────────────────
+function getRedirectAfterAccept(niche: NicheTheme, internalRole?: string, profType?: string): string {
+  if (niche === 'dance') {
+    if (internalRole === 'finance' || internalRole === 'admin') return '/solutions/estudio-de-danca/dashboard'
+    if (profType === 'teacher' || profType === 'professional') return '/solutions/estudio-de-danca/teacher'
+    if (profType === 'student') return '/solutions/estudio-de-danca/student'
+    return '/solutions/estudio-de-danca/dashboard'
+  }
+  if (niche === 'fire') {
+    if (internalRole === 'finance') return '/solutions/fire-protection/dashboard/financeiro'
+    if (internalRole === 'seller') return '/solutions/fire-protection/dashboard/portal-vendedor'
+    if (profType === 'engineer' || profType === 'architect') return '/solutions/fire-protection/engineer'
+    return '/solutions/fire-protection/technician'
+  }
+  return '/dashboard'
+}
+
+// ─── Temas visuais ────────────────────────────────────────────────────────────
+const THEME_CONFIG = {
+  dance: {
+    accent: 'bg-violet-600',
+    accentHover: 'hover:bg-violet-700',
+    accentLight: 'bg-violet-50 dark:bg-violet-900/20',
+    accentBorder: 'border-violet-100 dark:border-violet-800/50',
+    accentText: 'text-violet-700 dark:text-violet-300',
+    accentShadow: 'shadow-violet-200',
+    stripColor: 'bg-gradient-to-r from-violet-600 to-pink-600',
+    icon: Music,
+    label: 'DanceFlow',
+  },
+  fire: {
+    accent: 'bg-red-600',
+    accentHover: 'hover:bg-red-700',
+    accentLight: 'bg-red-50 dark:bg-red-900/10',
+    accentBorder: 'border-red-100 dark:border-red-800/50',
+    accentText: 'text-red-700 dark:text-red-300',
+    accentShadow: 'shadow-red-200',
+    stripColor: 'bg-red-600',
+    icon: Wrench,
+    label: 'Fire Control',
+  },
+  generic: {
+    accent: 'bg-indigo-600',
+    accentHover: 'hover:bg-indigo-700',
+    accentLight: 'bg-indigo-50 dark:bg-indigo-900/10',
+    accentBorder: 'border-indigo-100 dark:border-indigo-800/50',
+    accentText: 'text-indigo-700 dark:text-indigo-300',
+    accentShadow: 'shadow-indigo-200',
+    stripColor: 'bg-indigo-600',
+    icon: Sparkles,
+    label: 'Sistema',
+  },
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
@@ -68,6 +153,7 @@ export default function InvitePage() {
   const [inviteData, setInviteData] = useState<InviteData | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [inviteStatus, setInviteStatus] = useState<InviteStatus>('loading')
+  const [nicheTheme, setNicheTheme] = useState<NicheTheme>('generic')
 
   // ─── Buscar convite ─────────────────────────────────────────────────────────
   const fetchInviteDetails = useCallback(async () => {
@@ -82,7 +168,9 @@ export default function InvitePage() {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        setInviteData(data.invite)
+        const invite = data.invite as InviteData
+        setInviteData(invite)
+        setNicheTheme(getNicheTheme(invite.metadata?.niche))
         setInviteStatus('valid')
       } else {
         setInviteStatus('invalid')
@@ -123,14 +211,22 @@ export default function InvitePage() {
       await claimEcosystem(token)
       await supabase.auth.refreshSession()
       toast.success('Sistema ativado com sucesso! Bem-vindo.')
-      router.push('/dashboard')
+
+      // Redirecionar para o dashboard correto baseado no nicho
+      if (nicheTheme === 'dance') {
+        router.push('/solutions/estudio-de-danca/dashboard')
+      } else if (nicheTheme === 'fire') {
+        router.push('/solutions/fire-protection/dashboard')
+      } else {
+        router.push('/dashboard')
+      }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao ativar sistema')
       setIsAccepting(false)
     }
   }
 
-  // ─── Aceitar convite de PROFISSIONAL ────────────────────────────────────────
+  // ─── Aceitar convite de PROFISSIONAL / ALUNO ─────────────────────────────────
   const handleAcceptProfessionalInvite = async () => {
     if (!inviteData || !currentUser) return
     setIsAccepting(true)
@@ -152,10 +248,10 @@ export default function InvitePage() {
 
         const internalRole = inviteData.metadata?.role
         const profType = inviteData.metadata?.professional_type || inviteData.role || 'technician'
-        if (internalRole === 'finance') router.push('/solutions/fire-protection/dashboard/financeiro')
-        else if (internalRole === 'seller') router.push('/solutions/fire-protection/dashboard/portal-vendedor')
-        else if (profType === 'engineer' || profType === 'architect') router.push('/solutions/fire-protection/engineer')
-        else router.push('/solutions/fire-protection/technician')
+        const redirectPath = getRedirectAfterAccept(nicheTheme, internalRole, profType)
+
+        // Pequeno delay para o toast aparecer
+        setTimeout(() => router.push(redirectPath), 800)
       } else {
         toast.error(data.error || 'Erro ao aceitar convite')
         setIsAccepting(false)
@@ -180,7 +276,7 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center">
-          <Loader2 className="animate-spin w-10 h-10 text-blue-600 mx-auto mb-4" />
+          <Loader2 className="animate-spin w-10 h-10 text-violet-600 mx-auto mb-4" />
           <p className="text-sm text-slate-500 animate-pulse font-medium">Validando seu convite...</p>
         </div>
       </div>
@@ -218,9 +314,11 @@ export default function InvitePage() {
   const isEcosystem = isEcosystemInvite(inviteData)
   const internalRole = inviteData.metadata?.role
   const profType = inviteData.metadata?.professional_type || inviteData.role || 'technician'
-  const professionalLabel = PROFESSIONAL_LABELS[internalRole || profType] || 'Técnico'
+  const roleLabel = getRoleLabel(internalRole || profType, nicheTheme)
   const returnUrl = encodeURIComponent(`/setup/invite/${token}?autoAccept=true`)
   const studioName = inviteData.studio?.name || 'um sistema'
+  const theme = THEME_CONFIG[nicheTheme]
+  const ThemeIcon = theme.icon
 
   // ─── FLUXO: Convite de Ecossistema ──────────────────────────────────────────
   if (isEcosystem) {
@@ -230,10 +328,10 @@ export default function InvitePage() {
           <LanguageSwitcher showIcon />
         </div>
         <Card className="w-full max-w-md shadow-2xl border-none rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
-          <div className="h-2 bg-indigo-600 w-full" />
+          <div className={cn("h-2 w-full", theme.stripColor)} />
           <CardHeader className="text-center space-y-4 pt-8">
-            <div className="mx-auto w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center shadow-inner">
-              <Sparkles className="w-8 h-8 text-indigo-600" />
+            <div className={cn("mx-auto w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner", theme.accentLight)}>
+              <ThemeIcon className={cn("w-8 h-8", theme.accentText.replace('text-', 'text-').replace('dark:text-', ''))} />
             </div>
             <div className="space-y-1">
               <CardTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -242,14 +340,14 @@ export default function InvitePage() {
               <CardDescription className="text-slate-500 font-medium text-base px-2">
                 Foi criado um sistema exclusivo para:
                 <br />
-                <strong className="text-slate-900 dark:text-slate-100 text-lg block mt-1 underline decoration-indigo-500/30 underline-offset-4">
+                <strong className="text-slate-900 dark:text-slate-100 text-lg block mt-1 underline decoration-violet-500/30 underline-offset-4">
                   {studioName}
                 </strong>
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-6 pb-8">
-            <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-4 rounded-xl text-sm text-center text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 font-medium">
+            <div className={cn("p-4 rounded-xl text-sm text-center border font-medium", theme.accentLight, theme.accentBorder, theme.accentText)}>
               Clique em "Ativar Sistema" para assumir o controle e acessar seu painel de gestão.
             </div>
 
@@ -267,7 +365,7 @@ export default function InvitePage() {
                     </Button>
                   </Link>
                   <Link href={`/register?returnTo=${returnUrl}`} className="w-full">
-                    <Button className="w-full h-12 font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200">
+                    <Button className={cn("w-full h-12 font-bold text-white rounded-xl shadow-lg", theme.accent, theme.accentHover, theme.accentShadow)}>
                       Criar Conta
                     </Button>
                   </Link>
@@ -276,7 +374,7 @@ export default function InvitePage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800/50 shadow-sm">
-                  <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-lg">
+                  <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg", theme.accent)}>
                     <User className="w-6 h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -288,7 +386,10 @@ export default function InvitePage() {
                 <Button
                   onClick={handleClaimEcosystem}
                   disabled={isAccepting}
-                  className="w-full h-14 font-black text-lg bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xl shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  className={cn(
+                    "w-full h-14 font-black text-lg text-white rounded-xl shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]",
+                    theme.accent, theme.accentHover, theme.accentShadow
+                  )}
                 >
                   {isAccepting ? (
                     <>
@@ -314,17 +415,23 @@ export default function InvitePage() {
     )
   }
 
-  // ─── FLUXO: Convite de Profissional ─────────────────────────────────────────
+  // ─── FLUXO: Convite de Profissional / Aluno ───────────────────────────────
+  // Ícone por role
+  const RoleIcon = profType === 'student' ? Users
+    : profType === 'teacher' || profType === 'professional' ? GraduationCap
+    : internalRole === 'finance' ? DollarSign
+    : Building2
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 relative">
       <div className="absolute top-4 right-4 z-50">
         <LanguageSwitcher showIcon />
       </div>
       <Card className="w-full max-w-md shadow-2xl border-none rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
-        <div className="h-2 bg-blue-600 w-full" />
+        <div className={cn("h-2 w-full", theme.stripColor)} />
         <CardHeader className="text-center space-y-4 pt-8">
-          <div className="mx-auto w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center shadow-inner">
-            <Building2 className="w-8 h-8 text-blue-600" />
+          <div className={cn("mx-auto w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner", theme.accentLight)}>
+            <RoleIcon className={cn("w-8 h-8", theme.accentText)} />
           </div>
           <div className="space-y-1">
             <CardTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -332,17 +439,23 @@ export default function InvitePage() {
             </CardTitle>
             <CardDescription className="text-slate-500 font-medium text-base px-2">
               Você foi convidado para atuar como{' '}
-              <span className="text-blue-600 font-bold">{professionalLabel}</span> no estúdio:
+              <span className={cn("font-bold", theme.accentText)}>{roleLabel}</span>
+              {nicheTheme === 'dance' ? ' no estúdio' : ' na empresa'}:
               <br />
-              <strong className="text-slate-900 dark:text-slate-100 text-lg block mt-1 underline decoration-blue-500/30 underline-offset-4">
+              <strong className="text-slate-900 dark:text-slate-100 text-lg block mt-1 underline decoration-violet-500/30 underline-offset-4">
                 {studioName}
               </strong>
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-6 pb-8">
-          <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl text-sm text-center text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50 font-medium">
-            Este link permite que você se vincule a esta empresa e acesse seus projetos e ordens de serviço.
+          <div className={cn("p-4 rounded-xl text-sm text-center border font-medium", theme.accentLight, theme.accentBorder, theme.accentText)}>
+            {profType === 'student'
+              ? 'Este link permite acessar seu portal de aluno, ver turmas, frequência e mensalidades.'
+              : nicheTheme === 'dance'
+              ? 'Este link permite que você se vincule ao estúdio e acesse o portal de professores.'
+              : 'Este link permite que você se vincule a esta empresa e acesse seus projetos e ordens de serviço.'
+            }
           </div>
 
           {!currentUser ? (
@@ -362,7 +475,7 @@ export default function InvitePage() {
                   href={`/register?returnTo=${returnUrl}&role=${internalRole || profType}${inviteData.studio?.id ? `&studioId=${inviteData.studio.id}` : ''}`}
                   className="w-full"
                 >
-                  <Button className="w-full h-12 font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200">
+                  <Button className={cn("w-full h-12 font-bold text-white rounded-xl shadow-lg", theme.accent, theme.accentHover, theme.accentShadow)}>
                     Criar Conta
                   </Button>
                 </Link>
@@ -371,7 +484,7 @@ export default function InvitePage() {
           ) : (
             <div className="space-y-4">
               <div className="flex items-center gap-4 p-4 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800/50 shadow-sm">
-                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg", theme.accent)}>
                   <User className="w-6 h-6" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -390,7 +503,10 @@ export default function InvitePage() {
               <Button
                 onClick={handleAcceptProfessionalInvite}
                 disabled={isAccepting}
-                className="w-full h-14 font-black text-lg bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xl shadow-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className={cn(
+                  "w-full h-14 font-black text-lg text-white rounded-xl shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]",
+                  theme.accent, theme.accentHover, theme.accentShadow
+                )}
               >
                 {isAccepting ? (
                   <>
@@ -399,13 +515,13 @@ export default function InvitePage() {
                   </>
                 ) : (
                   <>
-                    Aceitar e Vincular <ArrowRight className="ml-2 w-5 h-5" />
+                    Aceitar e Entrar <ArrowRight className="ml-2 w-5 h-5" />
                   </>
                 )}
               </Button>
 
               <p className="text-[10px] text-center text-slate-400 px-4">
-                Ao clicar em aceitar, você concorda em compartilhar seu perfil profissional com esta empresa.
+                Ao aceitar, você concorda em vincular seu perfil a {nicheTheme === 'dance' ? 'este estúdio' : 'esta empresa'}.
               </p>
             </div>
           )}

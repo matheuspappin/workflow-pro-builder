@@ -253,83 +253,66 @@ export default function StudentDashboard() {
   }
 
   useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
     async function loadSession() {
-      const { data: { session } } = await supabase.auth.getSession()
-      
+      // CORRIGIDO: getUser() valida o JWT; getSession() não valida
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+
       const userData = localStorage.getItem("danceflow_user")
-      let userFromStorage = null;
+      let userFromStorage: any = null
       if (userData) {
         try {
-          userFromStorage = JSON.parse(userData);
+          userFromStorage = JSON.parse(userData)
         } catch (e) {
-          console.error("Erro ao parsear dados do usuário do localStorage:", e);
-          localStorage.removeItem("danceflow_user"); // Limpa dados corrompidos
+          console.error("Erro ao parsear dados do usuário do localStorage:", e)
+          localStorage.removeItem("danceflow_user")
         }
       }
 
-      if (!session?.user || !userFromStorage) {
-        // Se não houver sessão ou dados de usuário válidos, redireciona para o login
-        console.log("⚠️ Nenhuma sessão ou dados de usuário válidos encontrados. Redirecionando para /login");
-        router.push("/login");
-        setIsLoading(false);
-        return;
+      if (!authUser || !userFromStorage) {
+        router.push("/login")
+        setIsLoading(false)
+        return
       }
-      
-      const studentId = session.user.id; // Use SEMPRE o ID do usuário da sessão do Supabase Auth
-      setStudent({ ...userFromStorage, id: studentId });
-      fetchStudentData(studentId, userFromStorage.studio_id || userFromStorage.studioId);
-        
-        const channel = supabase
-          .channel('student-dashboard-realtime')
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'student_lesson_credits',
-            filter: `student_id=eq.${studentId}` 
-          }, (payload) => {
-            console.log('🔔 Créditos alterados:', payload);
-            fetchStudentData(studentId, userFromStorage.studio_id || userFromStorage.studioId);
-          })
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'attendance',
-            filter: `student_id=eq.${studentId}` 
-          }, (payload) => {
-            console.log('🔔 Presença alterada:', payload);
-            fetchStudentData(studentId, userFromStorage.studio_id || userFromStorage.studioId);
-          })
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'enrollments',
-            filter: `student_id=eq.${studentId}` 
-          }, (payload) => {
-            console.log('🔔 Matrícula alterada:', payload);
-            fetchStudentData(studentId, userFromStorage.studio_id || userFromStorage.studioId);
-          })
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'student_credit_transactions',
-            filter: `student_id=eq.${studentId}` 
-          }, () => fetchStudentData(studentId, userFromStorage.studio_id || userFromStorage.studioId))
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'notifications',
-            filter: `user_id=eq.${studentId}` 
-          }, () => fetchStudentData(studentId, userFromStorage.studio_id || userFromStorage.studioId))
-          .subscribe((status) => {
-            console.log('📡 Status do Realtime:', status);
-          })
 
-        return () => {
-          supabase.removeChannel(channel)
-        }
+      const studentId = authUser.id
+      const studioId = userFromStorage.studio_id || userFromStorage.studioId || authUser.user_metadata?.studio_id
+      setStudent({ ...userFromStorage, id: studentId })
+      fetchStudentData(studentId, studioId)
+
+      // CORRIGIDO: channel atribuído à variável externa — cleanup retornado pelo useEffect
+      channel = supabase
+        .channel(`student-dashboard-${studentId}`)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'student_lesson_credits',
+          filter: `student_id=eq.${studentId}`,
+        }, () => fetchStudentData(studentId, studioId))
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'attendance',
+          filter: `student_id=eq.${studentId}`,
+        }, () => fetchStudentData(studentId, studioId))
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'enrollments',
+          filter: `student_id=eq.${studentId}`,
+        }, () => fetchStudentData(studentId, studioId))
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'student_credit_transactions',
+          filter: `student_id=eq.${studentId}`,
+        }, () => fetchStudentData(studentId, studioId))
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'notifications',
+          filter: `user_id=eq.${studentId}`,
+        }, () => fetchStudentData(studentId, studioId))
+        .subscribe()
     }
-    
+
     loadSession()
+
+    // CORRIGIDO: cleanup retornado diretamente pelo useEffect — não de dentro da async function
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [])
 
   const fetchStudentData = async (studentId: string, studioId: string) => {
@@ -579,7 +562,7 @@ export default function StudentDashboard() {
                 <Shield className="w-5 h-5 text-indigo-600" />
                 Meus Extintores
               </h2>
-              <Button size="sm" variant="outline" className="text-xs h-8 gap-2 bg-white" onClick={() => setIsRequestReloadOpen(true)}>
+              <Button type="button" size="sm" variant="outline" className="text-xs h-8 gap-2 bg-white" onClick={() => setIsRequestReloadOpen(true)}>
                 <Truck className="w-3 h-3 text-indigo-600" /> Solicitar Recarga
               </Button>
             </div>
@@ -621,7 +604,7 @@ export default function StudentDashboard() {
                 <FileText className="w-5 h-5 text-indigo-600" />
                 Minhas Ordens
               </h2>
-              <Button variant="ghost" size="sm" className="text-xs text-indigo-600 font-bold" onClick={() => router.push('/student/os')}>
+              <Button type="button" variant="ghost" size="sm" className="text-xs text-indigo-600 font-bold" onClick={() => router.push('/student/os')}>
                 Ver Todas
               </Button>
             </div>
@@ -825,7 +808,7 @@ export default function StudentDashboard() {
                   Você tem {assets.filter(a => a.status === 'expired').length} extintor(es) vencido(s) e {assets.filter(a => a.status === 'warning').length} próximo(s) do vencimento.
                 </p>
               </div>
-              <Button size="sm" className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => setIsRequestReloadOpen(true)}>
+              <Button type="button" size="sm" className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => setIsRequestReloadOpen(true)}>
                 Solicitar Recarga
               </Button>
             </CardContent>
@@ -845,7 +828,7 @@ export default function StudentDashboard() {
                   Vencimento: {new Date(pendingPayment.due_date).toLocaleDateString('pt-BR')}
                 </p>
               </div>
-              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={() => window.location.href='/student/payments'}>
+              <Button type="button" size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={() => window.location.href='/student/payments'}>
                 Pagar
               </Button>
             </CardContent>
@@ -988,37 +971,37 @@ export default function StudentDashboard() {
 
         {/* Tab Bar Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t flex items-center justify-around h-16 px-4 z-50">
-          <Button variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student'}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student'}>
             <LayoutDashboard className="w-5 h-5" />
             <span className="text-[10px]">Início</span>
           </Button>
           
           {isServiceOrderBased && niche !== 'fire_protection' ? (
-            <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+            <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
               <FileText className="w-5 h-5" />
               <span className="text-[10px]">Minhas OS</span>
             </Button>
           ) : niche === 'fire_protection' ? (
-            <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+            <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
               <Shield className="w-5 h-5" />
               <span className="text-[10px]">Meus Extintores</span>
             </Button>
           ) : (
-            <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
+            <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
               <Calendar className="w-5 h-5" />
               <span className="text-[10px]">{vocabulary.service}s</span>
             </Button>
           )}
 
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => businessModel === 'MONETARY' ? window.location.href='/student/payments' : setIsStatementOpen(true)}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => businessModel === 'MONETARY' ? window.location.href='/student/payments' : setIsStatementOpen(true)}>
             <History className="w-5 h-5" />
             <span className="text-[10px]">{businessModel === 'MONETARY' ? 'Financeiro' : 'Extrato'}</span>
           </Button>
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/payments'}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/payments'}>
             <CreditCard className="w-5 h-5" />
             <span className="text-[10px]">Pagar</span>
           </Button>
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/profile'}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/profile'}>
             <User className="w-5 h-5" />
             <span className="text-[10px]">Perfil</span>
           </Button>
@@ -1066,11 +1049,11 @@ export default function StudentDashboard() {
                 ))}
             </div>
             <div className="flex flex-col gap-2">
-                <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12" onClick={handleRequestReload} disabled={selectedAssets.length === 0 || isLoading}>
+                <Button type="button" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12" onClick={handleRequestReload} disabled={selectedAssets.length === 0 || isLoading}>
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Truck className="w-4 h-4 mr-2" />}
                     SOLICITAR COLETA ({selectedAssets.length})
                 </Button>
-                <Button variant="ghost" onClick={() => setIsRequestReloadOpen(false)}>Cancelar</Button>
+                <Button type="button" variant="ghost" onClick={() => setIsRequestReloadOpen(false)}>Cancelar</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1214,7 +1197,7 @@ export default function StudentDashboard() {
           </div>
             
             <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t">
-              <Button variant="ghost" className="w-full font-bold text-slate-500 h-12 rounded-xl" onClick={() => setIsClientIDOpen(false)}>
+              <Button type="button" variant="ghost" className="w-full font-bold text-slate-500 h-12 rounded-xl" onClick={() => setIsClientIDOpen(false)}>
                 FECHAR CARTÃO
               </Button>
             </div>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { checkStudioAccess, allowInternalAiCall } from '@/lib/auth'
 import logger from '@/lib/logger'
+import { buildCatarinaSystemPrompt, getContextTimestamp } from '@/lib/catarina'
+import { resolveContactLayer } from '@/lib/ai-router'
 
 const AGRO_OS_TYPES = ['laudo_car', 'vistoria_ndvi', 'regularizacao', 'licenciamento', 'monitoramento', 'outro', 'environmental_os']
 
@@ -130,9 +132,31 @@ export async function POST(request: NextRequest) {
     }
 
     const isAdmin = context?.is_admin || false
+    const isStudent = context?.is_student || false
+    const contactLayerFromContext = context?.contact_layer
     if (!isAdmin) {
       contextContent = contextContent.replace(/\(EXCLUSIVO ADMIN\)[\s\S]*?(?=\n\n|\n-|$)/g, '(oculto)')
     }
+
+    const { data: studioRow } = await supabaseAdmin
+      .from('studios')
+      .select('name')
+      .eq('id', contextStudioId)
+      .maybeSingle()
+    const studioName = studioRow?.name || 'AgroFlowAI'
+
+    const contactLayer = resolveContactLayer(isAdmin, isStudent, 'agroflowai', contactLayerFromContext)
+    const systemPrompt = buildCatarinaSystemPrompt({
+      studioName,
+      niche: 'agroflowai',
+      contextContent,
+      contactLayer: contactLayer as 'admin' | 'student' | 'lead',
+      channel: 'whatsapp',
+      includeLeadDetection: true,
+      contextTimestamp: getContextTimestamp(),
+      contactName: context?.contact_name,
+      contactTypeLabel: context?.contact_type_label,
+    })
 
     let apiKey = process.env.GOOGLE_AI_API_KEY
     let useGemini = true
@@ -165,19 +189,6 @@ export async function POST(request: NextRequest) {
     if (!apiKey) {
       return NextResponse.json({ error: 'Chave de API não configurada. Configure Gemini ou OpenAI em Configurações.' }, { status: 500 })
     }
-
-    const systemPrompt = `Você é o assistente de IA do AgroFlow AI, especializado em agronegócio, laudos ambientais e gestão de propriedades.
-
-FONTE DA VERDADE (USE APENAS ESTES DADOS - NUNCA INVENTE):
-${contextContent}
-
-DIRETRIZES:
-- Responda em português brasileiro.
-- Use APENAS os dados fornecidos. Se a informação não existir, diga que não encontrou.
-- Seja objetivo: propriedades, OS, laudos CAR, clientes, técnicos e engenheiros.
-- Sugira ações quando apropriado (ex: agendar vistoria NDVI, emissão de laudo).
-- Use formatação markdown leve (**negrito** para destaque).
-- NUNCA invente números, datas ou nomes.`
 
     const validHistory = (history || []).filter((m: any) => m?.content?.trim())
     const lastMsg = typeof message === 'string' ? message.trim() : (message?.content || message?.message || String(message || '')).trim()

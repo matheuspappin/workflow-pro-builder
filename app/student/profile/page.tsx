@@ -187,7 +187,7 @@ export default function StudentProfile() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
       <div className="sticky top-0 bg-background/95 backdrop-blur z-50 border-b">
         <div className="container flex h-16 items-center px-4 gap-4">
-          <Button variant="ghost" size="icon" onClick={() => window.location.href='/student'}>
+          <Button type="button" variant="ghost" size="icon" onClick={() => window.location.href='/student'}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="font-bold text-lg">Meu Perfil ({vocabulary.client})</h1>
@@ -303,28 +303,28 @@ export default function StudentProfile() {
 
       {/* Tab Bar Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t flex items-center justify-around h-16 px-4 z-50">
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
           <LayoutDashboardIcon className="w-5 h-5" />
           <span className="text-[10px]">Início</span>
         </Button>
         
         {isServiceOrderBased ? (
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
             <FileText className="w-5 h-5" />
             <span className="text-[10px]">Minhas OS</span>
           </Button>
         ) : (
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
             <CalendarIcon className="w-5 h-5" />
             <span className="text-[10px]">{vocabulary.service}s</span>
           </Button>
         )}
 
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/payments'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/payments'}>
           <CreditCardIcon className="w-5 h-5" />
           <span className="text-[10px]">Pagar</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/profile'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/profile'}>
           <UserIcon className="w-5 h-5" />
           <span className="text-[10px]">Perfil</span>
         </Button>
@@ -348,8 +348,9 @@ export default function StudentProfile() {
             />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setIsEditingAddress(false)} disabled={isUpdating}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => setIsEditingAddress(false)} disabled={isUpdating}>Cancelar</Button>
             <Button 
+              type="button"
               className="bg-indigo-600 hover:bg-indigo-700 h-12 px-8 font-bold" 
               onClick={handleUpdateAddress}
               disabled={isUpdating || !newAddress}

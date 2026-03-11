@@ -149,11 +149,6 @@ export async function proxy(request: NextRequest) {
     }
 
     // ─── Fire Protection bubble ───────────────────────────────────────────────
-    const isFireProtectionPublic =
-      pathname === '/solutions/fire-protection' ||
-      pathname === '/solutions/fire-protection/login' ||
-      pathname === '/solutions/fire-protection/register'
-
     const isFireProtectionDashboard  = pathname.startsWith('/solutions/fire-protection/dashboard')
     const isFireProtectionEngineer   = pathname.startsWith('/solutions/fire-protection/engineer')
     const isFireProtectionTechnician = pathname.startsWith('/solutions/fire-protection/technician')
@@ -164,25 +159,13 @@ export async function proxy(request: NextRequest) {
       isFireProtectionTechnician ||
       isFireProtectionClient
 
-    const isFireProtectionBubble = isFireProtectionPublic || isFireProtectionProtected
-
     // ─── DanceFlow bubble ─────────────────────────────────────────────────────
-    const isDanceFlowPublic =
-      pathname === '/solutions/estudio-de-danca' ||
-      pathname === '/solutions/estudio-de-danca/login' ||
-      pathname === '/solutions/estudio-de-danca/register'
-
     const isDanceFlowDashboard  = pathname.startsWith('/solutions/estudio-de-danca/dashboard')
     const isDanceFlowTeacher    = pathname.startsWith('/solutions/estudio-de-danca/teacher')
     const isDanceFlowStudent    = pathname.startsWith('/solutions/estudio-de-danca/student')
     const isDanceFlowProtected  = isDanceFlowDashboard || isDanceFlowTeacher || isDanceFlowStudent
 
     // ─── AgroFlowAI bubble ────────────────────────────────────────────────────
-    const isAgroFlowPublic =
-      pathname === '/solutions/agroflowai' ||
-      pathname === '/solutions/agroflowai/login' ||
-      pathname === '/solutions/agroflowai/register'
-
     const isAgroFlowDashboard = pathname.startsWith('/solutions/agroflowai/dashboard')
     const isAgroFlowClient    = pathname.startsWith('/solutions/agroflowai/client')
     const isAgroFlowProtected = isAgroFlowDashboard || isAgroFlowClient
@@ -201,6 +184,7 @@ export async function proxy(request: NextRequest) {
       pathname === '/home' ||
       pathname === '/white-label' ||
       pathname === '/shop' ||
+      pathname.startsWith('/shop/') ||
       pathname === '/portal/login' ||
       pathname === '/portal/register' ||
       pathname === '/auth/set-password' ||
@@ -327,53 +311,66 @@ export async function proxy(request: NextRequest) {
     }
 
     // ─── Generic route logic ───────────────────────────────────────────────────
-    if (user && userRole) {
+    // Para rotas protegidas de student/technician/engineer sem role no cookie ainda
+    // (primeiro request após login), permitir passagem — o cookie será sincronizado acima
+    const effectiveRole = userRole || user?.user_metadata?.role
+
+    if (user && effectiveRole) {
       if (isAuthRoute) {
-        if (userRole === 'seller') return NextResponse.redirect(new URL('/seller', request.url))
-        if (userRole === 'finance') return NextResponse.redirect(new URL('/finance', request.url))
-        if (userRole === 'affiliate' || userRole === 'partner') return NextResponse.redirect(new URL('/portal/affiliate/dashboard', request.url))
-        if (userRole === 'engineer') return NextResponse.redirect(new URL('/solutions/fire-protection/engineer', request.url))
-        if (userRole === 'technician' || userRole === 'teacher') return NextResponse.redirect(new URL('/solutions/fire-protection/technician', request.url))
-        if (userRole === 'student') return NextResponse.redirect(new URL('/solutions/fire-protection/client', request.url))
+        if (effectiveRole === 'seller') return NextResponse.redirect(new URL('/seller', request.url))
+        if (effectiveRole === 'finance') return NextResponse.redirect(new URL('/finance', request.url))
+        if (effectiveRole === 'affiliate' || effectiveRole === 'partner') return NextResponse.redirect(new URL('/portal/affiliate/dashboard', request.url))
+        if (effectiveRole === 'engineer') return NextResponse.redirect(new URL('/solutions/fire-protection/engineer', request.url))
+        if (effectiveRole === 'technician') return NextResponse.redirect(new URL('/solutions/fire-protection/technician', request.url))
+        if (effectiveRole === 'teacher') return NextResponse.redirect(new URL('/solutions/estudio-de-danca/teacher', request.url))
+        // student: redirecionar para o portal correto baseado no niche do user_metadata
+        if (effectiveRole === 'student') {
+          const niche = user?.user_metadata?.niche || user?.user_metadata?.vertical || ''
+          if (niche === 'fire_protection') return NextResponse.redirect(new URL('/solutions/fire-protection/client', request.url))
+          if (niche === 'agroflowai' || niche === 'agro') return NextResponse.redirect(new URL('/solutions/agroflowai/client', request.url))
+          // Default: portal genérico de aluno (dance/gym/outros)
+          return NextResponse.redirect(new URL('/student', request.url))
+        }
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
 
-      if (isEngineerRoute && userRole !== 'engineer' && userRole !== 'super_admin') {
+      if (isEngineerRoute && effectiveRole !== 'engineer' && effectiveRole !== 'super_admin') {
         return NextResponse.redirect(new URL('/solutions/fire-protection/login', request.url))
       }
 
-      if (isTechnicianRoute && userRole !== 'technician' && userRole !== 'teacher' && userRole !== 'super_admin') {
+      if (isTechnicianRoute && effectiveRole !== 'technician' && effectiveRole !== 'teacher' && effectiveRole !== 'super_admin') {
         return NextResponse.redirect(new URL('/solutions/fire-protection/login', request.url))
       }
 
-      if (isTeacherRoute && userRole !== 'teacher' && userRole !== 'super_admin') {
-        if (userRole === 'engineer') return NextResponse.redirect(new URL('/solutions/fire-protection/engineer', request.url))
-        return NextResponse.redirect(new URL('/solutions/fire-protection/login', request.url))
+      if (isTeacherRoute && effectiveRole !== 'teacher' && effectiveRole !== 'super_admin') {
+        if (effectiveRole === 'engineer') return NextResponse.redirect(new URL('/solutions/fire-protection/engineer', request.url))
+        return NextResponse.redirect(new URL('/solutions/estudio-de-danca/login', request.url))
       }
 
-      if (isStudentRoute && userRole !== 'student' && userRole !== 'super_admin') {
+      if (isStudentRoute && effectiveRole !== 'student' && effectiveRole !== 'super_admin') {
         return NextResponse.redirect(new URL('/login', request.url))
       }
 
-      if (isSellerRoute && userRole !== 'seller' && userRole !== 'admin' && userRole !== 'super_admin') {
+      if (isSellerRoute && effectiveRole !== 'seller' && effectiveRole !== 'admin' && effectiveRole !== 'super_admin') {
         return NextResponse.redirect(new URL('/login', request.url))
       }
 
-      if (isFinanceRoute && userRole !== 'finance' && userRole !== 'admin' && userRole !== 'super_admin') {
+      if (isFinanceRoute && effectiveRole !== 'finance' && effectiveRole !== 'admin' && effectiveRole !== 'super_admin') {
         return NextResponse.redirect(new URL('/login', request.url))
       }
 
-      if (isDashboardRoute && userRole !== 'admin' && userRole !== 'professional' && userRole !== 'receptionist' && userRole !== 'super_admin') {
-        if (userRole === 'seller') return NextResponse.redirect(new URL('/seller', request.url))
-        if (userRole === 'finance') return NextResponse.redirect(new URL('/finance', request.url))
-        if (userRole === 'affiliate' || userRole === 'partner') return NextResponse.redirect(new URL('/portal/affiliate/dashboard', request.url))
-        if (userRole === 'engineer') return NextResponse.redirect(new URL('/solutions/fire-protection/engineer', request.url))
-        if (userRole === 'technician' || userRole === 'teacher') return NextResponse.redirect(new URL('/solutions/fire-protection/technician', request.url))
-        if (userRole === 'student') return NextResponse.redirect(new URL('/solutions/fire-protection/client', request.url))
+      if (isDashboardRoute && effectiveRole !== 'admin' && effectiveRole !== 'teacher' && effectiveRole !== 'finance' && effectiveRole !== 'super_admin') {
+        if (effectiveRole === 'seller') return NextResponse.redirect(new URL('/seller', request.url))
+        if (effectiveRole === 'finance') return NextResponse.redirect(new URL('/finance', request.url))
+        if (effectiveRole === 'affiliate' || effectiveRole === 'partner') return NextResponse.redirect(new URL('/portal/affiliate/dashboard', request.url))
+        if (effectiveRole === 'engineer') return NextResponse.redirect(new URL('/solutions/fire-protection/engineer', request.url))
+        if (effectiveRole === 'technician') return NextResponse.redirect(new URL('/solutions/fire-protection/technician', request.url))
+        if (effectiveRole === 'teacher') return NextResponse.redirect(new URL('/solutions/estudio-de-danca/teacher', request.url))
+        if (effectiveRole === 'student') return NextResponse.redirect(new URL('/student', request.url))
         return NextResponse.redirect(new URL('/login', request.url))
       }
 
-      if (isAffiliateRoute && userRole !== 'affiliate' && userRole !== 'partner' && userRole !== 'super_admin') {
+      if (isAffiliateRoute && effectiveRole !== 'affiliate' && effectiveRole !== 'partner' && effectiveRole !== 'super_admin') {
         return NextResponse.redirect(new URL('/login', request.url))
       }
     } else if (!user && !isAuthRoute && !isPublicRoute) {

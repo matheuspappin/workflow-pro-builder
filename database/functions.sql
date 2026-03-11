@@ -73,7 +73,17 @@ BEGIN
     v_studio_id, v_student_id, v_class_id, v_session_id, 1, 'class_attendance', 'Validado via Scanner Portaria'
   );
 
-  -- 6. Retornar Sucesso
+  -- 6. Registrar cobrança no financeiro (uso de crédito em aula)
+  INSERT INTO payments (
+    studio_id, student_id, amount, due_date, payment_date, status,
+    payment_method, reference_month, description, payment_source, reference_id, credits_used
+  ) VALUES (
+    v_studio_id, v_student_id, 0, CURRENT_DATE, CURRENT_DATE, 'paid',
+    'credit', TO_CHAR(NOW(), 'YYYY-MM'), 'Aula: ' || v_class_name,
+    'credit_usage', v_class_id, 1
+  );
+
+  -- 7. Retornar Sucesso
   RETURN jsonb_build_object(
     'success', true,
     'student_name', v_student_name,
@@ -87,6 +97,7 @@ END;
 $$;
 
 -- 2. Enroll Student in Class (Used for Booking/Reserving)
+-- Cria matrícula (enrollment) + reserva do dia (attendance) com QR único por aluno/aula/data
 CREATE OR REPLACE FUNCTION enroll_student_in_class(
   p_student_id UUID,
   p_class_id UUID,
@@ -99,23 +110,27 @@ AS $$
 DECLARE
   v_attendance_id UUID;
   v_today DATE := CURRENT_DATE;
-  v_already_enrolled BOOLEAN;
+  v_already_attendance_today BOOLEAN;
   v_has_credits BOOLEAN;
   v_expiry_date DATE;
 BEGIN
-  -- Verificar se já está inscrito hoje nesta aula
-  SELECT EXISTS (
-    SELECT 1 FROM attendance 
-    WHERE student_id = p_student_id 
-    AND class_id = p_class_id 
-    AND date = v_today
-  ) INTO v_already_enrolled;
+  -- 1. Verificar se já tem reserva (attendance) para hoje nesta aula
+  SELECT id INTO v_attendance_id
+  FROM attendance
+  WHERE student_id = p_student_id
+    AND class_id = p_class_id
+    AND date = v_today;
 
-  IF v_already_enrolled THEN
-    RETURN jsonb_build_object('success', false, 'message', 'Você já tem uma reserva para esta aula hoje.');
+  IF v_attendance_id IS NOT NULL THEN
+    -- Já tem reserva hoje: retorna o attendance_id existente para exibir o QR
+    RETURN jsonb_build_object(
+      'success', true,
+      'message', 'Você já tem reserva para esta aula hoje. Apresente o QR Code na portaria.',
+      'attendance_id', v_attendance_id
+    );
   END IF;
 
-  -- Verificar créditos e validade
+  -- 2. Verificar créditos e validade
   SELECT (remaining_credits > 0), expiry_date INTO v_has_credits, v_expiry_date
   FROM student_lesson_credits
   WHERE student_id = p_student_id;
@@ -129,7 +144,12 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'Seus créditos estão congelados pois sua mensalidade expirou. Por favor, renove seu plano.');
   END IF;
 
-  -- Criar registro de presença como 'pending' ou 'confirmed' (pré-venda do crédito)
+  -- 3. Garantir matrícula permanente (enrollment) — ON CONFLICT ignora se já existir
+  INSERT INTO enrollments (studio_id, student_id, class_id, status)
+  VALUES (p_studio_id, p_student_id, p_class_id, 'active')
+  ON CONFLICT (studio_id, student_id, class_id) DO NOTHING;
+
+  -- 4. Criar registro de presença do dia (QR único por aluno + aula + data)
   INSERT INTO attendance (
     studio_id, student_id, class_id, date, status
   ) VALUES (
@@ -137,8 +157,8 @@ BEGIN
   ) RETURNING id INTO v_attendance_id;
 
   RETURN jsonb_build_object(
-    'success', true, 
-    'message', 'Reserva realizada com sucesso!',
+    'success', true,
+    'message', 'Matrícula realizada! Apresente o QR Code na portaria para validar sua presença.',
     'attendance_id', v_attendance_id
   );
 

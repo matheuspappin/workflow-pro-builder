@@ -52,7 +52,9 @@ export function ModuleLockScreen({
               {upgradeText}
             </Button>
             <p className="text-[10px] text-muted-foreground italic">
-              A liberação é automática após a confirmação do upgrade no banco de dados.
+              {upgradeText === "Planos e Preços"
+                ? "Acesse Planos e Preços para ver os planos disponíveis e fazer upgrade."
+                : "A liberação é automática após a confirmação do upgrade no banco de dados."}
             </p>
           </div>
         </Card>

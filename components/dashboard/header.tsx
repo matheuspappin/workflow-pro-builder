@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Bell, Search, User, Settings, UserCircle, LogOut } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase"
 
 import { useOrganization } from "@/components/providers/organization-provider"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
+import { getLoginUrlForNiche } from "@/config/portal-routes"
 
 import {
   Select,
@@ -41,7 +42,16 @@ interface UserData {
 
 export function Header({ title, children }: HeaderProps) {
   const router = useRouter()
-  const { language, vocabulary, studios, studioId, switchStudio, t } = useOrganization()
+  const pathname = usePathname()
+  const { language, vocabulary, studios, studioId, switchStudio, t, niche } = useOrganization()
+
+  const isDanceStudio = pathname?.startsWith("/solutions/estudio-de-danca")
+  const settingsHref = isDanceStudio
+    ? "/solutions/estudio-de-danca/dashboard/configuracoes"
+    : "/dashboard/configuracoes"
+  const profileHref = isDanceStudio
+    ? "/solutions/estudio-de-danca/dashboard/configuracoes"
+    : "/dashboard/configuracoes"
   const [user, setUser] = useState<UserData | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [loadingNotifications, setLoadingNotifications] = useState(true)
@@ -85,6 +95,7 @@ export function Header({ title, children }: HeaderProps) {
   }
 
   const handleLogout = async () => {
+    const loginUrl = getLoginUrlForNiche(niche)
     try {
       await supabase.auth.signOut()
       await fetch('/api/auth/logout', { method: 'POST' })
@@ -93,7 +104,7 @@ export function Header({ title, children }: HeaderProps) {
     }
     localStorage.removeItem("danceflow_user")
     localStorage.removeItem("workflow_pro_active_studio")
-    window.location.href = "/login"
+    window.location.href = loginUrl
   }
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
@@ -211,11 +222,11 @@ export function Header({ title, children }: HeaderProps) {
           <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-white/10 text-white">
             <DropdownMenuLabel className="text-xs font-bold uppercase tracking-widest text-slate-500">{t.common.myAccount}</DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/10" />
-            <DropdownMenuItem onClick={() => router.push("/dashboard/configuracoes")} className="hover:bg-white/5 focus:bg-white/5 cursor-pointer">
+            <DropdownMenuItem onClick={() => router.push(profileHref)} className="hover:bg-white/5 focus:bg-white/5 cursor-pointer">
               <UserCircle className="w-4 h-4 mr-2 text-red-500" />
               {t.common.adminProfile}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/dashboard/configuracoes?tab=estudio")} className="hover:bg-white/5 focus:bg-white/5 cursor-pointer">
+            <DropdownMenuItem onClick={() => router.push(settingsHref)} className="hover:bg-white/5 focus:bg-white/5 cursor-pointer">
               <Settings className="w-4 h-4 mr-2 text-red-500" />
               {t.common.systemSettings}
             </DropdownMenuItem>

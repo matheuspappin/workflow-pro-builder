@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { guardModule } from '@/lib/modules-server'
 import logger from '@/lib/logger';
 
@@ -19,7 +20,7 @@ export async function sendWhatsAppMessage({ to, message, studioId }: SendMessage
   let apiUrl = '';
   let instanceId = '';
 
-  // 1. Se tiver studioId, BUSCA OBRIGATORIAMENTE as chaves do estúdio
+  // 1. Se tiver studioId, BUSCA as chaves do estúdio (ou usa fallback da plataforma)
   if (studioId && studioId !== '00000000-0000-0000-0000-000000000000') {
     const { data: studioKeys } = await supabase
       .from('studio_api_keys')
@@ -30,12 +31,24 @@ export async function sendWhatsAppMessage({ to, message, studioId }: SendMessage
 
     if (studioKeys && studioKeys.api_key) {
       apiKey = studioKeys.api_key;
-      apiUrl = studioKeys.settings?.api_url || 'http://127.0.0.1:8081'; // URL padrão se não definida
+      apiUrl = studioKeys.settings?.api_url || 'http://127.0.0.1:8081';
       instanceId = studioKeys.instance_id || (studioKeys as any).studio?.slug ? `df_${(studioKeys as any).studio.slug}` : 'danceflow';
     } else {
-      // Se é uma mensagem de estúdio e ele não tem API configurada, NÃO enviamos
-      logger.warn(`⚠️ WhatsApp do Estúdio ${studioId} não configurado. Fallback para SuperAdmin bloqueado.`);
-      return { success: false, error: 'A API de WhatsApp do estúdio não está configurada.' };
+      // Fallback: usar Evolution API da plataforma (Docker único) - instância df_{slug}
+      const platformKey = process.env.WHATSAPP_API_KEY;
+      const platformUrl = process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
+      if (!platformKey || !platformUrl) {
+        logger.warn(`⚠️ WhatsApp do Estúdio ${studioId} não configurado e plataforma sem WHATSAPP_API_KEY.`);
+        return { success: false, error: 'A API de WhatsApp não está configurada.' };
+      }
+      const { data: studio } = await supabaseAdmin.from('studios').select('slug').eq('id', studioId).maybeSingle();
+      if (!studio?.slug) {
+        logger.warn(`⚠️ Estúdio ${studioId} sem slug.`);
+        return { success: false, error: 'Estúdio sem identificador.' };
+      }
+      apiKey = platformKey;
+      apiUrl = platformUrl;
+      instanceId = `df_${studio.slug}`;
     }
   } else {
     // 2. Se NÃO tiver studioId, é uma mensagem de SISTEMA (ex: Código de Verificação)
@@ -101,7 +114,7 @@ export async function getWhatsAppConnection(studioId: string) {
     return await handleWhatsAppInstance(instanceId, apiKey, baseUrl);
   }
 
-  // 2. Buscar chaves específicas do estúdio
+  // 2. Buscar chaves específicas do estúdio (ou usar fallback da plataforma)
   const { data: studioKeys } = await supabase
     .from('studio_api_keys')
     .select('*, studio:studios(slug)')
@@ -109,24 +122,34 @@ export async function getWhatsAppConnection(studioId: string) {
     .eq('service_name', 'whatsapp')
     .maybeSingle();
 
-  // Se não tiver chaves do estúdio, não usamos a do SuperAdmin como fallback aqui
-  // pois esta função é usada para gerenciar instâncias de estúdios específicos
-  if (!studioKeys || !studioKeys.api_key) {
-    logger.error(`❌ Chaves de WhatsApp não encontradas para o estúdio: ${studioId}`);
-    return { success: false, error: 'Configurações de WhatsApp não encontradas para este estúdio.' };
+  let apiKey: string;
+  let instanceId: string;
+  let baseUrl: string;
+
+  if (studioKeys && studioKeys.api_key) {
+    apiKey = studioKeys.api_key;
+    instanceId = studioKeys.instance_id || (studioKeys as any)?.studio?.slug ? `df_${(studioKeys as any).studio.slug}` : 'danceflow';
+    baseUrl = studioKeys.settings?.api_url || process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
+    if (instanceId === 'danceflow' && studioId) {
+      const { data: studio } = await supabaseAdmin.from('studios').select('slug').eq('id', studioId).maybeSingle();
+      if (studio?.slug) instanceId = `df_${studio.slug}`;
+    }
+  } else {
+    // Fallback: usar Evolution API da plataforma - cliente só escaneia QR, sem configurar nada
+    const platformKey = process.env.WHATSAPP_API_KEY;
+    const platformUrl = process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
+    if (!platformKey || !platformUrl) {
+      return { success: false, error: 'WHATSAPP_API_KEY não configurada. Configure no .env da plataforma.' };
+    }
+    const { data: studio } = await supabaseAdmin.from('studios').select('slug').eq('id', studioId).maybeSingle();
+    if (!studio?.slug) {
+      return { success: false, error: 'Estúdio sem slug. Contate o suporte.' };
+    }
+    apiKey = platformKey;
+    instanceId = `df_${studio.slug}`;
+    baseUrl = platformUrl;
   }
 
-  let apiKey = studioKeys.api_key;
-  let instanceId = studioKeys.instance_id || (studioKeys as any)?.studio?.slug ? `df_${(studioKeys as any).studio.slug}` : 'danceflow';
-  let baseUrl = studioKeys.settings?.api_url || process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
-  
-  // Se não encontrou chaves nem slug no studioKeys, tenta buscar o slug direto
-  if (instanceId === 'danceflow' && studioId) {
-    const { data: studio } = await supabase.from('studios').select('slug').eq('id', studioId).maybeSingle();
-    if (studio?.slug) instanceId = `df_${studio.slug}`;
-  }
-  
-  // Limpar a URL (remover /message se existir e garantir que não termina com /)
   baseUrl = baseUrl.split('/message')[0].replace(/\/$/, "");
 
   logger.info(`📡 Verificando instância: ${instanceId} em ${baseUrl}`);
@@ -301,17 +324,27 @@ export async function logoutWhatsApp(studioId: string) {
     .eq('service_name', 'whatsapp')
     .maybeSingle();
 
-  if (!studioKeys || !studioKeys.api_key) {
-    return { success: false, error: 'Configurações não encontradas.' };
-  }
+  let apiKey: string;
+  let instanceId: string;
+  let baseUrl: string;
 
-  let apiKey = studioKeys.api_key;
-  let instanceId = studioKeys.instance_id || (studioKeys as any)?.studio?.slug ? `df_${(studioKeys as any).studio.slug}` : 'danceflow';
-  let baseUrl = studioKeys.settings?.api_url || process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
-
-  if (instanceId === 'danceflow' && studioId) {
-    const { data: studio } = await supabase.from('studios').select('slug').eq('id', studioId).maybeSingle();
-    if (studio?.slug) instanceId = `df_${studio.slug}`;
+  if (studioKeys && studioKeys.api_key) {
+    apiKey = studioKeys.api_key;
+    instanceId = studioKeys.instance_id || (studioKeys as any)?.studio?.slug ? `df_${(studioKeys as any).studio.slug}` : 'danceflow';
+    baseUrl = studioKeys.settings?.api_url || process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
+    if (instanceId === 'danceflow' && studioId) {
+      const { data: studio } = await supabaseAdmin.from('studios').select('slug').eq('id', studioId).maybeSingle();
+      if (studio?.slug) instanceId = `df_${studio.slug}`;
+    }
+  } else {
+    const platformKey = process.env.WHATSAPP_API_KEY;
+    const platformUrl = process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
+    if (!platformKey || !platformUrl) return { success: false, error: 'Configurações não encontradas.' };
+    const { data: studio } = await supabaseAdmin.from('studios').select('slug').eq('id', studioId).maybeSingle();
+    if (!studio?.slug) return { success: false, error: 'Estúdio sem slug.' };
+    apiKey = platformKey;
+    instanceId = `df_${studio.slug}`;
+    baseUrl = platformUrl;
   }
   baseUrl = baseUrl.split('/message')[0];
 
@@ -332,6 +365,38 @@ export async function logoutWhatsApp(studioId: string) {
   } catch (error: any) {
     logger.error('❌ Erro ao desconectar WhatsApp:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Provisiona o WhatsApp com credenciais da plataforma para um novo estúdio.
+ * Usa Evolution API única (Docker) - cliente só escaneia QR, sem configurar nada.
+ * Só executa se WHATSAPP_API_KEY e WHATSAPP_API_URL estiverem no .env.
+ */
+export async function provisionWhatsAppForStudio(studioId: string, slug: string): Promise<void> {
+  const apiKey = process.env.WHATSAPP_API_KEY;
+  const apiUrl = process.env.WHATSAPP_API_URL || 'http://127.0.0.1:8081';
+  if (!apiKey || !apiUrl) {
+    logger.info('⏭️ WhatsApp provisionamento ignorado: WHATSAPP_API_KEY/URL não configuradas.');
+    return;
+  }
+  try {
+    const { error } = await supabaseAdmin.from('studio_api_keys').upsert(
+      {
+        studio_id: studioId,
+        service_name: 'whatsapp',
+        api_key: apiKey,
+        instance_id: `df_${slug}`,
+        settings: { api_url: apiUrl },
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'studio_id,service_name' }
+    );
+    if (error) return;
+    logger.info(`✅ WhatsApp provisionado para estúdio ${studioId} (df_${slug})`);
+  } catch (e) {
+    logger.warn('Erro ao provisionar WhatsApp:', e);
   }
 }
 

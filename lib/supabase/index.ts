@@ -1,33 +1,50 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createBrowserClient } from '@supabase/ssr'
 import logger from '../logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+function getSupabaseConfig() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  const url = supabaseUrl || 'https://placeholder.supabase.co'
+  const key = supabaseAnonKey || 'placeholder-key'
 
-const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
-
-if (!isBuildTime && typeof window !== 'undefined') {
-  if (!supabaseUrl) {
-    logger.error('⚠️ Supabase URL não configurada. Configure NEXT_PUBLIC_SUPABASE_URL no arquivo .env')
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const msg = 'Supabase não configurado. Adicione NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no arquivo .env.local na raiz do projeto e reinicie o servidor de desenvolvimento.'
+    if (typeof window !== 'undefined') {
+      logger.error('⚠️ ' + msg)
+    } else {
+      console.error('⚠️ ' + msg)
+    }
   }
 
-  if (!supabaseAnonKey) {
-    logger.error('⚠️ Supabase Anon Key não configurada. Configure NEXT_PUBLIC_SUPABASE_ANON_KEY no arquivo .env')
-  }
+  return { url, key }
 }
 
-// Cliente Singleton para compatibilidade com código legado (evitar em novos componentes)
-// Em Client Components novos, prefira usar createBrowserClient diretamente ou um hook
-export const supabase = typeof window !== 'undefined' 
-  ? createBrowserClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder', {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      }
-    })
-  : createSupabaseClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder')
+// Cliente Singleton com lazy init para evitar "supabaseKey is required" quando env ainda não carregou
+let _supabase: SupabaseClient | null = null
+
+function getOrCreateSupabase(): SupabaseClient {
+  if (_supabase) return _supabase
+  const { url, key } = getSupabaseConfig()
+  _supabase = typeof window !== 'undefined'
+    ? createBrowserClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      })
+    : createSupabaseClient(url, key)
+  return _supabase
+}
+
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    const client = getOrCreateSupabase()
+    const value = (client as Record<string, unknown>)[prop as string]
+    return typeof value === 'function' ? value.bind(client) : value
+  }
+})
 
 /**
  * Cria um cliente Supabase com a configuração correta

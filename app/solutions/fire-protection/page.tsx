@@ -76,18 +76,19 @@ export default function FireControlPrePage() {
           transition={{ duration: 1, delay: 0.8 }}
           className="relative"
         >
-          <Link href="/solutions/fire-protection/landing">
-            <Button
-              size="lg"
-              className="relative h-16 px-12 text-xl rounded-2xl bg-white/95 hover:bg-white text-slate-900 font-bold border-0 shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_20px_50px_-12px_rgba(0,0,0,0.5)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.4),0_25px_60px_-12px_rgba(239,68,68,0.4)] transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 group overflow-hidden"
-            >
+          <Button
+            size="lg"
+            className="relative h-16 px-12 text-xl rounded-2xl bg-white/95 hover:bg-white text-slate-900 font-bold border-0 shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_20px_50px_-12px_rgba(0,0,0,0.5)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.4),0_25px_60px_-12px_rgba(239,68,68,0.4)] transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 group overflow-hidden"
+            asChild
+          >
+            <Link href="/solutions/fire-protection/landing">
               <span className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-red-500/0 to-orange-500/0 group-hover:from-orange-400/10 group-hover:via-red-500/10 group-hover:to-orange-400/10 transition-colors duration-300" />
               <span className="relative flex items-center gap-2">
                 Entrar
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
               </span>
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </motion.div>
 
         <motion.div
@@ -96,12 +97,16 @@ export default function FireControlPrePage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2 }}
         >
-          <Link
-            href="/solutions/fire-protection/login"
+          <Button
+            type="button"
+            variant="ghost"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 border border-white/10 hover:border-white/20"
+            asChild
           >
-            Já tenho conta
-          </Link>
+            <Link href="/solutions/fire-protection/login">
+              Já tenho conta
+            </Link>
+          </Button>
         </motion.div>
 
         <motion.div
@@ -110,10 +115,17 @@ export default function FireControlPrePage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.4 }}
         >
-          <Link href="/home" className="flex items-center gap-2.5 group">
-            <img src="/icon-ak.png" alt="AKAAI HUB" className="w-7 h-7 opacity-60 group-hover:opacity-90 transition-opacity" />
-            <span className="font-black text-white/50 text-xs tracking-tight group-hover:text-white/80 transition-colors">AKAAI <span className="text-white/35">HUB</span></span>
-          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex items-center gap-2.5 group text-white/50 hover:text-white/80"
+            asChild
+          >
+            <Link href="/home">
+              <img src="/icon-ak.png" alt="AKAAI HUB" className="w-7 h-7 opacity-60 group-hover:opacity-90 transition-opacity" />
+              <span className="font-black text-xs tracking-tight group-hover:text-white/80 transition-colors">AKAAI <span className="text-white/35">HUB</span></span>
+            </Link>
+          </Button>
           <span className="text-[10px] font-mono text-white/35 uppercase tracking-widest">Powered by AKAAI CORE</span>
           <p className="text-[9px] text-white/25 font-mono uppercase tracking-wider">Also Known As Artificial Intelligence HUB</p>
         </motion.div>

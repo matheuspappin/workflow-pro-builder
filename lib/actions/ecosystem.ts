@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js"
 import logger from "@/lib/logger"
 import { maskEmail, maskId } from "@/lib/sanitize-logs"
 import { generateUniqueSlug } from "@/lib/utils/slug"
+import { provisionWhatsAppForStudio } from "@/lib/whatsapp"
 
 /**
  * Cria um novo ecossistema (Studio + Settings) e gera um link de convite.
@@ -198,6 +199,8 @@ export async function createEcosystemInvite(data: {
     throw new Error(`Erro ao criar studio: ${studioError.message} (Dica: Verifique se SUPABASE_SERVICE_ROLE_KEY está configurada)`)
   }
   logger.info('✅ Studio criado com sucesso')
+
+  await provisionWhatsAppForStudio(studio.id, studio.slug)
 
   // 4. Criar Configurações
   logger.info('⚙️ Criando configurações para o studio...')

@@ -85,7 +85,7 @@ export function DashboardSkeletonClient({
       />
       <main
         className={cn(
-          "transition-all duration-300 min-h-screen pt-16 md:pt-0",
+          "transition-all duration-300 min-h-screen pt-16 md:pt-0 pointer-events-auto relative z-10",
           sidebarCollapsed ? "md:ml-[72px]" : "md:ml-64"
         )}
       >

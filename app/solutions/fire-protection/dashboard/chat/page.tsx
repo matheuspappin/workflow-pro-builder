@@ -78,7 +78,7 @@ const sugestoes = [
 const msgInicial: Message = {
   id: "0",
   role: "assistant",
-  content: "Olá! Sou o **assistente de IA do FireControl** 🔥\n\nPosso te ajudar com:\n• Consultas sobre extintores, OS e vistorias\n• Análise de dados e alertas\n• Geração automática de agendamentos\n• Relatórios em tempo real\n\nComo posso ajudar hoje?",
+  content: "Olá! Sou a **Catarina**, sua assistente virtual especialista em proteção contra incêndios 🔥\n\nPosso te ajudar com:\n• Consultas sobre extintores, OS e vistorias\n• Análise de dados e alertas\n• Geração automática de agendamentos\n• Relatórios em tempo real\n\nComo posso ajudar hoje?",
   timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
 }
 

@@ -37,9 +37,24 @@ export async function POST(req: NextRequest) {
         return new NextResponse("Metadata missing", { status: 400 });
       }
 
-      const { invoice_id, type, studio_id, student_id } = metadata;
+      const { invoice_id, type, studio_id, student_id, plan_id, verticalization_plan_id } = metadata;
 
-      if (type === 'service_order') {
+      if (type === 'system_plan' || type === 'verticalization_plan') {
+          logger.info(`✅ Pagamento de plano concluído: estúdio ${studio_id}, plano ${plan_id} (${type})`);
+          const rpcParams: Record<string, string> = {
+            p_invoice_id: invoice_id,
+            p_plan_id: plan_id,
+            p_studio_id: studio_id,
+          };
+          if (verticalization_plan_id) {
+            rpcParams.p_verticalization_plan_id = verticalization_plan_id;
+          }
+          const { error: rpcError } = await supabaseAdmin.rpc('mark_studio_invoice_as_paid', rpcParams);
+          if (rpcError) {
+            logger.error(`Erro ao processar pagamento de plano via webhook:`, rpcError);
+          }
+      }
+      else if (type === 'service_order') {
           logger.info(`✅ Pagamento de OS concluído: ${invoice_id}`);
           
           // 1. Atualizar o Pagamento no banco
@@ -73,10 +88,26 @@ export async function POST(req: NextRequest) {
       } 
       else if (type === 'package') {
           logger.info(`✅ Pagamento de Pacote concluído para o aluno: ${student_id}`);
-          // Lógica para adicionar créditos ao aluno baseada no pacote
+          const sessionId = session.id;
+
+          // Idempotência ATÔMICA: INSERT primeiro. Só quem conseguir inserir credita.
+          // Evita race entre webhook + confirm-credit + retentativas do Stripe.
+          const { error: insertError } = await supabaseAdmin
+            .from('stripe_package_credits')
+            .insert({ session_id: sessionId });
+
+          if (insertError) {
+            if (insertError.code === '23505') {
+              logger.info(`[WEBHOOK] Sessão ${sessionId} já creditada (duplicata ignorada)`);
+            } else {
+              logger.error(`[WEBHOOK] Erro ao inserir idempotência:`, insertError);
+            }
+            break;
+          }
+
           const { data: pkg } = await supabaseAdmin
             .from('lesson_packages')
-            .select('lessons_count')
+            .select('lessons_count, name')
             .eq('id', invoice_id)
             .single();
 
@@ -86,7 +117,28 @@ export async function POST(req: NextRequest) {
                   p_studio_id: studio_id,
                   p_amount: pkg.lessons_count
               });
-              if (creditError) logger.error("Erro ao adicionar créditos via webhook:", creditError);
+              if (creditError) {
+                logger.error("Erro ao adicionar créditos via webhook:", creditError);
+                await supabaseAdmin.from('stripe_package_credits').delete().eq('session_id', sessionId);
+              } else {
+                // Registrar cobrança no financeiro (compra de pacote)
+                const amountPaid = session.amount_total ? session.amount_total / 100 : 0;
+                const today = new Date().toISOString().split('T')[0];
+                const refMonth = new Date().toISOString().slice(0, 7);
+                await supabaseAdmin.from('payments').insert({
+                  studio_id: studio_id,
+                  student_id: student_id,
+                  amount: amountPaid,
+                  due_date: today,
+                  payment_date: today,
+                  status: 'paid',
+                  payment_method: 'stripe_card',
+                  reference_month: refMonth,
+                  description: `Pacote: ${pkg.name} (${pkg.lessons_count} créditos)`,
+                  payment_source: 'package_purchase',
+                  reference_id: invoice_id,
+                });
+              }
           }
       }
       else if (type === 'pos_sale') {

@@ -237,7 +237,7 @@ export default function ClientesPage() {
                 <Users className="w-5 h-5 text-emerald-400" />
                 {editing ? "Editar Cliente" : "Novo Proprietário Rural"}
               </CardTitle>
-              <button onClick={() => setShowForm(false)} className="text-slate-500 hover:text-white">
+              <button type="button" onClick={() => setShowForm(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </CardHeader>
@@ -347,7 +347,7 @@ export default function ClientesPage() {
                 : "Cadastre proprietários rurais ou convide via link"}
             </p>
             {!search && filterCAR === "all" && (
-              <Button onClick={openNew} className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl">
+              <Button type="button" onClick={openNew} className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl">
                 <Plus className="w-4 h-4 mr-1" /> Cadastrar Primeiro Cliente
               </Button>
             )}

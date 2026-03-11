@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
 
 /**
@@ -27,14 +27,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const { invoice_id, studio_id, plan_id, type } = session.metadata || {};
+    const { invoice_id, studio_id, plan_id, type, verticalization_plan_id } = session.metadata || {};
 
-    if (type !== 'system_plan' || !invoice_id || !studio_id || !plan_id) {
+    const isValidType = type === 'system_plan' || type === 'verticalization_plan';
+    if (!isValidType || !invoice_id || !studio_id || !plan_id) {
       return NextResponse.json({ error: 'Metadados inválidos na sessão' }, { status: 400 });
     }
 
     // 2. Verificar se já foi processado (evitar duplicidade)
-    const { data: invoice } = await supabase
+    const { data: invoice } = await supabaseAdmin
       .from('studio_invoices')
       .select('status')
       .eq('id', invoice_id)
@@ -50,11 +51,16 @@ export async function GET(request: NextRequest) {
     // 3. Processar atualização usando RPC (mesma lógica do webhook)
     logger.info(`🔄 Sincronização manual: Processando pagamento para estúdio ${studio_id}`);
     
-    const { error: rpcError } = await supabase.rpc('mark_studio_invoice_as_paid', {
+    const rpcParams: Record<string, string> = {
       p_invoice_id: invoice_id,
       p_plan_id: plan_id,
-      p_studio_id: studio_id
-    });
+      p_studio_id: studio_id,
+    };
+    if (verticalization_plan_id) {
+      rpcParams.p_verticalization_plan_id = verticalization_plan_id;
+    }
+    
+    const { error: rpcError } = await supabaseAdmin.rpc('mark_studio_invoice_as_paid', rpcParams);
 
     if (rpcError) {
       logger.error('❌ Erro ao sincronizar pagamento via RPC:', rpcError);

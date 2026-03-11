@@ -92,6 +92,96 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
   },
 };
 
+/** Objeto retornado por normalizePlanForDisplay para exibição na UI */
+export interface PlanDisplay {
+  name: string
+  description?: string
+  price: number
+  max_students: number
+  max_teachers: number
+  has_whatsapp: boolean
+  has_ai: boolean
+  has_finance: boolean
+  has_multi_unit: boolean
+  has_pos: boolean
+  hasPOS: boolean
+  has_inventory: boolean
+  hasInventory: boolean
+  has_gamification: boolean
+  hasGamification: boolean
+  has_leads: boolean
+  hasLeads: boolean
+  has_scanner: boolean
+  hasScanner: boolean
+  has_marketplace: boolean
+  hasMarketplace: boolean
+  has_erp: boolean
+  hasERP: boolean
+}
+
+/** Mapeamento module key -> [has_snake, hasCamel] */
+const MODULE_TO_HAS: Record<string, [string, string]> = {
+  whatsapp: ['has_whatsapp', 'hasWhatsApp'],
+  ai_chat: ['has_ai', 'hasAI'],
+  financial: ['has_finance', 'hasFinance'],
+  multi_unit: ['has_multi_unit', 'hasMultiUnit'],
+  pos: ['has_pos', 'hasPOS'],
+  inventory: ['has_inventory', 'hasInventory'],
+  gamification: ['has_gamification', 'hasGamification'],
+  leads: ['has_leads', 'hasLeads'],
+  scanner: ['has_scanner', 'hasScanner'],
+  marketplace: ['has_marketplace', 'hasMarketplace'],
+  erp: ['has_erp', 'hasERP'],
+}
+
+/**
+ * Normaliza um plano do banco (com modules JSONB ou colunas has_*) para exibição.
+ * Retorna objeto com has_whatsapp, has_ai, has_pos, hasPOS, etc.
+ */
+export function normalizePlanForDisplay(plan: Record<string, unknown> | null, planId?: string): PlanDisplay {
+  if (!plan) {
+    const normId = (planId || 'gratuito').toLowerCase().replace('pro+', 'pro-plus')
+    const fallback = PLAN_LIMITS[normId] || PLAN_LIMITS.gratuito
+    return {
+      ...fallback,
+      name: fallback.name,
+      max_students: fallback.maxStudents,
+      max_teachers: fallback.maxProfessionals,
+      has_whatsapp: fallback.hasWhatsApp,
+      has_ai: fallback.hasAI,
+      has_finance: fallback.hasFinance,
+      has_multi_unit: fallback.hasMultiUnit,
+      has_pos: fallback.hasPOS,
+      hasPOS: fallback.hasPOS,
+      has_inventory: fallback.hasInventory,
+      hasInventory: fallback.hasInventory,
+      has_gamification: fallback.hasGamification,
+      hasGamification: fallback.hasGamification,
+      has_leads: fallback.hasLeads,
+      hasLeads: fallback.hasLeads,
+      has_scanner: fallback.hasScanner,
+      hasScanner: fallback.hasScanner,
+      has_marketplace: fallback.hasMarketplace,
+      hasMarketplace: fallback.hasMarketplace,
+      has_erp: fallback.hasERP,
+      hasERP: fallback.hasERP,
+    }
+  }
+
+  const modules = (plan.modules as Record<string, boolean>) || {}
+  const out: Record<string, unknown> = { ...plan }
+
+  for (const [modKey, [snakeKey, camelKey]] of Object.entries(MODULE_TO_HAS)) {
+    const val = modules[modKey]
+    if (val !== undefined) {
+      if (out[snakeKey] === undefined || out[snakeKey] === null) out[snakeKey] = val
+      if (out[camelKey] === undefined || out[camelKey] === null) out[camelKey] = val
+    }
+  }
+
+  return out as unknown as PlanDisplay
+}
+
 /**
  * Verifica se um estúdio atingiu o limite de um recurso
  * @param currentCount Quantidade atual do recurso

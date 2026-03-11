@@ -12,6 +12,7 @@ import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
 import { useOrganization } from "@/components/providers/organization-provider"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
+import { supabase } from "@/lib/supabase"
 
 const LineupCard3D = dynamic(() => import("@/components/home/lineup-card-3d").then((m) => ({ default: m.LineupCard3D })), {
   ssr: false,
@@ -30,11 +31,22 @@ function Navbar() {
   const { language: lang } = useOrganization()
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session)
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   const navItems = {
@@ -79,17 +91,28 @@ function Navbar() {
 
         <div className="flex items-center gap-4">
           <LanguageSwitcher />
-          <Link href="/login" className="hidden sm:block">
-            <Button variant="outline" size="sm" className="font-bold text-xs">
-              {lang === 'pt' ? 'Entrar' : 'Login'}
+          {isLoggedIn ? (
+            <Button size="sm" className="hidden sm:flex px-6 font-black text-xs" asChild>
+              <Link href="/dashboard">
+                {lang === 'pt' ? 'Acessar' : 'Access'}
+              </Link>
             </Button>
-          </Link>
-          <Link href="/register">
-            <Button size="sm" className="hidden sm:flex px-6 font-black text-xs">
-              {lang === 'pt' ? 'Começar Agora' : 'Get Started'}
-            </Button>
-          </Link>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" className="font-bold text-xs" asChild>
+                <Link href="/login">
+                  {lang === 'pt' ? 'Entrar' : 'Login'}
+                </Link>
+              </Button>
+              <Button size="sm" className="hidden sm:flex px-6 font-black text-xs" asChild>
+                <Link href="/register">
+                  {lang === 'pt' ? 'Começar Agora' : 'Get Started'}
+                </Link>
+              </Button>
+            </>
+          )}
           <Button 
+            type="button"
             variant="ghost" 
             size="icon" 
             className="md:hidden text-white" 
@@ -122,12 +145,20 @@ function Navbar() {
               ))}
               <div className="h-px bg-zinc-800 my-2" />
               <div className="grid grid-cols-2 gap-4 pt-4">
-                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full font-bold text-sm">Entrar</Button>
-                </Link>
-                <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full font-black text-sm">Começar</Button>
-                </Link>
+                {isLoggedIn ? (
+                  <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className="col-span-2">
+                    <Button type="button" variant="outline" className="w-full font-bold text-sm">{lang === 'pt' ? 'Acessar' : 'Access'}</Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                      <Button type="button" variant="outline" className="w-full font-bold text-sm">Entrar</Button>
+                    </Link>
+                    <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                      <Button type="button" className="w-full font-black text-sm">Começar</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
@@ -160,7 +191,7 @@ function HeroCanvas() {
 
     let animationId: number
     const particles: Array<{ x: number; y: number; vx: number; vy: number; r: number }> = []
-    const particleCount = 80
+    const particleCount = 40
 
     const resize = () => {
       const parent = canvas.parentElement
@@ -293,7 +324,7 @@ function DustCanvas() {
       baseOpacity: number
       phase: number
     }> = []
-    const dustCount = 180
+    const dustCount = 80
 
     const resize = () => {
       const w = window.innerWidth
@@ -343,8 +374,19 @@ function DustCanvas() {
     resize()
     window.addEventListener("resize", resize)
     draw()
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animationId)
+      } else {
+        animationId = requestAnimationFrame(draw)
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility)
+
     return () => {
       window.removeEventListener("resize", resize)
+      document.removeEventListener("visibilitychange", handleVisibility)
       cancelAnimationFrame(animationId)
     }
   }, [])
@@ -449,17 +491,18 @@ function HeroSection() {
             transition={{ ...springTransition, delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-5"
           >
-            <Link href="/register">
-              <Button size="lg" className="h-12 px-10 text-base font-black">
-                Começar Agora
-                <ArrowRight className="ml-2 w-5 h-5" />
+              <Button size="lg" className="h-12 px-10 text-base font-black" asChild>
+                <Link href="/register">
+                  Começar Agora
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
               </Button>
-            </Link>
-            <Link href="#lineup">
-              <Button variant="outline" size="lg" className="h-12 px-10 text-base font-bold">
-                Ver Coleções
+              <Button type="button" variant="outline" size="lg" className="h-12 px-10 text-base font-bold" onClick={() => {
+                const lineup = document.getElementById('lineup')
+                lineup?.scrollIntoView({ behavior: 'smooth' })
+              }}>
+                Verticais
               </Button>
-            </Link>
           </motion.div>
         </div>
       </div>
@@ -490,7 +533,7 @@ function ArchitectureSectionBackground() {
 
     let animationId: number
     const particles: Array<{ x: number; y: number; vx: number; vy: number; r: number; opacity: number; phase: number }> = []
-    const particleCount = 80
+    const particleCount = 45
 
     const resize = () => {
       const parent = canvas.parentElement
@@ -712,7 +755,7 @@ function LineupSectionBackground() {
       phase: number
       isBokeh: boolean
     }> = []
-    const particleCount = 100
+    const particleCount = 55
 
     const resize = () => {
       const parent = canvas.parentElement
@@ -781,13 +824,10 @@ function LineupSectionBackground() {
           if (i === 0) ctx.moveTo(perspectiveX, perspectiveY)
           else ctx.lineTo(perspectiveX, perspectiveY)
         }
-        ctx.shadowBlur = 18
-        ctx.shadowColor = "rgba(255, 255, 255, 0.35)"
         ctx.strokeStyle = lineColor(0.22 + 0.1 * Math.sin(time + li))
         ctx.lineWidth = 1.5
         ctx.stroke()
       }
-      ctx.shadowBlur = 0
 
       // Uma faixa de linhas curvas — menos cruzamento
       const curveShift = mouse ? ((mouse.x - w / 2) / w) * 20 : 0
@@ -997,7 +1037,7 @@ function CoreSectionBackground() {
 
     let animationId: number
     const particles: Array<{ x: number; y: number; vx: number; vy: number; r: number; opacity: number; phase: number; isCosmic: boolean }> = []
-    const particleCount = 140
+    const particleCount = 70
 
     const resize = () => {
       const parent = canvas.parentElement
@@ -1069,14 +1109,10 @@ function CoreSectionBackground() {
           else ctx.lineTo(x, y)
         }
 
-        // Glow — preto e branco
-        ctx.shadowBlur = 18
-        ctx.shadowColor = "rgba(255, 255, 255, 0.35)"
         ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
         ctx.lineWidth = 2
         ctx.stroke()
 
-        ctx.shadowBlur = 0
         ctx.strokeStyle = "rgba(255, 255, 255, 0.45)"
         ctx.lineWidth = 1
         ctx.stroke()
@@ -1238,7 +1274,7 @@ function TechSpecsSectionBackground() {
 
     let animationId: number
     const particles: Array<{ x: number; y: number; vx: number; vy: number; r: number; opacity: number; phase: number; isCosmic: boolean }> = []
-    const particleCount = 90
+    const particleCount = 50
 
     const resize = () => {
       const parent = canvas.parentElement

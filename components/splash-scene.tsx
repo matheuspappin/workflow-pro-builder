@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useMemo, Suspense } from "react"
+import React, { useRef, useMemo, Suspense, useEffect } from "react"
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { Float, useTexture, Billboard } from "@react-three/drei"
 import * as THREE from "three"
@@ -118,7 +118,7 @@ function SpiralRibbon({
   }, [scale, offsetX, offsetY])
 
   const geometry = useMemo(() => {
-    return new THREE.TubeGeometry(curve, 128, tubeRadius, 8, false)
+    return new THREE.TubeGeometry(curve, 64, tubeRadius, 6, false)
   }, [curve, tubeRadius])
 
   const meshRef = useRef<THREE.Mesh>(null)
@@ -255,12 +255,12 @@ const splashVertexShader = `
   uniform float uSplashTime;
   varying float vAlpha;
   void main() {
-    if (uSplashTime > 1.3) {
+    if (uSplashTime > 1.3 || uSplashTime < 0.0) {
       gl_Position = vec4(0.0, 0.0, -10.0, 1.0);
       vAlpha = 0.0;
       return;
     }
-    float t = uSplashTime;
+    float t = clamp(uSplashTime, 0.0, 1.3);
     vec3 pos = uOrigin + aDirection * aSpeed * t + vec3(0.0, -2.5 * t * t, 0.0);
     vAlpha = 1.0 - smoothstep(0.8, 1.2, t);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
@@ -299,13 +299,29 @@ function TouchSplashParticles({ rippleRef }: { rippleRef: React.RefObject<Ripple
   const ref = useRef<THREE.Points>(null)
   const matRef = useRef<THREE.ShaderMaterial>(null)
 
+  // Cleanup para prevenir memory leaks
+  useEffect(() => {
+    return () => {
+      if (matRef.current) {
+        matRef.current.dispose()
+      }
+      if (ref.current && ref.current.geometry) {
+        ref.current.geometry.dispose()
+      }
+    }
+  }, [])
+
   useFrame((state) => {
     if (!matRef.current) return
     const r = rippleRef.current
-    if (r) {
+    if (r && r.startTime) {
       const elapsed = state.clock.elapsedTime - r.startTime
-      matRef.current.uniforms.uSplashTime.value = elapsed
-      matRef.current.uniforms.uOrigin.value.copy(r.worldOrigin)
+      if (elapsed < 10) { // Prevenir valores extremos
+        matRef.current.uniforms.uSplashTime.value = elapsed
+        matRef.current.uniforms.uOrigin.value.copy(r.worldOrigin)
+      } else {
+        matRef.current.uniforms.uSplashTime.value = 10.0
+      }
     } else {
       matRef.current.uniforms.uSplashTime.value = 10.0
     }
@@ -367,7 +383,7 @@ const cosmicDustFragmentShader = `
 `
 
 function CosmicDust({ mouseRef }: { mouseRef?: React.RefObject<{ x: number; y: number }> }) {
-  const count = 600
+  const count = 320
   const { positions, oscDirs, phases, drifts, colorMix } = useMemo(() => {
     const positions = new Float32Array(count * 3)
     const oscDirs = new Float32Array(count * 3)
@@ -453,8 +469,9 @@ function CameraParallax({ mouseRef }: { mouseRef: React.RefObject<{ x: number; y
     const parallax = 0.4
     camera.position.x = basePosition.current[0] + m.x * parallax
     camera.position.y = basePosition.current[1] + m.y * parallax
+    // lookAt atualiza apenas a matriz de visualização, não de projeção
+    // updateProjectionMatrix() só é necessário ao mudar fov/near/far/aspect
     camera.lookAt(0, 0, 0)
-    camera.updateProjectionMatrix()
   })
 
   return null
@@ -594,7 +611,7 @@ const water3DFragmentShader = `
 
 function Water3DSphere({ mouseRef, rippleRef, logoTargetRef }: {
   mouseRef?: React.RefObject<{ x: number; y: number }>
-  rippleRef?: React.RefObject<RippleState>
+  rippleRef?: React.MutableRefObject<RippleState>
   logoTargetRef?: React.RefObject<THREE.Vector3>
 }) {
   const meshRef = useRef<THREE.Mesh>(null)
@@ -617,6 +634,13 @@ function Water3DSphere({ mouseRef, rippleRef, logoTargetRef }: {
       meshRef.current.rotation.z = mouseRef.current.x * 0.08
     }
   })
+
+  useEffect(() => {
+    return () => {
+      if (matRef.current) matRef.current.dispose()
+      if (meshRef.current?.geometry) meshRef.current.geometry.dispose()
+    }
+  }, [])
 
   const { clock } = useThree()
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -644,7 +668,7 @@ function Water3DSphere({ mouseRef, rippleRef, logoTargetRef }: {
       onPointerOver={() => document.body.style.cursor = "pointer"}
       onPointerOut={() => document.body.style.cursor = ""}
     >
-      <sphereGeometry args={[1.1, 64, 64]} />
+      <sphereGeometry args={[1.1, 48, 48]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={water3DVertexShader}
@@ -817,6 +841,7 @@ function WaterDripLeak() {
 
 function AuroraSceneContent() {
   const mouseRef = useRef({ x: 0, y: 0 })
+  const rippleRef = useRef<RippleState>(null)
   const logoPosRef = useRef(new THREE.Vector3(0, 0.2, 0.5))
   const logoTargetRef = useRef(new THREE.Vector3(0, 0.2, 0.5))
 
@@ -830,6 +855,11 @@ function AuroraSceneContent() {
       <pointLight position={[0, 0, 4]} intensity={0.4} color="#ffffff" />
       <CursorLight mouseRef={mouseRef} />
       <CosmicDust mouseRef={mouseRef} />
+      <AuroraSpirals mouseRef={mouseRef} />
+      <Water3DSphere mouseRef={mouseRef} rippleRef={rippleRef} logoTargetRef={logoTargetRef} />
+      <WaterDripLeak />
+      <WaterLeakStreams />
+      <TouchSplashParticles rippleRef={rippleRef} />
       <Float speed={0.4} rotationIntensity={0.1} floatIntensity={0.2}>
         <group>
           <AKLogoInsidePlasma logoPosRef={logoPosRef} logoTargetRef={logoTargetRef} />
@@ -893,7 +923,7 @@ function FloatingShapes({ theme }: { theme: Theme }) {
 }
 
 function ParticleField({ theme }: { theme: Theme }) {
-  const count = 800
+  const count = 450
   const colors = themeColors[theme]
   const { positions } = useMemo(() => {
     const positions = new Float32Array(count * 3)
@@ -946,14 +976,53 @@ function SceneContent({ theme }: { theme: Theme }) {
 }
 
 export function SplashScene({ theme = "default", className = "" }: SplashSceneProps) {
+  const [hasError, setHasError] = React.useState(false)
+  const [isVisible, setIsVisible] = React.useState(true)
+
+  React.useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('Three.js rendering error:', event.error)
+      setHasError(true)
+    }
+    const handleVisibility = () => setIsVisible(!document.hidden)
+
+    window.addEventListener('error', handleError)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('error', handleError)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [])
+
+  if (hasError) {
+    // Fallback simples sem Three.js se ocorrer erro
+    return (
+      <div className={`absolute inset-0 w-full h-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}>
+        <div className="absolute inset-0 bg-black/20" />
+      </div>
+    )
+  }
+
   return (
     <div
       className={`absolute inset-0 w-full h-full [&_canvas]:!w-full [&_canvas]:!h-full [&_canvas]:!object-cover ${className}`}
+      data-three-canvas
     >
       <Canvas
         camera={{ position: [0, 0, 5], fov: 55 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 1.5]}
+        gl={{
+          antialias: true,
+          alpha: true,
+          preserveDrawingBuffer: false,
+          powerPreference: "high-performance"
+        }}
+        dpr={[1, 1]}
+        performance={{ min: 0.5, max: 1 }}
+        frameloop={isVisible ? "always" : "never"}
+        onError={(error) => {
+          console.error('Canvas error:', error)
+          setHasError(true)
+        }}
       >
         <Suspense fallback={null}>
           <SceneContent theme={theme} />

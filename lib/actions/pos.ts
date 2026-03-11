@@ -59,7 +59,8 @@ export async function createPosStripeSession(
   studentId: string | null,
   items: PaymentItem[],
   method: 'card' | 'pix',
-  origin: string
+  origin: string,
+  returnPath: string = '/dashboard/vendas'
 ) {
   const stripe = getStripe();
   if (!stripe) throw new Error("Stripe não configurado");
@@ -91,8 +92,8 @@ export async function createPosStripeSession(
     payment_method_types: method === 'pix' ? ['pix'] : ['card'],
     line_items: lineItems,
     mode: 'payment',
-    success_url: `${origin}/dashboard/vendas?success=true&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/dashboard/vendas?canceled=true`,
+    success_url: `${origin}${returnPath}?success=true&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}${returnPath}?canceled=true`,
     metadata: {
       studio_id: studioId,
       student_id: studentId || '',

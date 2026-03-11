@@ -14,6 +14,13 @@ import {
   Music,
   UserCheck,
   QrCode,
+  ShoppingCart,
+  Layers,
+  Store,
+  Package,
+  CreditCard,
+  Wallet,
+  Receipt,
 } from "lucide-react"
 
 export type DanceStudioModuleKey =
@@ -24,10 +31,14 @@ export type DanceStudioModuleKey =
   | "financial"
   | "whatsapp"
   | "pos"
+  | "erp"
+  | "inventory"
+  | "marketplace"
   | "leads"
   | "gamification"
   | "multi_unit"
   | "ai_chat"
+  | "fiscal"
 
 export interface DanceStudioNavItem {
   id: string
@@ -69,6 +80,13 @@ export const DANCE_STUDIO_NAV_GROUPS: DanceStudioNavGroup[] = [
         module: "classes",
       },
       {
+        id: "pagamentos-professores",
+        href: "/solutions/estudio-de-danca/dashboard/pagamentos-professores",
+        label: "Pagamentos Professores",
+        icon: Wallet,
+        module: "classes",
+      },
+      {
         id: "scanner",
         href: "/solutions/estudio-de-danca/dashboard/scanner",
         label: "Scanner QR",
@@ -81,9 +99,16 @@ export const DANCE_STUDIO_NAV_GROUPS: DanceStudioNavGroup[] = [
     label: "Comercial",
     items: [
       {
+        id: "vendas",
+        href: "/solutions/estudio-de-danca/dashboard/vendas",
+        label: "PDV (Ponto de Venda)",
+        icon: ShoppingCart,
+        module: "pos",
+      },
+      {
         id: "leads",
         href: "/solutions/estudio-de-danca/dashboard/leads",
-        label: "Leads / CRM",
+        label: "Clientes (CRM)",
         icon: TrendingUp,
         module: "leads",
       },
@@ -127,6 +152,40 @@ export const DANCE_STUDIO_NAV_GROUPS: DanceStudioNavGroup[] = [
         icon: BarChart3,
       },
       {
+        id: "erp",
+        href: "/solutions/estudio-de-danca/dashboard/erp",
+        label: "ERP",
+        icon: Layers,
+        module: "erp",
+      },
+      {
+        id: "emissor-fiscal",
+        href: "/solutions/estudio-de-danca/dashboard/emissor-fiscal",
+        label: "Emissor Fiscal (NF-e)",
+        icon: Receipt,
+        module: "fiscal",
+      },
+      {
+        id: "estoque",
+        href: "/dashboard/estoque",
+        label: "Estoque",
+        icon: Package,
+        module: "inventory",
+      },
+      {
+        id: "marketplace",
+        href: "/solutions/estudio-de-danca/dashboard/marketplace",
+        label: "Marketplace",
+        icon: Store,
+        module: "marketplace",
+      },
+      {
+        id: "planos",
+        href: "/solutions/estudio-de-danca/dashboard/planos",
+        label: "Planos e Preços",
+        icon: CreditCard,
+      },
+      {
         id: "configuracoes",
         href: "/solutions/estudio-de-danca/dashboard/configuracoes",
         label: "Configurações",
@@ -136,18 +195,23 @@ export const DANCE_STUDIO_NAV_GROUPS: DanceStudioNavGroup[] = [
   },
 ]
 
+/**
+ * Filtra a navegação pelos módulos habilitados no plano (100% controlado pelo admin).
+ * - undefined/vazio: mostra apenas itens sem módulo (dashboard, planos, configuracoes)
+ * - ERP não auto-libera inventory/marketplace; cada um deve estar explícito no plano
+ */
 export function getFilteredDanceStudioNav(
   enabledModules?: Record<string, boolean> | null
 ): DanceStudioNavGroup[] {
-  if (!enabledModules || Object.keys(enabledModules).length === 0) {
-    return DANCE_STUDIO_NAV_GROUPS
+  const effective: Record<string, boolean> = {
+    ...(enabledModules || {}),
   }
 
   return DANCE_STUDIO_NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
       if (!item.module) return true
-      return enabledModules[item.module] === true
+      return effective[item.module] === true
     }),
   })).filter((group) => group.items.length > 0)
 }

@@ -164,19 +164,29 @@ export async function getVerticalizations(): Promise<VerticalRecord[]> {
 
     const { data: nicheCounts } = await dbClient
       .from('organization_settings')
-      .select('niche')
+      .select('niche, studio_id')
 
     const countsByNiche: Record<string, number> = {}
     nicheCounts?.forEach(row => {
-      countsByNiche[row.niche] = (countsByNiche[row.niche] || 0) + 1
+      if (row.niche) {
+        countsByNiche[row.niche] = (countsByNiche[row.niche] || 0) + 1
+      }
     })
+
+    // Studios sem organization_settings (sem niche) contam para a primeira vertical ativa
+    const studiosWithSettings = new Set((nicheCounts || []).map((r: any) => r.studio_id).filter(Boolean))
+    const { data: allStudios } = await dbClient.from('studios').select('id')
+    const studiosWithoutSettings = (allStudios || []).filter((s: any) => !studiosWithSettings.has(s.id)).length
+
+    // A vertical de dança absorve os studios sem niche definido
+    const danceNicheKey = verticals?.find(v => v.slug === 'estudio-de-danca')?.niche || 'dance'
 
     return (verticals || []).map(v => ({
       ...v,
       tags: Array.isArray(v.tags) ? v.tags : [],
       modules: (v.modules && typeof v.modules === 'object') ? v.modules : {},
       stats: {
-        tenants: countsByNiche[v.niche] || 0,
+        tenants: (countsByNiche[v.niche] || 0) + (v.niche === danceNicheKey ? studiosWithoutSettings : 0),
         users: 0,
         mrr: 0,
       }

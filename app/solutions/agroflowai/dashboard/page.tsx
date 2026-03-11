@@ -249,12 +249,12 @@ export default function AgroFlowAIDashboardPage() {
             Painel de Controle — AgroFlowAI
           </p>
         </div>
-        <Link href="/solutions/agroflowai/dashboard/ordens-servico">
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20">
+        <Button type="button" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20" asChild>
+          <Link href="/solutions/agroflowai/dashboard/ordens-servico">
             <Plus className="w-4 h-4 mr-2" />
             Nova OS
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       {/* Alerts Panel */}
@@ -274,6 +274,7 @@ export default function AgroFlowAIDashboardPage() {
                   <p className="text-xs text-slate-400 mt-0.5">{alert.description}</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setDismissedAlerts(prev => new Set([...prev, alert.id]))}
                   className="text-slate-600 hover:text-slate-400 flex-shrink-0"
                 >
@@ -342,11 +343,11 @@ export default function AgroFlowAIDashboardPage() {
               </CardTitle>
               <CardDescription className="text-slate-500">Ordens de serviço mais recentes</CardDescription>
             </div>
-            <Link href="/solutions/agroflowai/dashboard/ordens-servico">
-              <Button variant="ghost" size="sm" className="text-emerald-500 font-bold text-xs hover:bg-emerald-500/10">
-                Ver todas <ArrowRight className="w-3 h-3 ml-1" />
+              <Button type="button" variant="ghost" size="sm" className="text-emerald-500 font-bold text-xs hover:bg-emerald-500/10" asChild>
+                <Link href="/solutions/agroflowai/dashboard/ordens-servico">
+                  Ver todas <ArrowRight className="w-3 h-3 ml-1" />
+                </Link>
               </Button>
-            </Link>
           </CardHeader>
           <CardContent>
             {recentOS.length > 0 ? (
@@ -375,11 +376,11 @@ export default function AgroFlowAIDashboardPage() {
               <div className="text-center py-10 text-slate-500">
                 <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-20" />
                 <p className="font-medium">Nenhuma OS cadastrada ainda</p>
-                <Link href="/solutions/agroflowai/dashboard/ordens-servico">
-                  <Button className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl" size="sm">
+                <Button type="button" className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl" size="sm" asChild>
+                  <Link href="/solutions/agroflowai/dashboard/ordens-servico">
                     <Plus className="w-4 h-4 mr-1" /> Criar primeira OS
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             )}
           </CardContent>
@@ -397,11 +398,9 @@ export default function AgroFlowAIDashboardPage() {
                 <p className="font-bold text-white">Monitor Satelital</p>
                 <p className="text-sm text-white/70">NDVI, alertas de desmatamento e MapBiomas</p>
               </div>
-              <Link href="/solutions/agroflowai/dashboard/satelite">
-                <Button size="sm" variant="secondary" className="font-bold rounded-xl bg-white/20 hover:bg-white/30 text-white border-0">
-                  Ver
-                </Button>
-              </Link>
+              <Button type="button" size="sm" variant="secondary" className="font-bold rounded-xl bg-white/20 hover:bg-white/30 text-white border-0" asChild>
+                <Link href="/solutions/agroflowai/dashboard/satelite">Ver</Link>
+              </Button>
             </CardContent>
           </Card>
 
@@ -416,7 +415,7 @@ export default function AgroFlowAIDashboardPage() {
                 <p className="text-sm text-slate-500">Regularizações e licenciamentos pendentes</p>
               </div>
               <Link href="/solutions/agroflowai/dashboard/laudos" className="ml-auto">
-                <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10 font-bold rounded-xl">
+                <Button type="button" size="sm" variant="outline" className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10 font-bold rounded-xl">
                   Ver
                 </Button>
               </Link>
@@ -434,7 +433,7 @@ export default function AgroFlowAIDashboardPage() {
                 <p className="text-sm text-slate-500">Gerencie leads e novos contratos</p>
               </div>
               <Link href="/solutions/agroflowai/dashboard/leads" className="ml-auto">
-                <Button size="sm" variant="outline" className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 font-bold rounded-xl">
+                <Button type="button" size="sm" variant="outline" className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 font-bold rounded-xl">
                   Ver
                 </Button>
               </Link>
@@ -459,6 +458,7 @@ export default function AgroFlowAIDashboardPage() {
                       <span className="text-sm font-bold text-slate-300">{inv.label}</span>
                     </div>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       className="h-7 px-3 text-xs font-bold rounded-lg border-slate-700 text-slate-400"

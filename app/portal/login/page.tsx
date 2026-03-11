@@ -182,7 +182,7 @@ function PortalLoginContent() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">{t.auth.login.password}</Label>
-                  <Link href="/forgot-password" passHref>
+                  <Link href="/forgot-password?returnTo=/portal/login" passHref>
                     <span className={`text-sm font-medium text-${themeColor} hover:underline`}>
                       {t.auth.login.forgotPassword}
                     </span>

@@ -122,6 +122,7 @@ function LoginContent() {
   return (
     <div className="min-h-screen bg-slate-950 flex relative font-sans">
       <button
+        type="button"
         onClick={() => router.push("/solutions/agroflowai")}
         className="absolute top-6 left-6 z-50 flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest"
       >
@@ -286,7 +287,7 @@ function LoginContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Senha</Label>
-                    <Link href="/forgot-password" className="text-xs text-emerald-500/80 hover:text-emerald-400 transition-colors">
+                    <Link href="/forgot-password?returnTo=/solutions/agroflowai/login" className="text-xs text-emerald-500/80 hover:text-emerald-400 transition-colors">
                       Esqueceu?
                     </Link>
                   </div>

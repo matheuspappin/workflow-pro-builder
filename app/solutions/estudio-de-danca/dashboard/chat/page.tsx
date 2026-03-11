@@ -6,6 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageSquare, Send, Loader2, Music, Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ModuleGuard } from "@/components/providers/module-guard"
+
+function getStudioId(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem("danceflow_user")
+    if (!raw) return null
+    const user = JSON.parse(raw)
+    return user?.studio_id || user?.studioId || null
+  } catch {
+    return null
+  }
+}
 
 interface Message {
   id: string
@@ -25,7 +38,7 @@ export default function ChatPage() {
     {
       id: "0",
       role: "assistant",
-      content: "Olá! Sou o assistente IA do DanceFlow. Posso ajudar com gestão do seu estúdio, dicas de retenção de alunos, estratégias de marketing e muito mais. Como posso ajudar?",
+      content: "Olá! Sou a Catarina, sua secretária virtual. Posso ajudar com gestão do seu estúdio, dicas de retenção de alunos, estratégias de marketing e muito mais. Como posso ajudar? 💃",
     },
   ])
   const [input, setInput] = useState("")
@@ -45,18 +58,34 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
-      const res = await fetch("/api/chat", {
+      const studioId = getStudioId()
+      const allMessages = [...messages, userMsg]
+      const history = allMessages.slice(0, -1).map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
+
+      // Usa Gemini (GOOGLE_AI_API_KEY) por padrão; fallback para OpenAI se preferir
+      const apiEndpoint = "/api/gemini"
+      const res = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
-          context: "dance_studio",
+          message: msg,
+          history,
+          context: studioId ? { studio_id: studioId, is_admin: true } : undefined,
+          model: "gemini-2.5-flash",
         }),
       })
       const data = await res.json()
+
+      let content: string
+      if (!res.ok) {
+        content = data.error || "Erro ao processar. Tente novamente."
+      } else {
+        content = data.response || data.message || data.content || "Desculpe, não consegui processar."
+      }
+
       setMessages(prev => [
         ...prev,
-        { id: Date.now().toString() + "_ai", role: "assistant", content: data.message || data.content || "Desculpe, não consegui processar." },
+        { id: Date.now().toString() + "_ai", role: "assistant", content },
       ])
     } catch {
       setMessages(prev => [
@@ -69,6 +98,7 @@ export default function ChatPage() {
   }
 
   return (
+    <ModuleGuard module="ai_chat" showFullError>
     <div className="space-y-4 h-[calc(100vh-8rem)] flex flex-col">
       <div>
         <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
@@ -153,5 +183,6 @@ export default function ChatPage() {
         </div>
       </Card>
     </div>
+    </ModuleGuard>
   )
 }

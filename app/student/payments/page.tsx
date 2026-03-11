@@ -224,7 +224,7 @@ function StudentPaymentsContent() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
       <div className="sticky top-0 bg-background/95 backdrop-blur z-50 border-b">
         <div className="container flex h-16 items-center px-4 gap-4">
-          <Button variant="ghost" size="icon" onClick={() => window.location.href='/student'}>
+          <Button type="button" variant="ghost" size="icon" onClick={() => window.location.href='/student'}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="font-bold text-lg">Financeiro</h1>
@@ -454,34 +454,34 @@ function StudentPaymentsContent() {
           </div>
           
           <DialogFooter className="flex-row gap-2">
-            <Button variant="ghost" className="flex-1" onClick={() => setIsPaymentModalOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsPaymentModalOpen(false)}>Cancelar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t flex items-center justify-around h-16 px-4 z-50">
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
           <LayoutDashboard className="w-5 h-5" />
           <span className="text-[10px]">Início</span>
         </Button>
         
         {isServiceOrderBased ? (
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/os'}>
             <FileText className="w-5 h-5" />
             <span className="text-[10px]">Minhas OS</span>
           </Button>
         ) : (
-          <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
+          <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/classes'}>
             <Calendar className="w-5 h-5" />
             <span className="text-[10px]">{vocabulary.service}s</span>
           </Button>
         )}
 
-        <Button variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/payments'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/payments'}>
           <CreditCard className="w-5 h-5" />
           <span className="text-[10px]">Pagar</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/profile'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/profile'}>
           <User className="w-5 h-5" />
           <span className="text-[10px]">Perfil</span>
         </Button>

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, DollarSign, CheckCircle2, AlertCircle, Clock, ArrowRight, Star, Music, Loader2, QrCode as QrCodeIcon, CreditCard, PlayCircle } from "lucide-react"
+import { Calendar, DollarSign, CheckCircle2, AlertCircle, Clock, ArrowRight, Star, Music, Loader2, QrCode as QrCodeIcon, CreditCard, PlayCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -157,11 +157,16 @@ export default function StudentHome() {
   }
 
   useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
+    let cleanupFn: (() => void) | undefined
 
-      const sid = user.user_metadata?.studio_id
+    async function load() {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) { setLoading(false); return }
+
+      // CORRIGIDO: Atualizar o state 'user' para que handleConfirmAttendance funcione
+      setUser(authUser)
+
+      const sid = authUser.user_metadata?.studio_id
       setStudioId(sid)
       if (!sid) { setLoading(false); return }
 
@@ -176,61 +181,60 @@ export default function StudentHome() {
       // Configurar realtime subscriptions se for modelo CREDIT
       if (studio?.business_model === 'CREDIT') {
         const creditsChannel = supabase
-          .channel('student-credits')
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
+          .channel(`student-credits-${authUser.id}`)
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
             table: 'student_lesson_credits',
-            filter: `student_id=eq.${user.id}` 
+            filter: `student_id=eq.${authUser.id}`,
           }, (payload) => {
-            console.log(' Créditos alterados:', payload);
             if (payload.eventType === 'UPDATE') {
-              setStudentCredits(payload.new as any);
+              setStudentCredits(payload.new as any)
             }
           })
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
             table: 'student_credit_usage',
-            filter: `student_id=eq.${user.id}` 
+            filter: `student_id=eq.${authUser.id}`,
           }, () => {
-            // Recarregar dados quando houver uso de créditos
-            fetchStudentData(user.id, sid, turmas);
+            // Usar ref para turmas atuais para evitar closure stale
+            setTurmas(currentTurmas => {
+              fetchStudentData(authUser.id, sid, currentTurmas)
+              return currentTurmas
+            })
           })
-          .subscribe();
+          .subscribe()
 
-        // Cleanup na desmontagem
-        return () => {
-          supabase.removeChannel(creditsChannel);
-        };
+        // CORRIGIDO: Registrar cleanup no escopo externo do useEffect
+        cleanupFn = () => { supabase.removeChannel(creditsChannel) }
       }
 
       await Promise.all([
         // Turmas matriculadas + dados para QR check-in
         (async () => {
           try {
-            const res = await fetch(`/api/dance-studio/classes?studioId=${sid}&studentId=${user.id}`)
+            const res = await fetch(`/api/dance-studio/classes?studioId=${sid}&studentId=${authUser.id}`)
             const data = await res.json()
             const classes = data.classes || []
             setTurmas(classes)
-            fetchStudentData(user.id, sid, classes)
+            fetchStudentData(authUser.id, sid, classes)
           } catch { /* sem turmas */ }
         })(),
 
-        // Financeiro — busca cobranças do estúdio relacionadas ao aluno
+        // Financeiro — busca cobranças do aluno via API DanceFlow
         (async () => {
-          if (!studioId) return
           try {
-            const res = await fetch(`/api/fire-protection/financeiro?studioId=${studioId}`)
+            const res = await fetch(`/api/dance-studio/financeiro?studioId=${sid}`)
             const data = await res.json()
-            if (Array.isArray(data)) {
-              // Filtra cobranças relacionadas a este aluno (se tiver student_name ou student_id)
-              const pendentes = data.filter((p: any) => p.status === 'pendente' || p.status === 'pending')
-              const vencidos = data.filter((p: any) => p.status === 'vencido' || p.status === 'overdue')
-              const totalPendente = pendentes.reduce((s: number, p: any) => s + Number(p.valor || p.amount || 0), 0)
-              const totalVencido = vencidos.reduce((s: number, p: any) => s + Number(p.valor || p.amount || 0), 0)
-              setFinanceiro({ pendente: totalPendente, vencido: totalVencido, hasDebito: totalPendente > 0 || totalVencido > 0 })
-            }
+            const payments = data.payments || []
+            // Filtrar apenas cobranças deste aluno
+            const myPayments = payments.filter((p: any) => p.student_id === authUser.id)
+            const pendentes = myPayments.filter((p: any) => p.status === 'pendente' || p.status === 'pending')
+            const vencidos = myPayments.filter((p: any) => p.status === 'vencido' || p.status === 'overdue')
+            const totalPendente = pendentes.reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
+            const totalVencido = vencidos.reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
+            setFinanceiro({ pendente: totalPendente, vencido: totalVencido, hasDebito: totalPendente > 0 || totalVencido > 0 })
           } catch { /* sem cobranças */ }
         })(),
 
@@ -244,7 +248,7 @@ export default function StudentHome() {
             const { data: attendances } = await supabase
               .from('attendance')
               .select('status, date')
-              .eq('student_id', user.id)
+              .eq('student_id', authUser.id)
               .gte('date', firstDay)
               .lte('date', lastDay)
 
@@ -259,22 +263,29 @@ export default function StudentHome() {
 
       setLoading(false)
     }
+
     load()
+
+    // CORRIGIDO: cleanup retornado diretamente do useEffect
+    return () => { cleanupFn?.() }
   }, [])
 
-  const firstName = user?.user_metadata?.name?.split(' ')[0] || 'Aluno'
+  const firstName = user?.user_metadata?.name?.split(' ')[0]
+    || user?.user_metadata?.full_name?.split(' ')[0]
+    || 'Aluno'
 
   // Próximas aulas baseadas no schedule das turmas
   const todayDow = new Date().getDay()
   const proximasAulas = turmas
-    .flatMap((t: any) =>
+    .flatMap((t: any, turmaIdx: number) =>
       (t.schedule || []).map((s: any) => ({
         name: t.name,
         day: DAY_NAMES[s.day_of_week],
         dow: s.day_of_week,
         time: s.start_time ?? '—',
         teacher: t.teacherName,
-        color: COLORS[turmas.indexOf(t) % COLORS.length],
+        // CORRIGIDO: usar índice do flatMap, não indexOf (evita O(n²))
+        color: COLORS[turmaIdx % COLORS.length],
       }))
     )
     .sort((a, b) => {
@@ -284,13 +295,36 @@ export default function StudentHome() {
     })
     .slice(0, 4)
 
+  const handleRefresh = async () => {
+    if (!user) return
+    setLoading(true)
+    const sid = user.user_metadata?.studio_id
+    if (!sid) { setLoading(false); return }
+    try {
+      const res = await fetch(`/api/dance-studio/classes?studioId=${sid}&studentId=${user.id}`)
+      const apiData = await res.json()
+      const classes = apiData.classes || []
+      setTurmas(classes)
+      await fetchStudentData(user.id, sid, classes)
+    } catch { /* sem turmas */ }
+    setLoading(false)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-violet-600 to-pink-600 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-br from-violet-600 to-pink-600 rounded-2xl p-6 text-white relative">
         <p className="text-violet-200 text-sm font-bold uppercase tracking-widest mb-1">Bem-vindo de volta</p>
         <h1 className="text-2xl font-black tracking-tight">Olá, {firstName}! 👋</h1>
         <p className="text-violet-100/80 text-sm mt-2">Veja seu resumo de hoje</p>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all"
+          title="Atualizar"
+        >
+          <RefreshCw className={cn("w-4 h-4 text-white", loading && "animate-spin")} />
+        </button>
       </div>
 
       {/* Resumo rápido */}
@@ -352,7 +386,7 @@ export default function StudentHome() {
               </p>
             </div>
             <Link href="/solutions/estudio-de-danca/student/financeiro">
-              <Button size="sm" className={cn(
+              <Button type="button" size="sm" className={cn(
                 "font-bold rounded-xl text-white text-xs",
                 financeiro.vencido > 0 ? "bg-rose-500 hover:bg-rose-600" : "bg-amber-500 hover:bg-amber-600"
               )}>
@@ -394,6 +428,7 @@ export default function StudentHome() {
                 <Badge className="bg-emerald-500 text-white border-none">VALIDADO</Badge>
               ) : studentCredits?.remaining_credits > 0 ? (
                 <Button
+                  type="button"
                   size="sm"
                   variant="secondary"
                   className="bg-white text-violet-600 hover:bg-white/90 gap-1 text-xs font-bold"
@@ -404,11 +439,11 @@ export default function StudentHome() {
                   Ver QR Check-in
                 </Button>
               ) : (
-                <Link href="/solutions/estudio-de-danca/student/financeiro">
-                  <Button size="sm" variant="secondary" className="bg-rose-500/80 hover:bg-rose-600 text-white gap-1 text-xs font-bold">
+                <Button type="button" size="sm" variant="secondary" className="bg-rose-500/80 hover:bg-rose-600 text-white gap-1 text-xs font-bold" asChild>
+                  <Link href="/solutions/estudio-de-danca/student/financeiro">
                     <CreditCard className="w-3 h-3" /> Comprar Créditos
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
             </div>
           </CardContent>
@@ -438,6 +473,7 @@ export default function StudentHome() {
                       <Badge className="bg-emerald-100 text-emerald-700 border-0">Validado</Badge>
                     ) : hasReservation ? (
                       <Button
+                        type="button"
                         size="sm"
                         variant="ghost"
                         className="h-8 text-xs font-bold text-violet-600 hover:text-violet-700 hover:bg-violet-50 px-3"
@@ -451,6 +487,7 @@ export default function StudentHome() {
                       </Button>
                     ) : (
                       <Button
+                        type="button"
                         size="sm"
                         variant="ghost"
                         className="h-8 text-xs font-bold text-violet-600 hover:text-violet-700 hover:bg-violet-50 px-3"
@@ -476,11 +513,11 @@ export default function StudentHome() {
               <Calendar className="w-4 h-4 text-violet-600" />
               Próximas Aulas
             </h3>
-            <Link href="/solutions/estudio-de-danca/student/turmas">
-              <Button variant="ghost" size="sm" className="text-violet-600 text-xs font-bold h-7">
+            <Button type="button" variant="ghost" size="sm" className="text-violet-600 text-xs font-bold h-7" asChild>
+              <Link href="/solutions/estudio-de-danca/student/turmas">
                 Ver todas <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
           {loading ? (
             <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-violet-600" /></div>

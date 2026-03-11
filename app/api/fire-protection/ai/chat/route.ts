@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { checkStudioAccess, allowInternalAiCall } from '@/lib/auth'
 import logger from '@/lib/logger'
+import { getNichePrompt, getContextTimestamp } from '@/lib/catarina'
 
 const CHECKLIST_PADRAO = [
   { title: 'Extintores dentro do prazo de validade', order_index: 0 },
@@ -490,7 +491,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Fire Protection sempre usa contexto próprio (clientes, vistorias, OS, técnicos).
-    // Não usar studio_ai_reports pois é genérico/DanceFlow e não tem instruções de tools.
     let contextContent: string
     try {
       contextContent = await buildFireProtectionContext(contextStudioId)
@@ -498,6 +498,14 @@ export async function POST(request: NextRequest) {
       logger.error('Erro ao montar contexto FireProtection:', ctxErr)
       contextContent = 'Contexto indisponível.'
     }
+
+    const { data: studioRow } = await supabaseAdmin
+      .from('studios')
+      .select('name')
+      .eq('id', contextStudioId)
+      .maybeSingle()
+    const studioName = studioRow?.name || 'FireControl'
+    const nicheConfig = getNichePrompt('fire_protection', studioName)
 
     let apiKey = process.env.GOOGLE_AI_API_KEY
     const { data: geminiKeys } = await supabaseAdmin
@@ -517,7 +525,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const systemPrompt = `Você é a SECRETARIA VIRTUAL do FireControl. Sua função é EXECUTAR AÇÕES no sistema, não dar instruções.
+    const contactName = context?.contact_name || 'Não informado'
+    const contactTypeLabel = context?.contact_type_label || 'Admin'
+    const contactSection = `\nCONTATO ATUAL: ${contactName} (${contactTypeLabel})\n`
+
+    const systemPrompt = `Você é a Catarina, ${nicheConfig.identity} da "${studioName}".
+Sua função é EXECUTAR AÇÕES no sistema (listar, agendar, criar), não dar instruções ao usuário.
+${contactSection}
+CONTEXTO TEMPORAL (use para "hoje", "próxima segunda", datas): ${getContextTimestamp()}
 
 ${contextContent}
 
@@ -550,7 +565,7 @@ Responda em português. Seja objetivo e CONFIRME o que foi feito.`
     const msgLower = lastMsg.toLowerCase().trim()
     if (/^(teste|oi|olá|ola|ola!|hey|oi!)$/i.test(msgLower)) {
       return NextResponse.json({
-        response: 'Olá! Sou a secretária virtual do FireControl.\n\nPosso listar **extintores vencendo**, **clientes**, **técnicos**, **vistorias** e **OS**. Também consigo **agendar vistorias** e **criar ordens de serviço**.\n\nO que precisa?',
+        response: `${nicheConfig.greeting}\n\nPosso listar **extintores vencendo**, **clientes**, **técnicos**, **vistorias** e **OS**. Também consigo **agendar vistorias** e **criar ordens de serviço**.\n\nO que precisa? 🔥`,
       })
     }
 

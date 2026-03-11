@@ -156,7 +156,7 @@ function AffiliateLoginContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Senha</Label>
-                    <Link href="/forgot-password" className="text-sm text-indigo-600 hover:underline">
+                    <Link href="/forgot-password?returnTo=/portal/affiliate/login" className="text-sm text-indigo-600 hover:underline">
                       Esqueceu a senha?
                     </Link>
                   </div>

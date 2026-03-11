@@ -110,6 +110,7 @@ function LoginContent() {
   return (
     <div className="min-h-screen bg-slate-950 flex relative font-sans">
       <button
+        type="button"
         onClick={() => router.push("/solutions/estudio-de-danca")}
         className="absolute top-6 left-6 z-50 flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest"
       >
@@ -258,7 +259,7 @@ function LoginContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Senha</Label>
-                    <Link href="/forgot-password" className="text-xs text-violet-500/80 hover:text-violet-400 transition-colors">
+                    <Link href="/forgot-password?returnTo=/solutions/estudio-de-danca/login" className="text-xs text-violet-500/80 hover:text-violet-400 transition-colors">
                       Esqueceu?
                     </Link>
                   </div>
@@ -282,11 +283,11 @@ function LoginContent() {
                   </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white font-semibold shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all duration-200"
-                  disabled={isLoading}
-                >
+                  <Button
+                    type="submit"
+                    className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white font-semibold shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all duration-200"
+                    disabled={isLoading}
+                  >
                   {isLoading ? (
                     <><Loader2 className="w-5 h-5 mr-3 animate-spin" />AUTENTICANDO...</>
                   ) : (

@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import { VerticalizationPlansCard } from "@/components/admin/verticalization-plans-card"
 
 interface AgroFlowAIStats {
   totalTenants: number
@@ -232,6 +233,15 @@ export default function AgroFlowAIAdminPage() {
             </Card>
           ))}
         </div>
+
+        {/* Planos e Preços */}
+        <VerticalizationPlansCard
+          verticalizationSlug="agroflowai"
+          verticalizationName="AgroFlowAI"
+          landingUrl="/solutions/agroflowai"
+          iconColor="text-emerald-400"
+          iconBg="bg-emerald-500/10"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

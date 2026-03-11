@@ -6,24 +6,111 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { UserCircle, Mail, Phone, Save, Loader2 } from "lucide-react"
+import {
+  UserCircle, Mail, Phone, Save, Loader2,
+  Building2, CheckCircle, Link2, Link2Off, AlertCircle, RefreshCw,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
+
+interface VinculoEstudio {
+  linked: boolean
+  student_id?: string
+  studio?: { id: string; name: string }
+}
+
+const STUDENT_VINCULO_STORAGE_KEY = "danceflow_student_vinculo"
+
+function getStoredStudentVinculo(): VinculoEstudio | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(STUDENT_VINCULO_STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as VinculoEstudio
+  } catch {
+    return null
+  }
+}
+
+function setStoredStudentVinculo(value: VinculoEstudio | null) {
+  if (typeof window === "undefined") return
+  try {
+    if (value && value.linked) {
+      localStorage.setItem(STUDENT_VINCULO_STORAGE_KEY, JSON.stringify(value))
+    } else {
+      localStorage.removeItem(STUDENT_VINCULO_STORAGE_KEY)
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
 
 export default function StudentPerfilPage() {
-  const [user, setUser] = useState<any>(null)
+  const { toast } = useToast()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: "", email: "", phone: "" })
-  const { toast } = useToast()
+
+  const [vinculo, setVinculo] = useState<VinculoEstudio>({ linked: false })
+  const [loadingVinculo, setLoadingVinculo] = useState(true)
+  const [inviteCode, setInviteCode] = useState("")
+  const [vinculando, setVinculando] = useState(false)
+  const [desvinculando, setDesvinculando] = useState(false)
+
+  const loadVinculo = async () => {
+    setLoadingVinculo(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        const cached = getStoredStudentVinculo()
+        if (cached) {
+          setVinculo(cached)
+        } else {
+          setVinculo({ linked: false })
+        }
+        return
+      }
+
+      const res = await fetch("/api/dance-studio/vincular", {
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const cached = getStoredStudentVinculo()
+        if (cached) {
+          setVinculo(cached)
+        } else {
+          setVinculo({ linked: false })
+        }
+        return
+      }
+      setVinculo(data)
+      if (data.linked) {
+        setStoredStudentVinculo(data)
+      }
+    } catch {
+      const cached = getStoredStudentVinculo()
+      if (cached) {
+        setVinculo(cached)
+      } else {
+        setVinculo({ linked: false })
+      }
+    } finally {
+      setLoadingVinculo(false)
+    }
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
       setForm({
         name: user?.user_metadata?.name || "",
         email: user?.email || "",
         phone: user?.user_metadata?.phone || "",
       })
     })
+    loadVinculo()
   }, [])
 
   const handleSave = async () => {
@@ -38,8 +125,71 @@ export default function StudentPerfilPage() {
     }
   }
 
+  const handleVincular = async () => {
+    if (!inviteCode.trim()) {
+      toast({ title: "Informe o código de convite", variant: "destructive" })
+      return
+    }
+    setVinculando(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error("Sessão expirada. Faça login novamente.")
+      }
+
+      const res = await fetch("/api/dance-studio/vincular", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ invite_code: inviteCode.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erro ao vincular")
+      toast({ title: "Estúdio vinculado com sucesso!", description: data.message })
+      setInviteCode("")
+      const updated: VinculoEstudio = { linked: true, studio: data.studio, student_id: data.student_id }
+      setVinculo(updated)
+      setStoredStudentVinculo(updated)
+    } catch (err: any) {
+      toast({ title: "Erro ao vincular", description: err.message, variant: "destructive" })
+    } finally {
+      setVinculando(false)
+    }
+  }
+
+  const handleDesvincular = async () => {
+    if (!confirm("Tem certeza que deseja se desvincular deste estúdio?")) return
+    setDesvinculando(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error("Sessão expirada. Faça login novamente.")
+      }
+
+      const res = await fetch("/api/dance-studio/vincular", {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erro ao desvincular")
+      toast({ title: "Desvinculado com sucesso", description: data.message })
+      await loadVinculo()
+      setStoredStudentVinculo(null)
+    } catch (err: any) {
+      toast({ title: "Erro ao desvincular", description: err.message, variant: "destructive" })
+    } finally {
+      setDesvinculando(false)
+    }
+  }
+
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-xl pb-20 md:pb-0">
       <div>
         <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
           <UserCircle className="w-6 h-6 text-violet-600" />
@@ -48,20 +198,145 @@ export default function StudentPerfilPage() {
         <p className="text-slate-500 text-sm mt-1">Seus dados pessoais</p>
       </div>
 
-      {/* Avatar */}
+      {/* Avatar + Info */}
       <div className="flex items-center gap-4">
-        <div className="w-20 h-20 rounded-full bg-violet-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-violet-600/20">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-violet-600/20">
           {form.name?.[0]?.toUpperCase() || "A"}
         </div>
         <div>
           <p className="font-black text-slate-900 dark:text-white text-lg">{form.name || "Aluno"}</p>
           <p className="text-sm text-slate-500">{form.email}</p>
-          <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-violet-400 text-[10px] font-black uppercase tracking-widest">
-            Aluno
-          </span>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="inline-block px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-600/20 text-violet-700 dark:text-violet-400 text-[10px] font-black uppercase tracking-widest">
+              Aluno
+            </span>
+            {vinculo.linked && vinculo.studio && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-pink-100 dark:bg-pink-600/20 text-pink-700 dark:text-pink-400 text-[10px] font-black uppercase tracking-widest">
+                <Building2 className="w-3 h-3" />
+                {vinculo.studio.name}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Vínculo com Estúdio */}
+      <Card className="bg-white dark:bg-slate-900/50 shadow-sm border border-slate-200 dark:border-white/10">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-violet-600" />
+              Estúdio Vinculado
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-slate-400 hover:text-slate-700"
+              onClick={loadVinculo}
+              disabled={loadingVinculo}
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", loadingVinculo && "animate-spin")} />
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Vincule-se a um estúdio para acessar turmas e aulas
+          </p>
+        </CardHeader>
+        <CardContent>
+          {loadingVinculo ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
+            </div>
+          ) : vinculo.linked && vinculo.studio ? (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-600/10 border border-emerald-200 dark:border-emerald-600/20">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-600/20 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-emerald-800 dark:text-emerald-400 text-sm">Vinculado com sucesso</p>
+                  <p className="text-emerald-700 dark:text-emerald-300 font-black text-base mt-0.5 truncate">
+                    {vinculo.studio.name}
+                  </p>
+                  <p className="text-emerald-600/70 text-xs mt-1">
+                    Você tem acesso às turmas e aulas deste estúdio
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 font-bold rounded-xl"
+                onClick={handleDesvincular}
+                disabled={desvinculando}
+              >
+                {desvinculando ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Link2Off className="w-4 h-4 mr-2" />
+                )}
+                Desvincular deste Estúdio
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-600/10 border border-amber-200 dark:border-amber-600/20">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-800 dark:text-amber-400 text-sm">Nenhum estúdio vinculado</p>
+                  <p className="text-amber-700/80 dark:text-amber-300/80 text-xs mt-0.5">
+                    Solicite o código de aluno ao administrador do estúdio e insira abaixo.
+                  </p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Código de Convite (Aluno)
+                </Label>
+                <div className="flex gap-2 mt-1.5">
+                  <div className="relative flex-1">
+                    <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      className="pl-9 font-mono uppercase tracking-widest"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                      placeholder="Ex: A1B2C3D4"
+                      maxLength={10}
+                    />
+                  </div>
+                  <Button
+                    className="bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl px-5"
+                    onClick={handleVincular}
+                    disabled={vinculando || !inviteCode.trim()}
+                  >
+                    {vinculando ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Link2 className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5">
+                  O código é fornecido pelo administrador do estúdio no painel DanceFlow.
+                </p>
+              </div>
+              <Button
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl"
+                onClick={handleVincular}
+                disabled={vinculando || !inviteCode.trim()}
+              >
+                {vinculando ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Link2 className="w-4 h-4 mr-2" />
+                )}
+                Salvar Vínculo com Estúdio
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Form de Perfil */}
       <Card className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10">
         <CardHeader>
           <CardTitle className="text-base font-bold text-slate-900 dark:text-white">Dados Pessoais</CardTitle>

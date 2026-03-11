@@ -63,6 +63,7 @@ const navGroups = [
     label: "Gestão",
     items: [
       { href: "/solutions/fire-protection/dashboard/financeiro", label: "Financeiro", icon: DollarSign },
+      { href: "/solutions/fire-protection/dashboard/planos", label: "Planos e Assinatura", icon: Package },
       { href: "/solutions/fire-protection/dashboard/relatorios", label: "Relatórios", icon: BarChart3 },
       { href: "/solutions/fire-protection/dashboard/configuracoes", label: "Configurações", icon: Settings },
     ],

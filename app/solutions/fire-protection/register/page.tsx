@@ -206,7 +206,7 @@ function RegisterContent() {
           plan: role === 'admin' ? plan : undefined,
           taxId: formData.taxId,
           taxIdType: (role === 'admin') ? taxIdType : 'cpf',
-          modules: (role === 'admin' && plan === 'custom') ? selectedModules : undefined,
+          modules: (role === 'admin' && plan === 'custom') ? Object.keys(selectedModules).filter(k => selectedModules[k]) : undefined,
           multiUnitQuantity: (role === 'admin' && plan === 'custom' && selectedModules['multi_unit']) ? multiUnitQuantity : 1,
           language: 'pt'
         })

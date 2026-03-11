@@ -20,7 +20,7 @@ export function Sidebar({ collapsed, onToggle, isAffiliate, isSeller, isFinance 
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border hidden md:flex flex-col transition-all duration-300 z-40",
+        "fixed left-0 top-0 h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border hidden md:flex flex-col transition-all duration-300 z-30",
         collapsed ? "w-[72px]" : "w-64"
       )}
     >

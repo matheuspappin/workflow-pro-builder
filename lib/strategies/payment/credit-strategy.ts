@@ -1,6 +1,7 @@
 import { PaymentStrategy, PaymentContext, PaymentResult } from './types';
 import { createClient } from '@/lib/supabase/server';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { createCreditUsagePayment } from '@/lib/actions/credit-payments';
 
 export class CreditPaymentStrategy implements PaymentStrategy {
   constructor(private supabase: SupabaseClient) {}
@@ -70,18 +71,27 @@ export class CreditPaymentStrategy implements PaymentStrategy {
         .in('id', osIds);
     }
 
-    // Record usage
-    // We should record each item or a bulk usage.
-    // For simplicity, we'll record one usage entry per transaction or per item.
-    // The table `student_credit_usage` seems relevant.
-    
+    // Record usage and create payment for financeiro
     for (const item of context.items) {
+        const creditsUsed = item.priceInCredits * item.quantity;
         await this.supabase.from('student_credit_usage').insert({
             studio_id: context.studioId,
-            student_id: context.studentId,
-            credits_used: item.priceInCredits * item.quantity,
-            usage_type: 'class_attendance', // Or product_purchase if we add that type to enum
+            student_id: context.studentId!,
+            credits_used: creditsUsed,
+            usage_type: 'class_attendance',
             notes: `Purchase: ${item.name} (x${item.quantity})`
+        });
+
+        // Registrar cobrança no financeiro (produto ou marketplace pago com crédito)
+        const paymentSource = item.type === 'product' ? 'product' : 'marketplace';
+        const descPrefix = item.type === 'product' ? 'Produto' : 'Marketplace';
+        await createCreditUsagePayment({
+            studioId: context.studioId,
+            studentId: context.studentId!,
+            description: `${descPrefix}: ${item.name}${item.quantity > 1 ? ` (x${item.quantity})` : ''}`,
+            creditsUsed,
+            paymentSource,
+            referenceId: item.id,
         });
     }
 

@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { nicheDictionary, NicheType, VocabularyType } from '@/config/niche-dictionary'
-import { ModuleKey, normalizeModules, MODULE_DEFINITIONS } from '@/config/modules'
+import { ModuleKey, normalizeModules } from '@/config/modules'
+import { PLAN_LIMITS } from '@/lib/plan-limits'
 import { supabase } from '@/lib/supabase'
 import { translations, TranslationType } from '@/config/translations'
 import logger from '@/lib/logger';
@@ -15,6 +16,8 @@ interface OrganizationState {
   studioId: string | null
   studios: any[]
   businessModel: 'CREDIT' | 'MONETARY'
+  planId: string | null
+  planName: string | null
   switchStudio: (id: string) => Promise<void>
   language: 'pt' | 'en'
   setLanguage: (lang: 'pt' | 'en') => void
@@ -30,6 +33,8 @@ const defaultState: OrganizationState = {
   studioId: null,
   studios: [],
   businessModel: 'CREDIT',
+  planId: null,
+  planName: null,
   switchStudio: async () => {},
   language: 'pt',
   setLanguage: () => {},
@@ -92,22 +97,25 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback(async (lang: 'pt' | 'en') => {
     localStorage.setItem('workflow_pro_lang', lang)
-    setState(prev => ({ 
-      ...prev, 
-      language: lang,
-      t: translations[lang] as unknown as TranslationType
-    }))
+    // CORRIGIDO: atualizar também vocabulary ao mudar idioma
+    setState(prev => {
+      const dictionary = nicheDictionary[lang] || nicheDictionary.pt
+      const vocab = (dictionary[prev.niche as NicheType] || dictionary.dance) as VocabularyType
+      return {
+        ...prev,
+        language: lang,
+        vocabulary: vocab,
+        t: translations[lang] as unknown as TranslationType,
+      }
+    })
 
-    // Tenta atualizar no Supabase se o usuário estiver logado
     try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-            await supabase.auth.updateUser({
-                data: { language: lang }
-            })
-        }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase.auth.updateUser({ data: { language: lang } })
+      }
     } catch (error) {
-        console.error('Erro ao salvar idioma no perfil:', error)
+      console.error('Erro ao salvar idioma no perfil:', error)
     }
   }, [])
 
@@ -138,7 +146,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           vocabulary: (urlNiche ? nicheDictionary[prev.language || 'pt'][urlNiche] : defaultState.vocabulary) as VocabularyType,
           language: prev.language,
           t: translations[prev.language || 'pt'] as unknown as TranslationType,
-          isLoading: false
+          isLoading: false,
+          planId: null,
+          planName: null
         }))
         return
       }
@@ -150,7 +160,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // Iniciar buscas independentes em paralelo
       const studiosPromise = supabase
         .from('studios')
-        .select('id, name, slug, business_model')
+        .select('id, name, slug, business_model, plan, verticalization_plan_id')
         .eq('owner_id', user.id);
 
       // Resolver studioId inicial
@@ -174,14 +184,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         studioId = user.user_metadata?.studio_id || null;
       }
 
-      // Gestão de idioma
+      // Gestão de idioma — ler do localStorage diretamente (sem closure sobre state)
       const savedLang = typeof window !== 'undefined' ? localStorage.getItem('workflow_pro_lang') as 'pt' | 'en' : 'pt'
       const metadataLang = user.user_metadata?.language as 'pt' | 'en'
-      const validLang = (metadataLang === 'pt' || metadataLang === 'en') ? metadataLang : 
+      const validLang = (metadataLang === 'pt' || metadataLang === 'en') ? metadataLang :
                         ((savedLang === 'pt' || savedLang === 'en') ? savedLang : 'pt')
-      
-      if (metadataLang && metadataLang !== state.language) {
-          localStorage.setItem('workflow_pro_lang', metadataLang)
+
+      if (metadataLang && (metadataLang === 'pt' || metadataLang === 'en') && metadataLang !== savedLang) {
+        localStorage.setItem('workflow_pro_lang', metadataLang)
       }
 
       // Aguardar studios
@@ -217,7 +227,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             logger.warn('⚠️ [OrganizationProvider] Usuário sem studio_id vinculado.');
         }
         
-        setState(prev => ({ ...prev, isLoading: false, studioId: null, studios: studios }))
+        setState(prev => ({ ...prev, isLoading: false, studioId: null, studios: studios, planId: null, planName: null }))
         
         if (!isSuperAdmin) return;
       }
@@ -270,6 +280,38 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const vocabulary = dictionary[nicheKey] || orgSettings?.vocabulary || dictionary.dance
       
       let enabledModules = normalizeModules(orgSettings?.enabled_modules)
+
+      // Resolver planId e planName para exibição (ex: ModuleLockScreen)
+      let planId: string | null = null
+      let planName: string | null = null
+      let activeStudio = studios.find((s: { id: string }) => s.id === studioId) as { plan?: string; verticalization_plan_id?: string } | undefined
+      if (!activeStudio && studioId) {
+        const { data: studioRow } = await supabase.from('studios').select('plan, verticalization_plan_id').eq('id', studioId).maybeSingle()
+        activeStudio = studioRow as { plan?: string; verticalization_plan_id?: string } | undefined
+      }
+      if (activeStudio?.verticalization_plan_id) {
+        const { data: vp } = await supabase
+          .from('verticalization_plans')
+          .select('plan_id, name')
+          .eq('id', activeStudio.verticalization_plan_id)
+          .maybeSingle()
+        planId = vp?.plan_id ?? null
+        planName = vp?.name ?? null
+      } else if (activeStudio?.plan) {
+        planId = activeStudio.plan
+        const normId = ['starter', 'free'].includes(activeStudio.plan.toLowerCase())
+          ? 'gratuito'
+          : activeStudio.plan === 'pro+' ? 'pro-plus' : activeStudio.plan
+        planName = PLAN_LIMITS[normId]?.name ?? null
+        if (!planName) {
+          const { data: sp } = await supabase.from('system_plans').select('name').eq('id', activeStudio.plan).maybeSingle()
+          planName = sp?.name ?? activeStudio.plan
+        }
+      } else if (activeStudio || studioId) {
+        // Estúdio sem plano definido = Gratuito
+        planId = 'gratuito'
+        planName = PLAN_LIMITS.gratuito.name
+      }
       
       setState(prev => ({
         ...prev,
@@ -281,18 +323,21 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         isLoading: false,
         studioId: studioId,
         studios: studios,
-        businessModel: businessModel
+        businessModel: businessModel,
+        planId,
+        planName
       }))
 
     } catch (error) {
       logger.error('❌ [OrganizationProvider] Erro fatal:', error)
       setState(prev => ({ ...prev, isLoading: false }))
     }
-  }, [setState, state.language])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Deps vazia intencional: loadSettings usa setState(prev => ...) para acessar state atual
 
   useEffect(() => {
     loadSettings()
-    
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         loadSettings()
@@ -302,7 +347,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           language: prev.language, 
           t: translations[prev.language] as unknown as TranslationType,
           isLoading: false,
-          businessModel: 'CREDIT'
+          businessModel: 'CREDIT',
+          planId: null,
+          planName: null
         }))
         localStorage.removeItem('workflow_pro_active_studio')
       }

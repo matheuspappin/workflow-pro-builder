@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import logger from '@/lib/logger'
 import { getAiEndpointForStudio } from '@/lib/ai-router'
+import { resolveContactFromWhatsApp } from '@/lib/contact-resolver'
 
 // Cache em memória para evitar processar a mesma mensagem duas vezes seguidas
 // Em produção real, isso seria um Redis, mas para dev local resolve 100%
@@ -125,34 +126,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4.2 Buscar se é admin ou aluno para confirmar studioId se ainda não identificado
-    const { data: adminUser } = await supabaseAdmin
-      .from('users_internal')
-      .select('studio_id, name')
-      .eq('phone', senderNumber)
-      .maybeSingle()
+    // 4.2 Resolver identidade do contato (admin, técnico, aluno, cliente, lead)
+    const contact = await resolveContactFromWhatsApp(studioId, senderNumber, body.pushName)
+    studioId = contact.studio_id
+    const { is_admin: isAdmin, is_student: isStudent } = contact
+    const userName = contact.contact_name
 
-    const { data: studentUser } = await supabaseAdmin
-      .from('students')
-      .select('studio_id, name, id')
-      .eq('phone', senderNumber)
-      .maybeSingle()
+    logger.info(`📩 [SECRETARIA] Nova mensagem de ${userName} (${contact.contact_type_label}): ${messageContent}`)
 
-    const isAdmin = !!adminUser
-    const isStudent = !!studentUser
-    
-    // Fallback para identificação por número se a instância não resolveu
-    if (studioId === '00000000-0000-0000-0000-000000000000') {
-      studioId = adminUser?.studio_id || studentUser?.studio_id || '00000000-0000-0000-0000-000000000000'
-    }
-    
-    const userName = body.pushName || adminUser?.name || studentUser?.name || 'Cliente'
-
-    logger.info(`📩 [SECRETARIA] Nova mensagem de ${userName}: ${messageContent}`)
-
-    // 4.1 LÓGICA DE CONFIRMAÇÃO DE AULA (SIM/NAO)
+    // 4.3 LÓGICA DE CONFIRMAÇÃO DE AULA (SIM/NAO) - requer student_id
     const normalizedMsg = messageContent.trim().toUpperCase()
-    if (isStudent && (normalizedMsg === 'SIM' || normalizedMsg === 'NAO' || normalizedMsg === 'NÃO')) {
+    if (isStudent && contact.student_id && (normalizedMsg === 'SIM' || normalizedMsg === 'NAO' || normalizedMsg === 'NÃO')) {
       const isConfirming = normalizedMsg === 'SIM'
       const todayStr = new Date().toISOString().split('T')[0]
 
@@ -160,7 +144,7 @@ export async function POST(request: NextRequest) {
       const { data: pendingAttendance } = await supabaseAdmin
         .from('attendance')
         .select('*, class:classes(name)')
-        .eq('student_id', studentUser.id)
+        .eq('student_id', contact.student_id)
         .eq('date', todayStr)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
@@ -188,7 +172,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. PERSISTÊNCIA E IA (roteamento por nicho: DanceFlow, FireControl, AgroFlowAI)
-    await syncToDb(remoteJid, messageContent, studioId, userName, messageId)
+    const chat = await syncToDb(remoteJid, messageContent, studioId, userName, messageId)
+
+    // 5.1 Buscar histórico da conversa (últimas 20 mensagens, exceto a atual) para contexto da IA
+    const history = chat ? await fetchWhatsAppChatHistory(chat.id, studioId, 20, messageId) : []
 
     const aiEndpoint = await getAiEndpointForStudio(studioId)
     const internalKey = process.env.INTERNAL_AI_SECRET || process.env.WEBHOOK_WHATSAPP_SECRET || process.env.EVOLUTION_WEBHOOK_SECRET
@@ -202,8 +189,16 @@ export async function POST(request: NextRequest) {
       headers,
       body: JSON.stringify({
         message: messageContent,
-        history: [],
-        context: { studio_id: studioId, is_admin: isAdmin, is_student: isStudent, user_name: userName }
+        history,
+        context: {
+          studio_id: studioId,
+          contact_layer: contact.contact_layer,
+          contact_type_label: contact.contact_type_label,
+          contact_name: contact.contact_name,
+          is_admin: isAdmin,
+          is_student: isStudent,
+          user_name: userName,
+        },
       })
     })
 
@@ -270,6 +265,10 @@ export async function POST(request: NextRequest) {
         studioId: studioId
       })
       logger.info(`✅ Resposta enviada para ${userName}`)
+      // Persistir resposta da IA no histórico para contexto em mensagens futuras
+      if (chat) {
+        await storeAiResponseInChat(chat.id, studioId, finalMessage, remoteJid)
+      }
     }
 
     return NextResponse.json({ success: true })
@@ -280,7 +279,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function syncToDb(remoteJid: string, content: string, studioId: string, name: string, messageId: string) {
+async function syncToDb(remoteJid: string, content: string, studioId: string, name: string, messageId: string): Promise<{ id: string } | null> {
   try {
     const { data: chat } = await supabaseAdmin
       .from('whatsapp_chats')
@@ -304,9 +303,78 @@ async function syncToDb(remoteJid: string, content: string, studioId: string, na
         sender_number: senderNumber,
         timestamp: new Date().toISOString()
       })
+      return chat
     }
   } catch (e) {
     logger.error('❌ Erro ao sincronizar mensagem no DB:', e)
+  }
+  return null
+}
+
+/**
+ * Busca últimas N mensagens do chat para contexto da IA.
+ * Formato: [{ role: 'user', content }, { role: 'assistant', content }]
+ * Exclui a mensagem atual (messageId) do histórico.
+ */
+async function fetchWhatsAppChatHistory(
+  chatId: string,
+  studioId: string,
+  limit: number,
+  excludeMessageId?: string
+): Promise<Array<{ role: string; content: string }>> {
+  try {
+    let query = supabaseAdmin
+      .from('whatsapp_messages')
+      .select('content, from_me, is_ai, message_id')
+      .eq('chat_id', chatId)
+      .eq('studio_id', studioId)
+      .order('timestamp', { ascending: false })
+
+    if (excludeMessageId) {
+      query = query.neq('message_id', excludeMessageId)
+    }
+
+    const { data: messages } = await query.limit(limit * 2) // *2 pois alternamos user/assistant
+
+    if (!messages?.length) return []
+
+    const history: Array<{ role: string; content: string }> = []
+    for (const m of [...messages].reverse()) {
+      const role = m.from_me || m.is_ai ? 'assistant' : 'user'
+      if (m.content?.trim()) {
+        history.push({ role, content: m.content.trim() })
+      }
+    }
+    return history.slice(-limit)
+  } catch (e) {
+    logger.warn('Erro ao buscar histórico WhatsApp:', e)
+    return []
+  }
+}
+
+/**
+ * Persiste a resposta da IA no histórico do chat para contexto em mensagens futuras.
+ */
+async function storeAiResponseInChat(
+  chatId: string,
+  studioId: string,
+  content: string,
+  remoteJid: string
+): Promise<void> {
+  try {
+    const senderNumber = remoteJid.replace(/\D/g, '')
+    await supabaseAdmin.from('whatsapp_messages').insert({
+      studio_id: studioId,
+      chat_id: chatId,
+      content,
+      from_me: true,
+      is_ai: true,
+      message_id: `ai_${Date.now()}_${senderNumber}`,
+      sender_number: senderNumber,
+      timestamp: new Date().toISOString()
+    })
+  } catch (e) {
+    logger.warn('Erro ao salvar resposta IA no histórico:', e)
   }
 }
 

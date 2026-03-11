@@ -17,11 +17,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-black text-white">
       <AdminSidebarClient />
       
       {/* Mobile Top Bar */}
-      <div className="lg:hidden h-16 bg-black border-b border-white/10 flex items-center justify-between px-4 sticky top-0 z-40">
+      <div className="lg:hidden h-16 bg-black border-b border-white/10 flex items-center px-4 sticky top-0 z-30">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
             <span className="text-white font-black text-xs">AK</span>
@@ -30,7 +30,7 @@ export default async function AdminLayout({
         </div>
       </div>
 
-      <main className="flex-1 min-h-screen flex flex-col">
+      <main className="min-h-screen flex flex-col lg:ml-64 transition-all duration-300">
         {children}
       </main>
     </div>

@@ -18,6 +18,7 @@ import {
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
+import { createCreditUsagePayment } from "@/lib/actions/credit-payments"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -231,6 +232,16 @@ export default function AdminAttendancePage() {
                 credits_used: 1,
                 usage_type: 'class_attendance',
                 notes: `Presença em ${classInfo.name} (Registrado pela Admin)`
+              })
+
+              // Registrar cobrança no financeiro (uso de crédito em aula)
+              await createCreditUsagePayment({
+                studioId: classInfo.studio_id,
+                studentId,
+                description: `Aula: ${classInfo.name}`,
+                creditsUsed: 1,
+                paymentSource: 'class',
+                referenceId: id,
               })
 
               if (credits.remaining_credits - 1 <= 2) {

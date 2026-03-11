@@ -33,7 +33,7 @@ import {
   FireExtinguisher, Home, BookOpen, Car, Leaf, Music, Camera,
   ShoppingCart, Briefcase, GraduationCap, Star, Plus, Shield, Truck,
   MessageSquare, ScanLine, LayoutDashboard, Puzzle, Trash2, AlertTriangle,
-  CalendarDays, Wrench,
+  CalendarDays, Wrench, Receipt,
 } from "lucide-react"
 import {
   getVerticalizationBySlug,
@@ -44,6 +44,7 @@ import {
   type VerticalRecord,
   type TenantRow,
 } from "@/lib/actions/verticalization"
+import { VerticalizationPlansCard } from "@/components/admin/verticalization-plans-card"
 import { getDefaultModulesForNiche } from "@/config/niche-modules"
 import { nicheDictionary, type NicheType } from "@/config/niche-dictionary"
 import { cn } from "@/lib/utils"
@@ -139,6 +140,11 @@ const AVAILABLE_MODULES = [
     id: 'multi_unit', label: 'Multi-unidade', icon: Building2,
     description: 'Gestão de múltiplas unidades e filiais',
     color: 'text-indigo-300', bg: 'bg-indigo-400/10',
+  },
+  {
+    id: 'fiscal', label: 'Emissor Fiscal (NF-e)', icon: Receipt,
+    description: 'Emissão de Notas Fiscais Eletrônicas via SEFAZ',
+    color: 'text-amber-400', bg: 'bg-amber-500/10',
   },
 ]
 
@@ -787,7 +793,7 @@ export default function VerticalizationManagePage() {
                 <p className="text-amber-300 text-sm flex-1">
                   Você tem alterações não salvas nos módulos.
                 </p>
-                <Button size="sm" onClick={handleSaveModules} disabled={savingModules} className="bg-amber-500 hover:bg-amber-600 text-black font-bold gap-1.5 flex-shrink-0">
+                <Button type="button" size="sm" onClick={handleSaveModules} disabled={savingModules} className="bg-amber-500 hover:bg-amber-600 text-black font-bold gap-1.5 flex-shrink-0">
                   {savingModules ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Salvar Agora
                 </Button>
@@ -795,6 +801,16 @@ export default function VerticalizationManagePage() {
             )}
           </CardContent>
         </Card>
+
+        {/* ── PLANOS E PREÇOS (por verticalização) ───────────────────────────── */}
+        <VerticalizationPlansCard
+          verticalizationId={vertical.id}
+          verticalizationSlug={vertical.slug}
+          verticalizationName={vertical.name}
+          landingUrl={vertical.landing_url}
+          iconColor={vertical.icon_color}
+          iconBg={vertical.icon_bg}
+        />
 
         {/* ── TENANTS + QUICK ACTIONS ──────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

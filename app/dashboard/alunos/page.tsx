@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react"
 import { Header } from "@/components/dashboard/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -142,9 +142,9 @@ function StudentsContent() {
       loadStudioPlan()
       loadModalities()
     }
-  }, [dataLoaded])
+  }, [dataLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadModalities = async () => {
+  const loadModalities = useCallback(async () => {
     try {
       const userStr = localStorage.getItem('danceflow_user')
       if (!userStr) return
@@ -163,9 +163,9 @@ function StudentsContent() {
     } catch (e) {
       console.error('Erro ao carregar modalidades:', e)
     }
-  }
+  }, [])
 
-  const loadStudioPlan = async () => {
+  const loadStudioPlan = useCallback(async () => {
     try {
       const userStr = localStorage.getItem('danceflow_user')
       if (!userStr) return
@@ -184,18 +184,18 @@ function StudentsContent() {
     } catch (e) {
       console.error('Erro ao carregar plano:', e)
     }
-  }
+  }, [])
 
-  const loadClasses = async () => {
+  const loadClasses = useCallback(async () => {
     try {
       const classes = await getClasses()
       setAvailableClasses(classes)
     } catch (error) {
       console.error('Erro ao carregar turmas:', error)
     }
-  }
+  }, [])
 
-  const loadStudents = async (forceReload = false) => {
+  const loadStudents = useCallback(async (forceReload = false) => {
     try {
       // Verificar se já temos dados em cache e não foi forçado recarregar
       const cacheKey = 'danceflow_students_cache'
@@ -255,7 +255,7 @@ function StudentsContent() {
           enrollmentDate: student.enrollment_date,
           lastClass: student.last_attendance_date ? new Date(student.last_attendance_date).toLocaleDateString('pt-BR') : 'N/A',
           monthlyFee: student.monthly_fee || 0,
-          paymentStatus: 'pago',
+          paymentStatus: (student.payment_status || student.status_pagamento || 'pendente') as "pago" | "pendente" | "atrasado",
           studio_id: student.studio_id,
           credits: creditValue,
           expiryDate: expiryValue,
@@ -284,9 +284,9 @@ function StudentsContent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchTerm, statusFilter, toast, t, vocabulary])
 
-  const filteredStudents = students.filter((student) => {
+  const filteredStudents = useMemo(() => students.filter((student) => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase())
     
@@ -301,7 +301,7 @@ function StudentsContent() {
 
     const matchesModality = modalityFilter === "all" || student.modality === modalityFilter
     return matchesSearch && matchesStatus && matchesModality
-  })
+  }), [students, searchTerm, statusFilter, modalityFilter, businessModel])
 
   const handleAddStudent = async () => {
     if (!newStudent.name || !newStudent.email || !newStudent.phone) {
@@ -398,7 +398,7 @@ function StudentsContent() {
     }
   }
 
-  const stats = [
+  const stats = useMemo(() => [
     { label: `${t.common.total} de ${vocabulary.clients}`, value: students.length, icon: Users },
     { 
       label: `${vocabulary.clients} ${t.common.active}`, 
@@ -415,7 +415,7 @@ function StudentsContent() {
       value: students.filter(s => businessModel === 'CREDIT' ? (s.credits ?? 0) === 0 : s.status === 'inativo').length, 
       color: "text-muted-foreground" 
     },
-  ]
+  ], [students, businessModel, t, vocabulary])
 
   const handleSendEmail = (student: Student) => {
     const studioName = localStorage.getItem("danceflow_user") ? JSON.parse(localStorage.getItem("danceflow_user")!).studioName : vocabulary.establishment
@@ -905,7 +905,7 @@ function StudentsContent() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
+                <Button type="button" variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
                   <Download className="w-4 h-4" />
                   {t.common.export}
                 </Button>
@@ -977,10 +977,10 @@ function StudentsContent() {
 
                     </div>
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                         {t.students.cancelButton}
                       </Button>
-                      <Button onClick={handleAddStudent} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                      <Button type="button" onClick={handleAddStudent} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                         {t.students.addClientButton.replace('{client}', vocabulary.client)}
                       </Button>
                     </div>
@@ -1207,10 +1207,10 @@ function StudentsContent() {
               </div>
             )}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 {t.students.cancelButton}
               </Button>
-              <Button onClick={handleEditStudent} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="button" onClick={handleEditStudent} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {t.students.saveChanges}
               </Button>
             </div>

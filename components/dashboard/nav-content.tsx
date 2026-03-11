@@ -44,6 +44,7 @@ import { getNicheIcon, getNicheBranding } from "@/lib/niche-utils"
 import { useOrganization } from "@/components/providers/organization-provider"
 import { Button } from "@/components/ui/button"
 import { monetaryBasedNiches, getBusinessConcept } from "@/config/niche-modules"
+import { getLoginUrlForNiche } from "@/config/portal-routes"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -199,6 +200,13 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false,
       module: 'ai_chat'
     },
     {
+      id: 'ai_learning',
+      icon: BarChart3,
+      label: t.sidebar.ai_learning,
+      href: "/dashboard/ai-learning",
+      module: 'ai_chat'
+    },
+    {
       id: 'settings',
       icon: Settings,
       label: t.sidebar.settings,
@@ -332,16 +340,18 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false,
       return
     }
 
-    if (niche === 'fire_protection') {
-      window.location.href = "/solutions/fire-protection/login"
-      return
-    }
-
-    window.location.href = "/login"
+    window.location.href = getLoginUrlForNiche(niche)
   }
 
   // A lógica de módulos PRO e BASE_MODULES só se aplica ao dashboard principal
   const BASE_MODULES = ['dashboard', 'settings', 'support']
+
+  // Se ERP está ativo, Estoque e Marketplace ficam acessíveis automaticamente
+  // (compartilham a mesma tabela products e são dependentes do ERP)
+  const effectiveModules = {
+    ...enabledModules,
+    ...(enabledModules.erp ? { inventory: true, marketplace: true } : {}),
+  }
 
   // ALTERAÇÃO: Filtramos os itens para mostrar apenas o que está ativo no builder
   const filteredItems = menuItems.filter(item => {
@@ -356,7 +366,7 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false,
     }
 
     // 3. Só mostra se o módulo estiver explicitamente ativo nas configurações da organização
-    const isModuleEnabled = enabledModules[moduleKey as keyof typeof enabledModules] === true
+    const isModuleEnabled = effectiveModules[moduleKey as keyof typeof effectiveModules] === true
     
     // Regras de adaptação para Modo Monetário baseadas no conceito do nicho
     if (concept.hiddenModules.includes(item.id) || concept.hiddenModules.includes(moduleKey)) {
@@ -392,7 +402,7 @@ export function NavContent({ collapsed = false, onNavigate, isAffiliate = false,
     },
     {
       label: "Comercial",
-      itemIds: ['pos', 'leads', 'whatsapp', 'ai_chat'],
+      itemIds: ['pos', 'leads', 'whatsapp', 'ai_chat', 'ai_learning'],
     },
     {
       label: "Gestão",

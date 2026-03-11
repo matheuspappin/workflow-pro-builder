@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
       // Buscar matrículas
       const { data: enrollments, error: enrollError } = await supabase
         .from('enrollments')
-        .select('student_id, students(name, phone, photo_url)')
+        .select('student_id, students(name, phone)')
         .eq('class_id', cls.id)
         .eq('status', 'active');
 
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
           id: en.student_id,
           name: studentData.name || 'Aluno s/ Nome',
           phone: studentData.phone || '',
-          photo: studentData.photo_url || '',
+          photo: '',
           status: att ? att.status : 'pending',
           checkInTime: att?.updated_at || null
         };

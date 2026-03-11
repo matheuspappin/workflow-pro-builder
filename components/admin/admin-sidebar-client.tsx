@@ -45,6 +45,10 @@ import {
   Globe,
   Zap,
   Star,
+  Sparkles,
+  Upload,
+  FileSpreadsheet,
+  Menu,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
@@ -124,7 +128,9 @@ export function AdminSidebarClient() {
     { icon: PlusCircle, label: "Novo Ecossistema", href: "/admin/ecosystems/new" },
     { icon: Users, label: "Usuários Globais", href: "/admin/users" },
     { icon: CreditCard, label: "Planos & Assinaturas", href: "/admin/plans" },
+    { icon: Upload, label: "Importação de Dados", href: "/admin/import" },
     { icon: Database, label: "Logs do Sistema", href: "/admin/logs" },
+    { icon: Sparkles, label: "Comportamento da Catarina", href: "/admin/catarina" },
     { icon: FlaskConical, label: "Testes Laborais", href: "/admin/testes" },
     { icon: LifeBuoy, label: "Suporte", href: "/admin/support" },
     { icon: Settings, label: "Configurações Globais", href: "/admin/settings" },
@@ -132,6 +138,17 @@ export function AdminSidebarClient() {
 
   return (
     <>
+      {/* Botão hambúrguer fixo no mobile (fora da sidebar) */}
+      {!mobileOpen && (
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="fixed top-0 right-0 h-16 px-4 lg:hidden z-40 flex items-center text-white"
+          aria-label="Abrir menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      )}
+
       {/* Overlay para Mobile */}
       {mobileOpen && (
         <div

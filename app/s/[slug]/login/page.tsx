@@ -200,7 +200,7 @@ function StudioStudentLoginContent() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className={isFire ? "text-slate-300" : ""}>Senha</Label>
-                  <Link href="/forgot-password" className={cn("text-xs font-bold hover:underline", isFire ? "text-red-600" : "text-indigo-600")}>
+                  <Link href={`/forgot-password?returnTo=${encodeURIComponent(`/s/${slug}/login${roleParam ? `?role=${roleParam}` : ''}`)}`} className={cn("text-xs font-bold hover:underline", isFire ? "text-red-600" : "text-indigo-600")}>
                     Esqueceu a senha?
                   </Link>
                 </div>

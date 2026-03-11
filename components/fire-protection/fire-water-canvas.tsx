@@ -19,11 +19,11 @@ interface Particle {
   seed: number
 }
 
-const FIRE_COUNT = 1800
-const WATER_COUNT = 1200
-const STEAM_COUNT = 300
-const SPARK_COUNT = 150
-const SPLASH_COUNT = 100
+const FIRE_COUNT = 900
+const WATER_COUNT = 600
+const STEAM_COUNT = 150
+const SPARK_COUNT = 80
+const SPLASH_COUNT = 60
 const MOUSE_RADIUS = 180
 const MOUSE_STRENGTH = 0.8
 const LOGO_RADIUS = 140
@@ -445,12 +445,22 @@ export function FireWaterCanvas({ className }: { className?: string }) {
 
     animate()
 
+    const handleVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animRef.current)
+      } else {
+        animRef.current = requestAnimationFrame(animate)
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility)
+
     return () => {
       cancelAnimationFrame(animRef.current)
       window.removeEventListener("resize", resize)
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("touchmove", handleTouchMove)
       window.removeEventListener("mouseleave", handleMouseLeave)
+      document.removeEventListener("visibilitychange", handleVisibility)
     }
   }, [initParticles])
 

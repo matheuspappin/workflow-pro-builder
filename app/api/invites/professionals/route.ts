@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { AppError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { isLimitReached, PLAN_LIMITS } from '@/lib/plan-limits'
+import { isProfessionalsLimitReachedForStudio } from '@/lib/studio-limits'
 import { checkStudioAccess } from '@/lib/auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -12,8 +12,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 // Handler para criar um novo convite
 export async function POST(request: NextRequest) {
   try {
-    const { email, studioId, professionalType = 'technician', role: internalRole, createdByUserId } = await request.json()
-    const isInternalInvite = internalRole && ['finance', 'seller', 'receptionist'].includes(internalRole)
+    const { email, studioId, professionalType = 'technician', role: internalRole, createdByUserId, niche } = await request.json()
+    const isInternalInvite = internalRole && ['finance', 'seller', 'receptionist', 'admin'].includes(internalRole)
 
     if (!studioId) {
       throw new AppError('ID do estúdio é obrigatório', 400, 'MISSING_REQUIRED_FIELDS');
@@ -67,13 +67,17 @@ export async function POST(request: NextRequest) {
       .join('');
 
     // 4. Inserir convite no banco de dados
+    const metadataPayload = isInternalInvite
+      ? { role: internalRole, ...(niche ? { niche } : {}) }
+      : { professional_type: professionalType, ...(niche ? { niche } : {}) }
+
     const { data: newInvite, error: insertError } = await supabaseAdmin.from('studio_invites').insert({
       studio_id: studioId,
       email: email || null,
       token,
       created_by: finalCreatorId,
-      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Expira em 30 dias para links abertos
-      metadata: isInternalInvite ? { role: internalRole } : { professional_type: professionalType },
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      metadata: metadataPayload,
       role: isInternalInvite ? internalRole : professionalType,
     }).select().single()
 
@@ -125,7 +129,10 @@ export async function PUT(request: NextRequest) {
     }
 
     const internalRole = invite.metadata?.role;
-    const isInternalInvite = internalRole && ['finance', 'seller', 'receptionist'].includes(internalRole);
+    const inviteNiche = invite.metadata?.niche || null;
+    const isInternalInvite = internalRole && ['finance', 'seller', 'receptionist', 'admin'].includes(internalRole);
+    const profType = invite.metadata?.professional_type || invite.role || 'technician'
+    const isStudentInvite = !isInternalInvite && profType === 'student'
 
     if (isInternalInvite) {
       const { data: existingInternal } = await supabaseAdmin
@@ -167,7 +174,58 @@ export async function PUT(request: NextRequest) {
       }, 200);
     }
 
-    // Verificar limite antes de aceitar (caso tenha mudado desde o envio)
+    // ── FLUXO: Convite de ALUNO (DanceFlow) ──────────────────────────────────
+    if (isStudentInvite) {
+      // Upsert do aluno na tabela students
+      const { error: studentErr } = await supabaseAdmin
+        .from('students')
+        .upsert({
+          id: userId,
+          studio_id: invite.studio_id,
+          name: email.split('@')[0],
+          email,
+          status: 'active',
+        }, { onConflict: 'id' })
+
+      if (studentErr) {
+        logger.error('Erro ao upsert aluno:', studentErr)
+        throw new AppError('Falha ao vincular perfil de aluno.', 500, 'STUDENT_LINK_FAILED')
+      }
+
+      // Inicializar créditos se não existirem
+      const { data: existingCredits } = await supabaseAdmin
+        .from('student_lesson_credits')
+        .select('id')
+        .eq('student_id', userId)
+        .maybeSingle()
+
+      if (!existingCredits) {
+        const nextYear = new Date()
+        nextYear.setFullYear(nextYear.getFullYear() + 1)
+        await supabaseAdmin.from('student_lesson_credits').insert({
+          student_id: userId,
+          studio_id: invite.studio_id,
+          total_credits: 0,
+          remaining_credits: 0,
+          expiry_date: nextYear.toISOString().split('T')[0],
+        })
+      }
+
+      // Atualizar metadata auth
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: { studio_id: invite.studio_id, role: 'student' },
+      }).catch(e => logger.warn('Aviso: metadata auth aluno:', e))
+
+      // Marcar convite como usado se nominal
+      if (invite.email) {
+        await supabaseAdmin.from('studio_invites').update({ used_at: new Date().toISOString() }).eq('id', invite.id)
+      }
+
+      logger.info(`✅ Aluno ${email} vinculado ao estúdio ${invite.studio_id}`)
+      return successResponse({ message: 'Convite aceito com sucesso', studioId: invite.studio_id, role: 'student', niche: inviteNiche }, 200)
+    }
+
+    // Verificar limite antes de aceitar (respeita verticalization_plans)
     const { count: currentProfessionalsCount, error: countError } = await supabaseAdmin
       .from('professionals')
       .select('*', { count: 'exact', head: true })
@@ -175,11 +233,9 @@ export async function PUT(request: NextRequest) {
       .eq('status', 'active')
 
     if (!countError) {
-        // @ts-ignore - studio is joined and has plan
-        const plan = invite.studio?.plan || 'gratuito';
-        if (isLimitReached(currentProfessionalsCount || 0, plan, 'maxProfessionals')) {
-            throw new AppError('O estúdio atingiu o limite de profissionais para o plano atual.', 403, 'PLAN_LIMIT_REACHED');
-        }
+      if (await isProfessionalsLimitReachedForStudio(invite.studio_id, currentProfessionalsCount || 0)) {
+        throw new AppError('O estúdio atingiu o limite de profissionais para o plano atual.', 403, 'PLAN_LIMIT_REACHED');
+      }
     }
 
     // 2. (Removido) Verificar se o e-mail do usuário autenticado corresponde ao do convite
@@ -274,7 +330,7 @@ export async function PUT(request: NextRequest) {
 
     logger.info(`✅ Convite ${invite.email ? 'nominal' : 'público'} aceito por ${email} para o estúdio ${invite.studio_id}. Profissional ID: ${newProfessional.id}`);
 
-    return successResponse({ message: 'Convite aceito com sucesso', studioId: invite.studio_id, professionalId: newProfessional.id }, 200);
+    return successResponse({ message: 'Convite aceito com sucesso', studioId: invite.studio_id, professionalId: newProfessional.id, niche: inviteNiche, role: profType }, 200);
 
   } catch (error: any) {
     logger.error('💥 Erro na API de aceitação de convite:', error);

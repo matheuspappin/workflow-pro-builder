@@ -14,6 +14,7 @@ import {
   MapPin,
   Leaf,
   MessageSquare,
+  CreditCard,
 } from "lucide-react"
 
 export type AgroFlowModuleKey =
@@ -132,6 +133,12 @@ export const AGROFLOW_NAV_GROUPS: AgroFlowNavGroup[] = [
         label: "Financeiro",
         icon: DollarSign,
         module: "financial",
+      },
+      {
+        id: "planos",
+        href: "/solutions/agroflowai/dashboard/planos",
+        label: "Planos e Assinatura",
+        icon: CreditCard,
       },
       {
         id: "relatorios",

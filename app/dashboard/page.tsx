@@ -51,12 +51,9 @@ import {
 } from "@/components/ui/chart"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
-
-import { useVocabulary } from "@/hooks/use-vocabulary"
-import { useBusinessMode } from "@/hooks/use-business-mode"
+import { useOrganization } from "@/components/providers/organization-provider"
 import { NicheType } from "@/config/niche-dictionary"
 import { getNicheIcon } from "@/lib/niche-utils"
-import { useOrganization } from "@/components/providers/organization-provider"
 import { monetaryBasedNiches } from "@/config/niche-modules"
 
 // Mock data
@@ -70,14 +67,16 @@ const revenueData = [
 ]
 
 export default function DashboardPage() {
-  const { vocabulary, enabledModules, niche, loading: vocabLoading, language } = useVocabulary()
-  const { isServiceOrderBased, isScheduleBased } = useBusinessMode()
-  const { t } = useOrganization()
+  const { vocabulary, enabledModules, niche, isLoading: vocabLoading, language, t, businessModel } = useOrganization()
   const { toast } = useToast()
   const [mounted, setMounted] = useState(false)
   const [userName, setUserName] = useState("")
   const [studioSlug, setStudioSlug] = useState("")
   const [copyingRole, setCopyingRole] = useState<string | null>(null)
+  
+  // Business mode logic direto no componente
+  const isServiceOrderBased = businessModel === 'MONETARY'
+  const isScheduleBased = businessModel === 'CREDIT'
   
   const [dashboardData, setDashboardData] = useState<any>({
     activeStudents: 0,
@@ -104,16 +103,21 @@ export default function DashboardPage() {
         }
         
         const userData = JSON.parse(user)
-        setUserName(userData.name || t.common.user)
+        setUserName(userData.name || "Usuário")
         
         // Tentar pegar o slug de várias fontes possíveis no objeto user
         const slug = userData.studioSlug || userData.studio_slug || (userData.studio && userData.studio.slug) || ""
         setStudioSlug(slug)
 
         // Carregar dados reais do Supabase
-        const stats = await getDashboardStats()
-        console.log('📊 Dashboard Stats carregados:', stats)
-        setDashboardData(stats)
+        const studioId = userData.studio_id || userData.studioId || userData.studio?.id
+        if (studioId) {
+          const stats = await getDashboardStats(studioId)
+          console.log('📊 Dashboard Stats carregados:', stats)
+          setDashboardData(stats)
+        } else {
+          console.warn('⚠️ Studio ID não encontrado no userData')
+        }
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error)
       } finally {
@@ -122,9 +126,10 @@ export default function DashboardPage() {
     }
 
     loadDashboardData()
-  }, [t.common.user])
+  }, []) // ✅ Sem dependências - executa apenas uma vez
 
   const handleCopyLink = async (role: 'client' | 'professional' | 'engineer' | 'architect') => {
+    console.log('Botão clicado:', role, 'studioSlug:', studioSlug)
     if (!studioSlug) {
       toast({
         title: "Erro ao copiar",
@@ -182,29 +187,22 @@ export default function DashboardPage() {
 
   if (!mounted || vocabLoading) return null
 
-  // Usar dados reais se disponíveis, senão fallback para mocks
-  const displayRevenueData = dashboardData.chartRevenueData?.length > 0 
-    ? dashboardData.chartRevenueData 
-    : revenueData
+  // Usar dados reais se disponíveis; durante loading NÃO usar fallback (evita flash de mock)
+  const hasRevenueData = (dashboardData.chartRevenueData?.length ?? 0) > 0
+  const displayRevenueData = loading ? [] : (hasRevenueData ? dashboardData.chartRevenueData : revenueData)
 
-  const displayClassesData = dashboardData.chartClassesData?.length > 0 
-    ? dashboardData.chartClassesData 
-    : [
-      { name: "Principal", alunos: 45 },
-    ]
+  const hasClassesData = (dashboardData.chartClassesData?.length ?? 0) > 0
+  const displayClassesData = loading ? [] : (hasClassesData ? dashboardData.chartClassesData : [{ name: "Principal", alunos: 45 }])
 
   const displayEvasionAlerts = dashboardData.evasionAlerts || []
 
   const displayUpcomingClasses = dashboardData.upcomingClasses || []
 
-  const displayStudentDistribution = dashboardData.studentDistribution?.length > 0
-    ? dashboardData.studentDistribution
-    : [
-      { name: "Ativos", value: 100, fill: "#9333ea" },
-    ]
+  const hasDistributionData = (dashboardData.studentDistribution?.length ?? 0) > 0
+  const displayStudentDistribution = loading ? [] : (hasDistributionData ? dashboardData.studentDistribution : [{ name: "Ativos", value: 100, fill: "#9333ea" }])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative z-10">
       <Header title={t.sidebar.dashboard} />
       
       <div className="p-6">
@@ -221,7 +219,7 @@ export default function DashboardPage() {
                       <Video className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold">{language === 'pt' ? `${vocabulary.services} ${t.dashboard.live}` : `${t.dashboard.live} ${vocabulary.services}`}</p>
+                      <p className="text-lg font-bold">{language === 'pt' ? `${vocabulary.service} ${t.dashboard.live}` : `${t.dashboard.live} ${vocabulary.service}`}</p>
                       <p className="text-xs text-red-100">{t.dashboard.nowIn} {vocabulary.establishment.toLowerCase()} {t.dashboard.now}</p>
                     </div>
                   </div>
@@ -306,10 +304,15 @@ export default function DashboardPage() {
                       <p className="text-sm font-bold truncate">{t.dashboard.invite} {vocabulary.client}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Button 
+                          type="button"
                           size="sm" 
                           variant="secondary" 
-                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-red-600 hover:text-white transition-all" 
-                          onClick={() => handleCopyLink('client')}
+                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-red-600 hover:text-white transition-all pointer-events-auto cursor-pointer" 
+                          style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                          onClick={() => {
+                            console.log('Botão cliente clicado!')
+                            handleCopyLink('client')
+                          }}
                         >
                           {copyingRole === 'client' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
                           <span className="truncate">{t.dashboard.copyLink}</span>
@@ -331,6 +334,7 @@ export default function DashboardPage() {
                       <p className="text-sm font-bold truncate">{t.dashboard.invite} {vocabulary.provider}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Button 
+                          type="button"
                           size="sm" 
                           variant="secondary" 
                           className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-emerald-500 hover:text-white transition-all" 
@@ -356,6 +360,7 @@ export default function DashboardPage() {
                       <p className="text-sm font-bold truncate">{t.dashboard.invite} Engenheiro</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Button 
+                          type="button"
                           size="sm" 
                           variant="secondary" 
                           className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-blue-500 hover:text-white transition-all" 
@@ -381,6 +386,7 @@ export default function DashboardPage() {
                       <p className="text-sm font-bold truncate">{t.dashboard.invite} Arquiteto</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Button 
+                          type="button"
                           size="sm" 
                           variant="secondary" 
                           className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-indigo-500 hover:text-white transition-all" 
@@ -417,7 +423,7 @@ export default function DashboardPage() {
                 <p className="text-2xl font-black text-card-foreground">
                   {loading ? "..." : dashboardData.activeStudents}
                 </p>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.clients} {t.common.active}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.client} {t.common.active}</p>
               </div>
             </CardContent>
           </Card>
@@ -434,7 +440,7 @@ export default function DashboardPage() {
                 <p className="text-2xl font-black text-card-foreground">
                   {loading ? "..." : dashboardData.activeTeachers}
                 </p>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.providers} {t.common.active}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.provider} {t.common.active}</p>
               </div>
             </CardContent>
           </Card>
@@ -451,7 +457,7 @@ export default function DashboardPage() {
                 <p className="text-2xl font-black text-card-foreground">
                   {loading ? "..." : dashboardData.activeClasses}
                 </p>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.services} {t.common.activeF}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{vocabulary.service} {t.common.activeF}</p>
               </div>
             </CardContent>
           </Card>
@@ -571,13 +577,13 @@ export default function DashboardPage() {
           {enabledModules.classes ? (
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-card-foreground">{vocabulary.clients} {language === 'pt' ? 'por' : 'by'} {vocabulary.category}</CardTitle>
+                <CardTitle className="text-card-foreground">{vocabulary.client} {language === 'pt' ? 'por' : 'by'} {vocabulary.category}</CardTitle>
                 <CardDescription>{t.dashboard.distribution}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={{
-                    alunos: { label: vocabulary.clients, color: "#dc2626" },
+                    alunos: { label: vocabulary.client, color: "#dc2626" },
                   }}
                   className="h-[300px]"
                 >
@@ -592,7 +598,7 @@ export default function DashboardPage() {
                           return (
                             <div className="bg-background border border-border rounded-lg px-3 py-2 shadow-lg">
                               <p className="font-medium text-foreground">{label}</p>
-                              <p className="text-sm text-red-600">{payload[0].value} {vocabulary.clients.toLowerCase()}</p>
+                              <p className="text-sm text-red-600">{payload[0].value} {vocabulary.client.toLowerCase()}</p>
                             </div>
                           )
                         }}
@@ -608,7 +614,7 @@ export default function DashboardPage() {
             <Card className="bg-card border-border">
               <CardHeader><CardTitle>{language === 'pt' ? 'Distribuição' : 'Distribution'}</CardTitle></CardHeader>
               <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-                {t.dashboard.moduleNotActive.replace('{service}', vocabulary.services.toLowerCase())}
+                {t.dashboard.moduleNotActive.replace('{service}', vocabulary.service.toLowerCase())}
               </CardContent>
             </Card>
           )}
@@ -625,7 +631,7 @@ export default function DashboardPage() {
                   <AlertTriangle className="w-5 h-5 text-amber-500" />
                   {t.dashboard.riskAlerts}
                  </CardTitle>
-                <CardDescription>{vocabulary.clients} {t.dashboard.lowActivity}</CardDescription>
+                <CardDescription>{vocabulary.client} {t.dashboard.lowActivity}</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
@@ -655,12 +661,12 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <Link href="/dashboard/alunos">
-                <Button variant="ghost" className="w-full mt-4 text-red-600 hover:text-red-700 hover:bg-red-50 font-bold uppercase tracking-widest text-[10px]">
-                  {t.dashboard.viewAll} {vocabulary.clients.toLowerCase()}
+              <Button type="button" variant="ghost" className="w-full mt-4 text-red-600 hover:text-red-700 hover:bg-red-50 font-bold uppercase tracking-widest text-[10px]" asChild>
+                <Link href="/dashboard/alunos">
+                  {t.dashboard.viewAll} {vocabulary.client.toLowerCase()}
                   <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </CardContent>
           </Card>
 
@@ -700,12 +706,12 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                <Link href="/dashboard/os">
-                  <Button variant="ghost" className="w-full mt-4 text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-bold uppercase tracking-widest text-[10px]">
-                    {t.dashboard.viewAll} OS
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                  <Button type="button" variant="ghost" className="w-full mt-4 text-orange-600 hover:text-orange-700 hover:bg-orange-50 font-bold uppercase tracking-widest text-[10px]" asChild>
+                    <Link href="/dashboard/os">
+                      {t.dashboard.viewAll} OS
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Link>
                   </Button>
-                </Link>
               </CardContent>
             </Card>
           ) : (enabledModules.classes ? (
@@ -713,9 +719,9 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle className="text-card-foreground flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-red-600" />
-                  {t.dashboard.upcoming} {vocabulary.services}
+                  {t.dashboard.upcoming} {vocabulary.service}
                 </CardTitle>
-                <CardDescription>{vocabulary.services} {t.dashboard.today}</CardDescription>
+                <CardDescription>{vocabulary.service} {t.dashboard.today}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -732,7 +738,7 @@ export default function DashboardPage() {
                         <div className="text-right">
                           <p className="font-medium text-red-600">{classItem.time}</p>
                           <p className="text-sm text-muted-foreground">
-                            {classItem.students} {vocabulary.clients.toLowerCase()}
+                            {classItem.students} {vocabulary.client.toLowerCase()}
                           </p>
                         </div>
                       </div>
@@ -744,19 +750,19 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
-                <Link href="/dashboard/aulas">
-                  <Button variant="ghost" className="w-full mt-4 text-red-600 hover:text-red-700 hover:bg-red-50 font-bold uppercase tracking-widest text-[10px]">
+                <Button type="button" variant="ghost" className="w-full mt-4 text-red-600 hover:text-red-700 hover:bg-red-50 font-bold uppercase tracking-widest text-[10px]" asChild>
+                  <Link href="/dashboard/aulas">
                     {t.dashboard.viewFull}
                     <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ) : (
             <Card className="bg-card border-border">
               <CardHeader><CardTitle>{t.dashboard.schedule}</CardTitle></CardHeader>
               <CardContent className="h-[200px] flex items-center justify-center text-muted-foreground">
-                {t.dashboard.moduleNotActive.replace('{service}', vocabulary.services.toLowerCase())}
+                {t.dashboard.moduleNotActive.replace('{service}', vocabulary.service.toLowerCase())}
               </CardContent>
             </Card>
           ))}
@@ -766,7 +772,7 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="text-card-foreground flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-red-600" />
-                {t.dashboard.profile} {vocabulary.clients}
+                {t.dashboard.profile} {vocabulary.client}
               </CardTitle>
               <CardDescription>{t.dashboard.ageRange}</CardDescription>
             </CardHeader>

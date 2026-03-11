@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { ModuleGuard } from "@/components/providers/module-guard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import logger from "@/lib/logger"
@@ -211,6 +212,7 @@ export default function DanceFlowScannerPage() {
   }
 
   return (
+    <ModuleGuard module="scanner" showFullError>
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/solutions/estudio-de-danca/dashboard">
@@ -375,5 +377,6 @@ export default function DanceFlowScannerPage() {
         }
       `}</style>
     </div>
+    </ModuleGuard>
   )
 }

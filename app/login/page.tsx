@@ -44,19 +44,24 @@ function LoginContent() {
 
   React.useEffect(() => {
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        const storedUser = localStorage.getItem("danceflow_user")
-        const parsedUser = storedUser ? JSON.parse(storedUser) : null
-        const userRole = parsedUser?.role || session.user.user_metadata?.role || 'admin'
-        // Super Admin SEMPRE vai para /admin — nunca respeita returnTo para dashboard/estúdio
-        if (userRole === 'super_admin') { router.push("/admin"); return }
-        if (returnTo) { router.push(returnTo); return }
-        if (userRole === 'engineer') router.push("/solutions/fire-protection/engineer")
-        else if (userRole === 'technician' || userRole === 'teacher') router.push("/technician")
-        else if (userRole === 'student') router.push("/student")
-        else if (userRole === 'finance') router.push("/dashboard/financeiro")
-        else router.push("/dashboard")
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          const storedUser = localStorage.getItem("danceflow_user")
+          const parsedUser = storedUser ? JSON.parse(storedUser) : null
+          const userRole = parsedUser?.role || session.user.user_metadata?.role || 'admin'
+          // Super Admin SEMPRE vai para /admin — nunca respeita returnTo para dashboard/estúdio
+          if (userRole === 'super_admin') { router.push("/admin"); return }
+          if (returnTo) { router.push(returnTo); return }
+          if (userRole === 'engineer') router.push("/solutions/fire-protection/engineer")
+          else if (userRole === 'technician' || userRole === 'teacher') router.push("/technician")
+          else if (userRole === 'student') router.push("/student")
+          else if (userRole === 'finance') router.push("/dashboard/financeiro")
+          else router.push("/dashboard")
+        }
+      } catch (err) {
+        // Supabase não configurado ou erro de sessão — exibe o formulário de login normalmente
+        console.warn('checkSession:', err)
       }
     }
     checkSession()

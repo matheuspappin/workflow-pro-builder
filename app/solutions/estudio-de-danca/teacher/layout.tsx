@@ -8,13 +8,14 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   Music, LayoutDashboard, Calendar, ClipboardList,
-  UserCircle, LogOut, Menu, ChevronLeft, ChevronRight, Loader2, GraduationCap,
+  UserCircle, LogOut, Menu, ChevronLeft, ChevronRight, Loader2, GraduationCap, DollarSign,
 } from "lucide-react"
 
 const navItems = [
   { href: "/solutions/estudio-de-danca/teacher",         label: "Dashboard",   icon: LayoutDashboard },
   { href: "/solutions/estudio-de-danca/teacher/turmas",  label: "Minhas Turmas", icon: Calendar },
   { href: "/solutions/estudio-de-danca/teacher/chamada", label: "Chamada",     icon: ClipboardList },
+  { href: "/solutions/estudio-de-danca/teacher/pagamentos", label: "Meus Pagamentos", icon: DollarSign },
   { href: "/solutions/estudio-de-danca/teacher/perfil",  label: "Meu Perfil",  icon: UserCircle },
 ]
 

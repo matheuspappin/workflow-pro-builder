@@ -604,9 +604,9 @@ export default function WhatsAppPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-500 hover:bg-red-50" onClick={deleteChat} title={t.whatsapp.deleteLocalHistory}><Trash2 className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" className="text-slate-400"><Phone className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" className="text-slate-400"><MoreVertical className="w-4 h-4" /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="text-slate-400 hover:text-red-500 hover:bg-red-50" onClick={deleteChat} title={t.whatsapp.deleteLocalHistory}><Trash2 className="w-4 h-4" /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="text-slate-400"><Phone className="w-4 h-4" /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="text-slate-400"><MoreVertical className="w-4 h-4" /></Button>
                 </div>
               </div>
 
@@ -823,8 +823,8 @@ export default function WhatsAppPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="font-bold">{t.common.cancel}</Button>
-            <Button onClick={handleUpdateContact} className="bg-indigo-600 hover:bg-indigo-700 font-bold">{t.whatsapp.saveChanges}</Button>
+            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="font-bold">{t.common.cancel}</Button>
+            <Button type="button" onClick={handleUpdateContact} className="bg-indigo-600 hover:bg-indigo-700 font-bold">{t.whatsapp.saveChanges}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -875,8 +875,9 @@ export default function WhatsAppPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsSettingsModalOpen(false)} className="font-bold text-xs">{t.common.close.toUpperCase()}</Button>
+            <Button type="button" variant="ghost" onClick={() => setIsSettingsModalOpen(false)} className="font-bold text-xs">{t.common.close.toUpperCase()}</Button>
             <Button 
+              type="button"
               onClick={handleSaveApiSettings} 
               disabled={isSavingSettings}
               className="bg-indigo-600 hover:bg-indigo-700 font-bold text-xs"

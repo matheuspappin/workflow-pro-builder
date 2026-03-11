@@ -387,16 +387,38 @@ async function handleFinishOrder(orderId: string, studioId: string, amount: numb
   
   if (businessModel === 'CREDIT') {
       // Se for CREDIT, tenta debitar créditos do aluno
-      // Assumimos que o 'amount' da OS representa a quantidade de créditos
+      const creditsToDebit = Math.ceil(amount)
       const { error: creditError } = await supabase.rpc('adjust_student_credits', {
           p_student_id: customerId,
           p_studio_id: studioId,
-          p_amount: -Math.ceil(amount) // Negativo para deduzir
+          p_amount: -creditsToDebit
       })
 
       if (creditError) {
           console.error("Erro ao debitar créditos na finalização da OS:", creditError)
-          // Não interrompe o fluxo, mas loga o erro. Idealmente deveria notificar.
+      } else if (creditsToDebit > 0) {
+          // Registrar cobrança no financeiro (uso de crédito em serviço/OS)
+          const { data: order } = await supabase
+            .from('service_orders')
+            .select('description')
+            .eq('id', orderId)
+            .single()
+          const today = new Date().toISOString().split('T')[0]
+          const refMonth = new Date().toISOString().slice(0, 7)
+          await supabase.from('payments').insert({
+            studio_id: studioId,
+            student_id: customerId,
+            amount: 0,
+            due_date: today,
+            payment_date: today,
+            status: 'paid',
+            payment_method: 'credit',
+            reference_month: refMonth,
+            description: `Serviço: ${order?.description || `OS #${orderId.substring(0, 8)}`}`,
+            payment_source: 'credit_usage',
+            reference_id: orderId,
+            credits_used: creditsToDebit,
+          })
       }
   } else {
       // MONETARY (Padrão): Gerar Pagamento Pendente
@@ -404,14 +426,14 @@ async function handleFinishOrder(orderId: string, studioId: string, amount: numb
           await supabase.from('payments').insert({
               studio_id: studioId,
               student_id: customerId,
-              service_order_id: orderId, // Vínculo direto
+              service_order_id: orderId,
               amount: amount,
-              due_date: new Date().toISOString(), // Vence hoje
+              due_date: new Date().toISOString().split('T')[0],
               status: 'pending',
-              payment_status: 'pending',
-              reference_month: new Date().toISOString().slice(0, 7), // YYYY-MM
+              reference_month: new Date().toISOString().slice(0, 7),
               description: `Referente à OS #${orderId.substring(0, 8)}`,
-              payment_method: 'other'
+              payment_method: 'other',
+              payment_source: 'service_order',
           })
       }
    }

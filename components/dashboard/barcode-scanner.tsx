@@ -7,6 +7,7 @@ import { Camera, RefreshCw } from "lucide-react"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -125,6 +126,7 @@ export function BarcodeScanner({ onScanSuccess, isOpen, onClose }: BarcodeScanne
           <DialogTitle className="flex items-center gap-2">
             <Camera className="w-5 h-5" /> Escanear Código de Barras
           </DialogTitle>
+          <DialogDescription>Aponte a câmera para o código de barras ou QR Code para escanear.</DialogDescription>
         </DialogHeader>
         
         <div className="flex flex-col items-center justify-center min-h-[300px] p-4 bg-muted/20 rounded-lg relative overflow-hidden">

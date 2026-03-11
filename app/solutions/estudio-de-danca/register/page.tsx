@@ -23,6 +23,7 @@ import { getDefaultModulesForNiche } from "@/config/niche-modules"
 import { getSessionKey } from "@/lib/constants/storage-keys"
 
 const NICHE_ID: NicheType = 'dance'
+const VERTICALIZATION_SLUG = 'estudio-de-danca'
 const DANCE_SESSION_KEY = getSessionKey('estudio-de-danca')
 
 const benefits = [
@@ -41,10 +42,15 @@ function RegisterContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const initialStudioId = searchParams.get('studioId') || undefined
+  const inviteCode = searchParams.get('code') || undefined
   const initialRoleFromUrl = searchParams.get('role') as 'admin' | 'student' | 'teacher' | 'finance' | null
   const [role, setRole] = useState<'admin' | 'student' | 'teacher' | 'finance'>(
-    (initialStudioId && initialRoleFromUrl === 'finance') ? 'finance' : (initialRoleFromUrl || 'admin')
+    inviteCode
+      ? (initialRoleFromUrl === 'teacher' ? 'teacher' : 'student')
+      : ((initialStudioId && initialRoleFromUrl === 'finance') ? 'finance' : (initialRoleFromUrl || 'admin'))
   )
+  const [inviteStudioName, setInviteStudioName] = useState<string | null>(null)
+  const [inviteLoading, setInviteLoading] = useState(!!inviteCode)
   const [plan, setPlan] = useState('gratuito')
   const [plans, setPlans] = useState<any[]>([])
   const [loadingPlans, setLoadingPlans] = useState(true)
@@ -64,33 +70,52 @@ function RegisterContent() {
   const [taxIdType, setTaxIdType] = useState<'cpf' | 'cnpj'>('cnpj')
 
   useEffect(() => {
+    if (!inviteCode) return
+    async function resolveInvite() {
+      try {
+        const roleParam = initialRoleFromUrl === 'teacher' ? 'teacher' : 'student'
+        const res = await fetch(`/api/dance-studio/matricula?code=${inviteCode}&role=${roleParam}`)
+        if (res.ok) {
+          const data = await res.json()
+          setInviteStudioName(data.studio_name || null)
+        }
+      } catch { /* silencioso */ } finally {
+        setInviteLoading(false)
+      }
+    }
+    resolveInvite()
+  }, [inviteCode, initialRoleFromUrl])
+
+  useEffect(() => {
     async function loadData() {
       try {
-        const [plansData, modulesData] = await Promise.all([
-          supabase
-            .from('system_plans')
-            .select('*')
-            .eq('status', 'active')
-            .order('price', { ascending: true }),
+        const [plansRes, modulesData] = await Promise.all([
+          fetch(`/api/verticalization/plans?slug=${encodeURIComponent(VERTICALIZATION_SLUG)}`),
           getSystemModules()
         ])
-        const { data, error } = plansData
-        if (error) throw error
+        const plansJson = await plansRes.json()
+        const plansData = plansRes.ok && Array.isArray(plansJson.plans) ? plansJson.plans : []
 
         let mappedPlans: any[] = []
-        if (data && data.length > 0) {
-          mappedPlans = data.map((p: any) => ({
-            id: p.id,
+        if (plansData.length > 0) {
+          mappedPlans = plansData.map((p: any) => ({
+            id: p.plan_id ?? p.id,
+            plan_id: p.plan_id,
             name: p.name,
-            price: p.id === 'enterprise' ? 'Sob Consulta' : `R$ ${Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`,
-            description: p.description,
+            price: p.plan_id === 'enterprise' ? 'Sob Consulta' : `R$ ${Number(p.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`,
+            description: p.description || '',
             features: p.features || [],
             isPopular: p.is_popular
           }))
         }
         mappedPlans.push({
-          id: 'custom', name: 'Personalizado', price: 'Sob Medida',
-          description: 'Monte seu plano ideal', features: ['Escolha seus módulos'], isPopular: false
+          id: 'custom',
+          plan_id: 'custom',
+          name: 'Personalizado',
+          price: 'Sob Medida',
+          description: 'Monte seu plano ideal',
+          features: ['Escolha seus módulos'],
+          isPopular: false
         })
 
         setPlans(mappedPlans)
@@ -180,16 +205,45 @@ function RegisterContent() {
           plan: role === 'admin' ? plan : undefined,
           taxId: formData.taxId,
           taxIdType: (role === 'admin') ? taxIdType : 'cpf',
-          modules: (role === 'admin' && plan === 'custom') ? selectedModules : undefined,
-          language: 'pt'
+          modules: (role === 'admin' && plan === 'custom') ? Object.keys(selectedModules).filter(k => selectedModules[k]) : undefined,
+          language: 'pt',
+          verticalizationSlug: role === 'admin' ? VERTICALIZATION_SLUG : undefined
         })
       })
       const data = await response.json()
 
       if (response.ok && data.success) {
-        toast({ title: "Conta criada com sucesso!", description: "Bem-vindo ao DanceFlow! Seu teste grátis começou." })
         localStorage.setItem(DANCE_SESSION_KEY, JSON.stringify(data.user))
         if (data.session) await supabase.auth.setSession(data.session)
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/fbdb915b-b580-4e5e-9b0e-147b06a71f4b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d99f83'},body:JSON.stringify({sessionId:'d99f83',runId:'pre-fix-1',hypothesisId:'H1',location:'app/solutions/estudio-de-danca/register/page.tsx:handleSubmit',message:'After register, before auto-link to studio',data:{inviteCode:inviteCode ?? null,role,hasSession:!!data.session,userId:data.user?.id ?? null},timestamp:Date.now()})}).catch(()=>{})
+        // #endregion
+
+        // Auto-vincular ao estúdio se veio de link de convite (aluno ou professor)
+        if (inviteCode && (role === 'student' || role === 'teacher') && data.session?.access_token) {
+          try {
+            const vincularRes = await fetch('/api/dance-studio/vincular', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${data.session.access_token}`,
+              },
+              body: JSON.stringify({ invite_code: inviteCode }),
+            })
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/fbdb915b-b580-4e5e-9b0e-147b06a71f4b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d99f83'},body:JSON.stringify({sessionId:'d99f83',runId:'pre-fix-1',hypothesisId:'H2',location:'app/solutions/estudio-de-danca/register/page.tsx:handleSubmit',message:'Result of POST /api/dance-studio/vincular after register',data:{status:vincularRes.status,ok:vincularRes.ok,inviteCode:inviteCode ?? null},timestamp:Date.now()})}).catch(()=>{})
+            // #endregion
+            if (!vincularRes.ok) {
+              const vincularErr = await vincularRes.json().catch(() => ({}))
+              logger.warn('Vincular retornou erro:', vincularErr)
+            }
+          } catch (err) {
+            logger.warn('Falha ao vincular ao estúdio:', err)
+          }
+        }
+
+        toast({ title: "Conta criada com sucesso!", description: inviteStudioName ? `Bem-vindo ao ${inviteStudioName}!` : "Bem-vindo ao DanceFlow!" })
         await new Promise(resolve => setTimeout(resolve, 400))
         if (role === 'student') router.push("/solutions/estudio-de-danca/student")
         else if (role === 'teacher') router.push("/solutions/estudio-de-danca/teacher")
@@ -289,7 +343,23 @@ function RegisterContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0 pt-4">
-              {(initialStudioId && role === 'finance') ? (
+              {inviteCode ? (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-violet-600/10 border border-violet-500/20 mb-6">
+                  <Music className="w-5 h-5 text-violet-500 shrink-0" />
+                  <div>
+                    {inviteLoading ? (
+                      <span className="text-sm font-medium text-slate-300">Verificando convite...</span>
+                    ) : inviteStudioName ? (
+                      <>
+                        <p className="text-sm font-bold text-white">Convite de {inviteStudioName}</p>
+                        <p className="text-xs text-slate-400">Ao criar sua conta, você será vinculado automaticamente.</p>
+                      </>
+                    ) : (
+                      <span className="text-sm font-medium text-slate-300">Cadastro via link de convite</span>
+                    )}
+                  </div>
+                </div>
+              ) : (initialStudioId && role === 'finance') ? (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-violet-600/10 border border-violet-500/20 mb-6">
                   <DollarSign className="w-5 h-5 text-violet-500 shrink-0" />
                   <span className="text-sm font-medium text-slate-300">

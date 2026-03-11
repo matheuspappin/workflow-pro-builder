@@ -64,6 +64,24 @@ export async function GET(req: NextRequest) {
           notes: `Débito automático: No-Show em ${record.class.name} (${record.date})`
         });
 
+        // 4b. Registrar cobrança no financeiro (uso de crédito - No-Show)
+        const today = new Date().toISOString().split('T')[0];
+        const refMonth = new Date().toISOString().slice(0, 7);
+        await supabaseAdmin.from('payments').insert({
+          studio_id: record.class.studio_id,
+          student_id: record.student_id,
+          amount: 0,
+          due_date: today,
+          payment_date: today,
+          status: 'paid',
+          payment_method: 'credit',
+          reference_month: refMonth,
+          description: `Aula: ${record.class.name} (No-Show)`,
+          payment_source: 'credit_usage',
+          reference_id: record.class_id,
+          credits_used: 1,
+        });
+
         // 5. Atualizar status para 'absent' (Falta)
         await supabaseAdmin
           .from('attendance')

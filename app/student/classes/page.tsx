@@ -2,21 +2,24 @@
 
 import { useState, useEffect } from "react"
 import { StudentHeader } from "@/components/student/student-header"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { 
-  Calendar, 
-  Clock, 
+import {
+  Calendar,
+  Clock,
   ArrowLeft,
   ChevronRight,
   PlayCircle,
   MapPin,
   User,
-  Loader2
+  Loader2,
+  LayoutDashboard,
+  Calendar as CalendarIcon,
+  CreditCard,
+  User as UserIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
-
 import { useVocabulary } from "@/hooks/use-vocabulary"
 
 export default function StudentClasses() {
@@ -26,14 +29,30 @@ export default function StudentClasses() {
   const [myClasses, setMyClasses] = useState<any[]>([])
 
   useEffect(() => {
-    const userData = localStorage.getItem("danceflow_user")
-    if (userData) {
-      const user = JSON.parse(userData)
-      setStudent(user)
-      fetchClasses(user.id)
-    } else {
-      setIsLoading(false)
+    async function init() {
+      // Validar sessão via getUser() (não apenas localStorage)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        setIsLoading(false)
+        window.location.href = '/login'
+        return
+      }
+
+      let userData: any = {}
+      const raw = localStorage.getItem("danceflow_user")
+      if (raw) {
+        try { userData = JSON.parse(raw) } catch { localStorage.removeItem("danceflow_user") }
+      }
+
+      const merged = {
+        ...userData,
+        id: authUser.id,
+        studio_id: userData.studio_id || userData.studioId || authUser.user_metadata?.studio_id,
+      }
+      setStudent(merged)
+      fetchClasses(authUser.id)
     }
+    init()
   }, [])
 
   const fetchClasses = async (studentId: string) => {
@@ -56,23 +75,29 @@ export default function StudentClasses() {
         .eq('status', 'active')
 
       if (error) throw error
-      
-      const formattedClasses = data?.map((item: any) => ({
-        id: item.classes.id,
-        name: item.classes.name,
-        style: item.classes.dance_style,
-        level: item.classes.level,
-        teacher: item.classes.teachers?.name || vocabulary.provider,
-        schedule: Array.isArray(item.classes.schedule) 
-          ? item.classes.schedule.map((s: any) => `${s.day} às ${s.time}`).join(', ')
-          : 'Horário a definir',
-        room: 'Sala Principal', // Could be added to DB later
-        status: item.status
-      }))
 
-      setMyClasses(formattedClasses || [])
+      const formattedClasses = data?.map((item: any) => ({
+        id: item.classes?.id,
+        name: item.classes?.name,
+        style: item.classes?.dance_style,
+        level: item.classes?.level,
+        teacher: item.classes?.teachers?.name || vocabulary.provider,
+        // CORRIGIDO: usar day_of_week e start_time (campos reais do banco)
+        schedule: Array.isArray(item.classes?.schedule)
+          ? item.classes.schedule.map((s: any) => {
+              const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+              const dayName = days[s.day_of_week] || s.day || '?'
+              const time = s.start_time || s.time || '--'
+              return `${dayName} às ${time}`
+            }).join(', ')
+          : 'Horário a definir',
+        room: 'Sala Principal',
+        status: item.status,
+      })) || []
+
+      setMyClasses(formattedClasses)
     } catch (error) {
-      console.error("Error fetching classes:", error)
+      console.error("Erro ao buscar turmas:", error)
     } finally {
       setIsLoading(false)
     }
@@ -90,27 +115,33 @@ export default function StudentClasses() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
       <div className="sticky top-0 bg-background/95 backdrop-blur z-50 border-b">
         <div className="container flex h-16 items-center px-4 gap-4">
-          <Button variant="ghost" size="icon" onClick={() => window.location.href='/student'}>
+          <Button type="button" variant="ghost" size="icon" onClick={() => window.location.href = '/student'}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="font-bold text-lg">Minhas {vocabulary.service}s</h1>
         </div>
       </div>
-      
+
       <main className="container p-4 space-y-4 max-w-md mx-auto">
         <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider px-1">Turmas Ativas</p>
-        
+
+        {myClasses.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Nenhuma turma ativa encontrada.
+          </p>
+        )}
+
         {myClasses.map((cls) => (
           <Card key={cls.id} className="border-none shadow-sm overflow-hidden group hover:shadow-md transition-all">
             <CardContent className="p-0">
               <div className="p-4 flex gap-4">
-                <div className="w-16 h-16 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                <div className="w-16 h-16 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
                   <PlayCircle className="w-8 h-8 text-indigo-600" />
                 </div>
                 <div className="flex-1 space-y-1">
                   <div className="flex justify-between items-start">
                     <h3 className="font-bold text-slate-900 dark:text-white leading-tight">{cls.name}</h3>
-                    <Badge variant="outline" className="text-[10px] uppercase">{cls.level}</Badge>
+                    {cls.level && <Badge variant="outline" className="text-[10px] uppercase">{cls.level}</Badge>}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <User className="w-3.5 h-3.5" />
@@ -136,8 +167,8 @@ export default function StudentClasses() {
         ))}
 
         <div className="pt-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full border-dashed border-indigo-200 text-indigo-600 bg-indigo-50/30 hover:bg-indigo-50 h-12 text-sm font-bold gap-2"
             onClick={() => window.location.href = '/student/classes/catalogo'}
           >
@@ -146,21 +177,20 @@ export default function StudentClasses() {
         </div>
       </main>
 
-      {/* Tab Bar duplicada para consistência */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t flex items-center justify-around h-16 px-4 z-50">
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href = '/student'}>
           <LayoutDashboard className="w-5 h-5" />
           <span className="text-[10px]">Início</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/classes'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href = '/student/classes'}>
           <CalendarIcon className="w-5 h-5" />
           <span className="text-[10px]">{vocabulary.service}s</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/payments'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href = '/student/payments'}>
           <CreditCard className="w-5 h-5" />
           <span className="text-[10px]">Pagar</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/profile'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href = '/student/profile'}>
           <UserIcon className="w-5 h-5" />
           <span className="text-[10px]">Perfil</span>
         </Button>
@@ -168,5 +198,3 @@ export default function StudentClasses() {
     </div>
   )
 }
-
-import { LayoutDashboard, Calendar as CalendarIcon, CreditCard, User as UserIcon } from "lucide-react"

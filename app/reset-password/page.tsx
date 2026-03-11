@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import React, { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,8 +11,10 @@ import { Sparkles, Loader2, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get("returnTo") || "/login"
   const { toast } = useToast()
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -83,7 +85,7 @@ export default function ResetPasswordPage() {
         localStorage.removeItem("danceflow_user")
 
         setTimeout(() => {
-          router.push("/login")
+          router.push(returnTo)
         }, 3000)
       }
     } catch (error) {
@@ -134,7 +136,7 @@ export default function ResetPasswordPage() {
                 </div>
                 <Button 
                   className="w-full bg-indigo-600 hover:bg-indigo-700 font-bold"
-                  onClick={() => router.push("/login")}
+                  onClick={() => router.push(returnTo)}
                 >
                   Ir para o Login Agora
                 </Button>
@@ -201,5 +203,17 @@ export default function ResetPasswordPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
   )
 }

@@ -310,7 +310,26 @@ export default function FinanceiroPage() {
   }
 
   const handleDeleteExpense = async (id: string) => {
-    // ... existing ...
+    if (!confirm('Confirma a exclusão desta despesa?')) return
+    try {
+      const userStr = localStorage.getItem("danceflow_user")
+      if (!userStr) return
+      const user = JSON.parse(userStr)
+      const studioId = user.studio_id || user.studioId
+      const { error } = await supabase
+        .from('financial_transactions')
+        .delete()
+        .eq('id', id)
+        .eq('studio_id', studioId)
+        .eq('type', 'expense')
+
+      if (error) throw error
+
+      toast({ title: "Despesa removida", description: "A despesa foi excluída com sucesso." })
+      await loadFinanceData()
+    } catch (e: any) {
+      toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" })
+    }
   }
 
   const handleSavePackage = async () => {
@@ -841,16 +860,36 @@ export default function FinanceiroPage() {
                 className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-bold gap-2"
                 onClick={async () => {
                   setIsClosingMonth(true)
-                  // Simular fechamento de mês
-                  setTimeout(() => {
-                    setIsClosingMonth(false)
+                  try {
+                    const userStr = localStorage.getItem("danceflow_user")
+                    if (!userStr) throw new Error('Usuário não logado')
+                    const user = JSON.parse(userStr)
+                    const studioId = user.studio_id || user.studioId
+                    if (!studioId) throw new Error('Studio não identificado')
+                    const res = await fetch('/api/finance/employee-payments', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        studioId,
+                        month: selectedMonth,
+                        year: selectedYear,
+                        action: 'close_month',
+                        payments: displayTeacherPayments,
+                      }),
+                    })
+                    if (!res.ok) throw new Error('Falha ao fechar mês')
                     toast({
                       title: t.finance.monthClosed,
                       description: t.finance.transferReportsGenerated
                         .replace('{count}', displayTeacherPayments.length.toString())
-                        .replace('{providers}', vocabulary.providers.toLowerCase())
+                        .replace('{providers}', vocabulary.providers.toLowerCase()),
                     })
-                  }, 1500)
+                    await loadFinanceData()
+                  } catch (e: any) {
+                    toast({ title: t.common.error, description: e.message, variant: 'destructive' })
+                  } finally {
+                    setIsClosingMonth(false)
+                  }
                 }}
                 disabled={isClosingMonth}
               >
@@ -968,7 +1007,7 @@ export default function FinanceiroPage() {
                           </TableCell>
                           <TableCell className="text-right pr-6">
                             <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
                                 setEditingPackage(pkg)
                                 setNewPackage({
                                   name: pkg.name,
@@ -981,7 +1020,7 @@ export default function FinanceiroPage() {
                               }}>
                                 <Edit className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeletePackage(pkg.id)}>
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeletePackage(pkg.id)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
@@ -1118,8 +1157,8 @@ export default function FinanceiroPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsExpenseModalOpen(false)}>{t.common.cancel}</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 font-bold" onClick={handleSaveExpense}>
+            <Button type="button" variant="ghost" onClick={() => setIsExpenseModalOpen(false)}>{t.common.cancel}</Button>
+            <Button type="button" className="bg-indigo-600 hover:bg-indigo-700 font-bold" onClick={handleSaveExpense}>
               {editingExpense ? t.common.save : t.common.confirm}
             </Button>
           </DialogFooter>
@@ -1170,8 +1209,8 @@ export default function FinanceiroPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsPackageModalOpen(false)}>{t.common.cancel}</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 font-bold" onClick={handleSavePackage}>
+            <Button type="button" variant="ghost" onClick={() => setIsPackageModalOpen(false)}>{t.common.cancel}</Button>
+            <Button type="button" className="bg-indigo-600 hover:bg-indigo-700 font-bold" onClick={handleSavePackage}>
               {t.common.confirm}
             </Button>
           </DialogFooter>

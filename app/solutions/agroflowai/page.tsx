@@ -51,15 +51,15 @@ function AnimatedCounter({ value, suffix = "", prefix = "" }: { value: number; s
 
 function FloatingParticle({ delay, x, y, size }: { delay: number; x: string; y: string; size: number }) {
   return (
-    <motion.div
+    <div
       className="absolute rounded-full bg-emerald-500/20 pointer-events-none"
-      style={{ left: x, top: y, width: size, height: size }}
-      animate={{
-        y: [0, -20, 0],
-        opacity: [0.3, 0.7, 0.3],
-        scale: [1, 1.2, 1],
+      style={{
+        left: x,
+        top: y,
+        width: size,
+        height: size,
+        animation: `floatParticle ${4 + delay}s ease-in-out ${delay}s infinite`,
       }}
-      transition={{ duration: 4 + delay, repeat: Infinity, delay, ease: "easeInOut" }}
     />
   )
 }
@@ -111,18 +111,16 @@ function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/solutions/agroflowai/login">
-            <Button variant="ghost" size="sm" className="font-semibold text-white/70 hover:text-white hover:bg-white/10 hidden sm:flex">
-              Entrar
-            </Button>
-          </Link>
-          <Link href="/solutions/agroflowai/register">
-            <Button size="sm" className="rounded-full px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-600/25 font-bold text-white border-none hidden sm:flex gap-1.5">
+          <Button variant="ghost" size="sm" className="font-semibold text-white/70 hover:text-white hover:bg-white/10 hidden sm:flex" asChild>
+            <Link href="/solutions/agroflowai/login">Entrar</Link>
+          </Button>
+          <Button size="sm" className="rounded-full px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-600/25 font-bold text-white border-none hidden sm:flex gap-1.5" asChild>
+            <Link href="/solutions/agroflowai/register">
               Criar Conta Grátis
               <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
-          </Link>
-          <Button variant="ghost" size="icon" className="lg:hidden text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            </Link>
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="lg:hidden text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </Button>
         </div>
@@ -144,10 +142,10 @@ function Navbar() {
               ))}
               <div className="flex gap-3 pt-4 border-t border-white/10">
                 <Link href="/solutions/agroflowai/login" className="flex-1" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full border-white/10 text-white hover:bg-white/10">Entrar</Button>
+                  <Button type="button" variant="outline" className="w-full border-white/10 text-white hover:bg-white/10">Entrar</Button>
                 </Link>
                 <Link href="/solutions/agroflowai/register" className="flex-1" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full bg-emerald-600 text-white hover:bg-emerald-700 font-bold">Criar Conta</Button>
+                  <Button type="button" className="w-full bg-emerald-600 text-white hover:bg-emerald-700 font-bold">Criar Conta</Button>
                 </Link>
               </div>
             </div>
@@ -230,14 +228,17 @@ function HeroSection() {
             transition={{ duration: 0.8, delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
           >
-            <Link href="/solutions/agroflowai/register">
-              <Button size="lg" className="h-16 px-10 text-lg rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_20px_60px_-10px_rgba(16,185,129,0.5)] font-bold text-white border-none group transition-all duration-300">
-                Começar Grátis — 14 dias
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <Button size="lg" className="h-16 px-10 text-lg rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_20px_60px_-10px_rgba(16,185,129,0.5)] font-bold text-white border-none group transition-all duration-300" asChild>
+                <Link href="/solutions/agroflowai/register">
+                  Começar Grátis — 14 dias
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </Button>
-            </Link>
             <a href="#dashboard">
-              <Button size="lg" variant="ghost" className="h-16 px-8 text-lg rounded-full text-white/70 hover:text-white hover:bg-white/10 font-semibold group gap-3">
+              <Button type="button" size="lg" variant="ghost" className="h-16 px-8 text-lg rounded-full text-white/70 hover:text-white hover:bg-white/10 font-semibold group gap-3" onClick={() => {
+                const dashboard = document.getElementById('dashboard')
+                dashboard?.scrollIntoView({ behavior: 'smooth' })
+              }}>
                 <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
                   <Play className="w-4 h-4 fill-current ml-0.5" />
                 </div>
@@ -768,6 +769,7 @@ function DashboardSection() {
                   {tabs.map((tab, i) => (
                     <button
                       key={tab.label}
+                      type="button"
                       onClick={() => setActiveTab(i)}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
@@ -805,6 +807,7 @@ function DashboardSection() {
                   ].map((item) => (
                     <button
                       key={item.label}
+                      type="button"
                       onClick={() => item.idx !== undefined && setActiveTab(item.idx)}
                       className={cn(
                         "flex items-center gap-2 px-2 py-2 rounded-lg w-full text-left transition-colors",
@@ -1314,6 +1317,7 @@ function FAQSection() {
               className="border border-white/5 rounded-2xl overflow-hidden bg-slate-900/30"
             >
               <button
+                type="button"
                 onClick={() => setOpen(open === i ? null : i)}
                 className="w-full flex items-center justify-between px-7 py-5 text-left hover:bg-white/3 transition-colors"
               >
@@ -1375,12 +1379,12 @@ function CTASection() {
               Junte-se a centenas de consultorias ambientais que já digitalizam seus processos e atendem mais clientes com menos esforço.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/solutions/agroflowai/register">
-                <Button size="lg" className="h-16 px-12 text-lg rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_20px_60px_-10px_rgba(16,185,129,0.5)] font-bold text-white border-none group">
+              <Button size="lg" className="h-16 px-12 text-lg rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_20px_60px_-10px_rgba(16,185,129,0.5)] font-bold text-white border-none group" asChild>
+                <Link href="/solutions/agroflowai/register">
                   Criar conta grátis agora
                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <div className="flex items-center gap-2 text-sm text-slate-400">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 14 dias grátis · Sem cartão de crédito

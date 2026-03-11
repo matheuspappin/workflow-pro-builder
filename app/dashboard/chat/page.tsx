@@ -132,10 +132,11 @@ async function getAIResponse(message: string, history: Message[], provider: "cha
 
 export default function ChatPage() {
   const { vocabulary, t, language } = useVocabulary()
-  // Carregar estado do chat do localStorage
-  const loadChatState = () => {
+  // Carregar estado do chat do localStorage (isolado por estúdio)
+  const loadChatState = (sid: string | null) => {
     try {
-      const saved = localStorage.getItem('danceflow_chat_state')
+      const key = sid ? `chat_state_${sid}` : 'danceflow_chat_state'
+      const saved = localStorage.getItem(key)
       if (saved) {
         const parsed = JSON.parse(saved)
         return {
@@ -196,9 +197,22 @@ export default function ChatPage() {
   const [responseCache, setResponseCache] = useState<Map<string, any>>(new Map())
   const [mounted, setMounted] = useState(false)
 
-  // Carregar estado inicial apenas após montar para evitar Hydration Mismatch
+  const [studioId, setStudioId] = useState<string | null>(null)
+
+  // Obter studioId e carregar estado inicial após montar (evita Hydration Mismatch)
   useEffect(() => {
-    const initialState = loadChatState()
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !mounted) return
+    const df = localStorage.getItem('danceflow_user')
+    const wf = localStorage.getItem('workflow_user')
+    const parsed = df ? JSON.parse(df) : wf ? JSON.parse(wf) : null
+    const sid = parsed?.studio_id || parsed?.studioId || null
+    setStudioId(sid)
+
+    const initialState = loadChatState(sid)
     if (initialState) {
       if (initialState.messages?.length > 0) setMessages(initialState.messages)
       else setMessages(defaultMessages)
@@ -208,8 +222,7 @@ export default function ChatPage() {
     } else {
       setMessages(defaultMessages)
     }
-    setMounted(true)
-  }, [])
+  }, [mounted])
   const [dashboardData, setDashboardData] = useState<any>({
     activeStudents: 0,
     activeTeachers: 0,
@@ -238,55 +251,50 @@ export default function ChatPage() {
 
   // Carregar sessões anteriores (Minhas Conversas)
   useEffect(() => {
+    if (!studioId) return
     const loadSessions = async () => {
       try {
-        const sessions = await getChatSessions()
+        const sessions = await getChatSessions(studioId)
         setChatSessions(sessions)
       } catch (error) {
         console.error('Erro ao carregar sessões:', error)
       }
     }
     loadSessions()
-  }, [])
+  }, [studioId])
 
   // Salvar sessão atual automaticamente
   useEffect(() => {
-    // Só salva se tiver mensagens de usuário e não estiver carregando
+    if (!studioId) return
     const hasUserMessage = messages.some(m => m.role === 'user')
-    
-    if (hasUserMessage && !isLoading) {
-      const saveSession = async () => {
-        const sessionData = {
-          id: currentSessionId,
-          messages: messages,
-          // Título baseado na primeira mensagem do usuário
-          title: messages.find(m => m.role === 'user')?.content.substring(0, 40) || 'Nova Conversa'
-        }
-        
-        const saved = await saveChatSession(sessionData)
-        if (saved) {
-          if (!currentSessionId) {
-            setCurrentSessionId(saved.id)
-            // Atualizar lista
-            const sessions = await getChatSessions()
-            setChatSessions(sessions)
-          } else {
-            // Atualizar título na lista local se mudou (opcional, mas bom UX)
-            // Aqui apenas garantimos que a lista está atualizada com timestamp
-            setChatSessions(prev => prev.map(s => s.id === saved.id ? { ...s, title: saved.title, updated_at: saved.updated_at } : s))
-          }
+    if (!hasUserMessage || isLoading) return
+
+    const saveSession = async () => {
+      const sessionData = {
+        id: currentSessionId,
+        messages: messages,
+        title: messages.find(m => m.role === 'user')?.content.substring(0, 40) || 'Nova Conversa'
+      }
+      const saved = await saveChatSession(sessionData, studioId)
+      if (saved) {
+        if (!currentSessionId) {
+          setCurrentSessionId(saved.id)
+          const sessions = await getChatSessions(studioId)
+          setChatSessions(sessions)
+        } else {
+          setChatSessions(prev => prev.map(s => s.id === saved.id ? { ...s, title: saved.title, updated_at: saved.updated_at } : s))
         }
       }
-      
-      const timer = setTimeout(saveSession, 2000)
-      return () => clearTimeout(timer)
     }
-  }, [messages, currentSessionId, isLoading])
+    const timer = setTimeout(saveSession, 2000)
+    return () => clearTimeout(timer)
+  }, [messages, currentSessionId, isLoading, studioId])
 
   const handleLoadSession = async (sessionId: string) => {
+    if (!studioId) return
     try {
       setIsLoading(true)
-      const session = await getChatSessionById(sessionId)
+      const session = await getChatSessionById(sessionId, studioId)
       if (session) {
         // Converter timestamps das mensagens e garantir que são objetos Date
         const loadedMessages = (session.messages || []).map((msg: any) => ({
@@ -307,9 +315,10 @@ export default function ChatPage() {
 
   const handleDeleteSession = async (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation()
+    if (!studioId) return
     if (confirm(t.ai_chat.deleteConfirm)) {
       try {
-        await deleteChatSession(sessionId)
+        await deleteChatSession(sessionId, studioId)
         setChatSessions(prev => prev.filter(s => s.id !== sessionId))
         if (currentSessionId === sessionId) {
           handleClearChat()
@@ -320,9 +329,10 @@ export default function ChatPage() {
     }
   }
 
-  // Salvar estado do chat no localStorage
+  // Salvar estado do chat no localStorage (isolado por estúdio)
   const saveChatState = () => {
     try {
+      const key = studioId ? `chat_state_${studioId}` : 'danceflow_chat_state'
       const state = {
         messages,
         pendingAction,
@@ -330,7 +340,7 @@ export default function ChatPage() {
         selectedGeminiModel,
         timestamp: Date.now()
       }
-      localStorage.setItem('danceflow_chat_state', JSON.stringify(state))
+      localStorage.setItem(key, JSON.stringify(state))
     } catch (error) {
       console.error('Erro ao salvar estado do chat:', error)
     }
@@ -339,7 +349,7 @@ export default function ChatPage() {
   // Salvar estado sempre que houver mudanças
   useEffect(() => {
     saveChatState()
-  }, [messages, pendingAction, aiProvider, selectedGeminiModel])
+  }, [messages, pendingAction, aiProvider, selectedGeminiModel, studioId])
 
   useEffect(() => {
     if (scrollAreaRef.current) {

@@ -33,11 +33,26 @@ export default function StudentOSPage() {
   const [isPayingOnline, setIsPayingOnline] = useState(false)
 
   useEffect(() => {
+    let mounted = true
     async function loadOrders() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return
-      
-      setStudent(session.user)
+      // CORRIGIDO: getUser() valida JWT; getSession() não valida
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) return
+
+      // Construir objeto de student com studio_id dos metadados do usuário
+      const userData = typeof window !== 'undefined'
+        ? (() => { try { return JSON.parse(localStorage.getItem('danceflow_user') || '{}') } catch { return {} } })()
+        : {}
+
+      const studentData = {
+        ...userData,
+        id: authUser.id,
+        email: authUser.email,
+        studio_id: userData.studio_id || userData.studioId || authUser.user_metadata?.studio_id,
+      }
+
+      if (!mounted) return
+      setStudent(studentData)
 
       const { data, error } = await supabase
         .from('service_orders')
@@ -46,9 +61,10 @@ export default function StudentOSPage() {
           professional:teachers(name),
           items:service_order_items(*)
         `)
-        .eq('customer_id', session.user.id)
+        .eq('customer_id', authUser.id)
         .order('created_at', { ascending: false })
 
+      if (!mounted) return
       if (error) {
         console.error('Erro ao buscar OS:', error)
       } else {
@@ -58,6 +74,7 @@ export default function StudentOSPage() {
     }
 
     loadOrders()
+    return () => { mounted = false }
   }, [])
 
   const handlePayOS = async (order: any) => {
@@ -71,7 +88,7 @@ export default function StudentOSPage() {
           amount: Number(order.total_amount),
           description: `Pagamento OS #${order.tracking_code || order.id.substring(0,8)}`,
           studentId: student.id,
-          studioId: student.studio_id || student.studioId,
+          studioId: student?.studio_id || student?.studioId,
           type: 'service_order'
         })
       })
@@ -237,15 +254,15 @@ export default function StudentOSPage() {
 
       {/* Tab Bar Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t flex items-center justify-around h-16 px-4 z-50">
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student'}>
           <LayoutDashboard className="w-5 h-5" />
           <span className="text-[10px]">Início</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/os'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-primary" onClick={() => window.location.href='/student/os'}>
           <FileText className="w-5 h-5" />
           <span className="text-[10px]">Minhas OS</span>
         </Button>
-        <Button variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/profile'}>
+        <Button type="button" variant="ghost" className="flex flex-col gap-1 text-muted-foreground" onClick={() => window.location.href='/student/profile'}>
           <User className="w-5 h-5" />
           <span className="text-[10px]">Perfil</span>
         </Button>
@@ -283,7 +300,7 @@ export default function StudentOSPage() {
           </div>
           
           <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t">
-            <Button variant="ghost" className="w-full font-black text-slate-500 h-12 rounded-xl tracking-widest" onClick={() => setIsClientIDOpen(false)}>
+            <Button type="button" variant="ghost" className="w-full font-black text-slate-500 h-12 rounded-xl tracking-widest" onClick={() => setIsClientIDOpen(false)}>
               FECHAR CARTÃO
             </Button>
           </div>

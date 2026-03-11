@@ -99,6 +99,23 @@ export async function requireStudioAccess(
     .maybeSingle()
   if (student) return { userId: user.id, role }
 
+  // Fallback: user tem studio_id em metadata mas students desatualizado (ex: registro com convite)
+  const metaStudioId = user.user_metadata?.studio_id
+  const metaRole = user.user_metadata?.role || user.app_metadata?.role
+  if (metaStudioId === studioId && (metaRole === 'student' || !metaRole)) {
+    const { error: repairErr } = await supabaseAdmin
+      .from('students')
+      .upsert({
+        id: user.id,
+        studio_id: studioId,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Aluno',
+        email: user.email || '',
+        phone: user.user_metadata?.phone || null,
+        status: 'active',
+      }, { onConflict: 'id' })
+    if (!repairErr) return { userId: user.id, role: 'student' }
+  }
+
   throw new StudioAccessError('Acesso negado a este studio', 403)
 }
 
