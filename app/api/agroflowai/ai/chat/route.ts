@@ -118,9 +118,9 @@ export async function POST(request: NextRequest) {
 
     const [reportRes, trainingRes, learnedRes, rulesRes] = await Promise.all([
       supabaseAdmin.from('studio_ai_reports').select('content, created_at, metadata').eq('studio_id', contextStudioId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'agroflowai').order('created_at', { ascending: false }).limit(6).then((r) => r).catch(() => ({ data: [] as any[] })),
+      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'agroflowai').order('created_at', { ascending: false }).limit(6).then((r) => r, () => ({ data: [] as any[] })),
       aiLearning.getLearnedKnowledge(contextStudioId, typeof message === 'string' ? message : (message?.content || '')).catch(() => []),
-      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'agroflowai').maybeSingle().then((r) => r).catch(() => ({ data: null }))
+      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'agroflowai').maybeSingle().then((r) => r, () => ({ data: null }))
     ])
 
     const latestReport = (reportRes as any)?.data

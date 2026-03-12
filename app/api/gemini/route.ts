@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
     // 1. CARREGAR CONTEXTO (paralelo: relatório, treinamento, learned knowledge, regras, modelo, CRM, estoque)
     const [reportRes, trainingRes, learnedRes, rulesRes, modelSettingRes, leadsData, invData] = await Promise.all([
       supabase.from('studio_ai_reports').select('content, created_at').eq('studio_id', studioId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'dance').order('created_at', { ascending: false }).limit(8).then((r) => r).catch(() => ({ data: [] as any[] })),
+      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'dance').order('created_at', { ascending: false }).limit(8).then((r) => r, () => ({ data: [] as any[] })),
       studioId !== "00000000-0000-0000-0000-000000000000" ? aiLearning.getLearnedKnowledge(studioId, message).catch(() => []) : Promise.resolve([]),
-      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'dance').maybeSingle().then((r) => r).catch(() => ({ data: null })),
-      studioId !== "00000000-0000-0000-0000-000000000000" ? supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', studioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'dance').maybeSingle().then((r) => r, () => ({ data: null })),
+      studioId !== "00000000-0000-0000-0000-000000000000" ? supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', studioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r, () => ({ data: null })) : Promise.resolve({ data: null }),
       getLeadsData(studioId),
       getInventoryData(studioId)
     ])

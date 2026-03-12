@@ -501,10 +501,10 @@ export async function POST(request: NextRequest) {
     }
 
     const [trainingRes, learnedRes, rulesRes, modelSettingRes] = await Promise.all([
-      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'fire_protection').order('created_at', { ascending: false }).limit(6).then((r) => r).catch(() => ({ data: [] as any[] })),
+      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'fire_protection').order('created_at', { ascending: false }).limit(6).then((r) => r, () => ({ data: [] as any[] })),
       aiLearning.getLearnedKnowledge(contextStudioId, typeof message === 'string' ? message : (message?.content || '')).catch(() => []),
-      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'fire_protection').maybeSingle().then((r) => r).catch(() => ({ data: null })),
-      supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', contextStudioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r).catch(() => ({ data: null }))
+      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'fire_protection').maybeSingle().then((r) => r, () => ({ data: null })),
+      supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', contextStudioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r, () => ({ data: null }))
     ])
     const trainingRows = trainingRes.data || []
     const fewShot = trainingRows.length > 0
