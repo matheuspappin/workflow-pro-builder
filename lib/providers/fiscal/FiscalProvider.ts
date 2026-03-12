@@ -48,6 +48,7 @@ export interface StudioData {
 }
 
 const FISCAL_WORKER_URL = process.env.FISCAL_WORKER_URL
+const FISCAL_SERVICE_KEY = process.env.FISCAL_SERVICE_KEY
 const FISCAL_AMBIENTE = process.env.FISCAL_AMBIENTE || '2' // 1=produção, 2=homologação
 
 function mapToWorkerFormat(
@@ -136,9 +137,14 @@ export async function emit(
 
   const ref = `nfe-${data.order_id.slice(0, 8)}-${Date.now()}`
 
+  const fiscalHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (FISCAL_SERVICE_KEY) {
+    fiscalHeaders['X-Fiscal-Service-Key'] = FISCAL_SERVICE_KEY
+  }
+
   const response = await fetch(`${FISCAL_WORKER_URL}/emitir`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: fiscalHeaders,
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(90000),
   })

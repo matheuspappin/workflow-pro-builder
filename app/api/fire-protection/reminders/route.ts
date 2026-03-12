@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,6 +10,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const { data: reminders, error } = await supabaseAdmin
       .from('sale_reminders')
@@ -44,6 +48,9 @@ export async function POST(request: NextRequest) {
     if (!studio_id || !service_order_id || !customer_id || !reminder_type) {
       return NextResponse.json({ error: 'studio_id, service_order_id, customer_id e reminder_type são obrigatórios' }, { status: 400 })
     }
+
+    const accessPost = await checkStudioAccess(request, studio_id)
+    if (!accessPost.authorized) return accessPost.response
 
     const scheduledAt = new Date()
     scheduledAt.setDate(scheduledAt.getDate() + days)

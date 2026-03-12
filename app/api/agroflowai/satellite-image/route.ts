@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger'
+import { checkStudioAccess } from '@/lib/auth'
 
 const SATELLITE_PROCESSOR_URL = process.env.SATELLITE_PROCESSOR_URL || 'http://localhost:8001'
 
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
     if (!propertyId || !studioId) {
       return NextResponse.json({ error: 'propertyId e studioId são obrigatórios' }, { status: 400 })
     }
+
+    const accessPost = await checkStudioAccess(request, studioId)
+    if (!accessPost.authorized) return accessPost.response
 
     // 1. Busca a propriedade no Supabase
     const { data: prop, error: propError } = await supabaseAdmin
@@ -165,6 +169,9 @@ export async function GET(request: NextRequest) {
     if (!propertyId || !studioId) {
       return NextResponse.json({ error: 'propertyId e studioId são obrigatórios' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const { data, error } = await supabaseAdmin
       .from('agroflowai_compliance_logs')

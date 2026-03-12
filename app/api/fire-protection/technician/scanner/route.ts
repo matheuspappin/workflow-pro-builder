@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Técnico não encontrado' }, { status: 404 })
     }
 
+    const studioIds = professionals.map((p) => p.studio_id).filter(Boolean)
+
     // Buscar por qr_code, id (UUID) ou name parcial
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code)
 
@@ -56,6 +58,7 @@ export async function GET(request: NextRequest) {
         student_id,
         customer:students(id, name, phone)
       `)
+      .in('studio_id', studioIds)
 
     if (isUUID) {
       query = query.eq('id', code)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 /**
  * GET /api/verticalization/usage?studioId=xxx&slug=fire-protection
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(req, studioId)
+    if (!access.authorized) return access.response
 
     const { data: studio } = await supabaseAdmin
       .from('studios')

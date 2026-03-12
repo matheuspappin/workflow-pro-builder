@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 const CHECKLIST_PADRAO = [
   { title: 'Extintores dentro do prazo de validade', order_index: 0 },
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     let query = supabaseAdmin
       .from('service_orders')
@@ -64,6 +68,9 @@ export async function POST(request: NextRequest) {
     if (!studio_id || !vistoria_type) {
       return NextResponse.json({ error: 'studio_id e vistoria_type são obrigatórios' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studio_id)
+    if (!access.authorized) return access.response
 
     const { data: vistoria, error } = await supabaseAdmin
       .from('service_orders')

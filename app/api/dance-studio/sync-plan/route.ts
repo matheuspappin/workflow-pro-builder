@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 import logger from '@/lib/logger'
 
 /**
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
     if (!studioId || typeof studioId !== 'string') {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(req, studioId)
+    if (!access.authorized) return access.response
 
     const { data, error } = await supabaseAdmin.rpc('sync_studio_plan_from_latest_invoice', {
       p_studio_id: studioId,

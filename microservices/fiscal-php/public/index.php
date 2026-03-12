@@ -11,6 +11,21 @@ $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 $app->addErrorMiddleware(true, true, true);
 
+// Middleware de autenticação por API key (FISCAL_SERVICE_KEY)
+$app->add(function (Request $req, $handler) {
+    $serviceKey = getenv('FISCAL_SERVICE_KEY');
+    // Se a chave estiver configurada, exigir o header
+    if ($serviceKey !== false && $serviceKey !== '') {
+        $providedKey = $req->getHeaderLine('X-Fiscal-Service-Key');
+        if (!hash_equals($serviceKey, $providedKey)) {
+            $res = new \Slim\Psr7\Response();
+            $res->getBody()->write(json_encode(['success' => false, 'error' => 'Não autorizado']));
+            return $res->withHeader('Content-Type', 'application/json')->withStatus(401);
+        }
+    }
+    return $handler->handle($req);
+});
+
 // Health check
 $app->get('/health', function (Request $req, Response $res) {
     $res->getBody()->write(json_encode(['status' => 'ok', 'service' => 'fiscal-worker']));

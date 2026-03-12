@@ -6,6 +6,8 @@ import logger from '@/lib/logger'
 import { buildCatarinaSystemPrompt, getContextTimestamp } from '@/lib/catarina'
 import { resolveContactLayer } from '@/lib/ai-router'
 import { aiLearning } from '@/lib/actions/ai-learning'
+import { allowInternalAiCall, checkStudioAccess } from '@/lib/auth'
+import { checkAiRateLimit } from '@/lib/rate-limit'
 
 /**
  * ENGINE DE IA - Catarina (Secretária Virtual)
@@ -20,6 +22,29 @@ export async function POST(request: NextRequest) {
     const isAdmin = context?.is_admin || false
     const isStudent = context?.is_student || false
     const contactLayerFromContext = context?.contact_layer
+
+    // Verificar autorização: chamadas internas (webhook WhatsApp) ou usuário autenticado com acesso ao studio
+    const isInternal = allowInternalAiCall(request)
+    if (!isInternal && studioId !== "00000000-0000-0000-0000-000000000000") {
+      const access = await checkStudioAccess(request, studioId)
+      if (!access.authorized) return access.response
+    }
+
+    // Rate limit por estúdio — protege cota da Google AI API contra abuso por tenant
+    if (studioId !== "00000000-0000-0000-0000-000000000000") {
+      const rateCheck = await checkAiRateLimit(studioId)
+      if (!rateCheck.allowed) {
+        return NextResponse.json(
+          { error: 'Muitas requisições. Aguarde antes de enviar outra mensagem.' },
+          {
+            status: 429,
+            headers: rateCheck.retryAfter
+              ? { 'Retry-After': String(rateCheck.retryAfter) }
+              : {},
+          }
+        )
+      }
+    }
 
     // 0. BUSCAR DADOS DO ESTÚDIO E CHAVE DE API
     let apiKey = process.env.GOOGLE_AI_API_KEY

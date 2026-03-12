@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 const STATUS_REVERSE: Record<string, string> = {
   draft: 'open',
@@ -27,6 +28,9 @@ export async function PATCH(
 
     const sid = studioId || studio_id
     if (!sid) return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
+
+    const access = await checkStudioAccess(request, sid)
+    if (!access.authorized) return access.response
 
     const updatePayload: Record<string, any> = { updated_at: new Date().toISOString() }
 
@@ -99,6 +103,9 @@ export async function DELETE(
     const studioId = searchParams.get('studioId')
 
     if (!studioId) return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
+
+    const accessDel = await checkStudioAccess(request, studioId)
+    if (!accessDel.authorized) return accessDel.response
 
     const { error } = await supabaseAdmin
       .from('service_orders')

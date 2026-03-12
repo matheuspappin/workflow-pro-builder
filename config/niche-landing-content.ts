@@ -32,6 +32,21 @@ function interpolate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? template)
 }
 
+/** Estabelecimentos femininos em português — usa "sua" em vez de "seu" */
+const FEMININE_ESTABLISHMENTS = new Set([
+  "academia", "clínica", "barbearia", "escola", "creche", "consultoria", "arena",
+  "estética automotiva", "estética", "oficina", "empresa", "cervejaria", "cafeteria",
+  "confeitaria", "imobiliária", "agência", "corretora", "construtora", "transportadora",
+  "assistência", "casa",
+])
+
+function getPossessive(establishment: string): "seu" | "sua" {
+  const lower = establishment.toLowerCase().trim()
+  return FEMININE_ESTABLISHMENTS.has(lower) || FEMININE_ESTABLISHMENTS.has(lower.split(/\s+/)[0] ?? "")
+    ? "sua"
+    : "seu"
+}
+
 /** Conteúdo base reutilizável */
 const BASE = {
   howItWorks: [
@@ -396,7 +411,7 @@ const NICHE_SPECIFIC: Partial<Record<string, Partial<NicheLandingContent>>> = {
 /** Gera conteúdo genérico quando não há específico */
 function getGenericContent(vocab: Vocab, nicheName: string): Partial<NicheLandingContent> {
   return {
-    heroHeadline: `Gestão completa para seu ${vocab.establishment.toLowerCase()}`,
+    heroHeadline: `Gestão completa para ${getPossessive(vocab.establishment)} ${vocab.establishment.toLowerCase()}`,
     heroSubheadline: `Cadastro de ${vocab.client}s, agenda de ${vocab.provider}s, controle de ${vocab.service}s e financeiro. Tudo em uma plataforma.`,
     painPoints: [
       { title: "Agenda desorganizada", description: `Horários em conflito, ${vocab.client}s remarcando e tempo perdido no telefone.` },
@@ -407,7 +422,7 @@ function getGenericContent(vocab: Vocab, nicheName: string): Partial<NicheLandin
     extendedFeatures: [
       { title: `Agenda de ${vocab.provider}s`, description: `Organize horários e evite conflitos. Cada ${vocab.provider} com sua agenda.`, highlight: true },
       { title: `Cadastro de ${vocab.client}s`, description: `Histórico completo, preferências e anexos em um só lugar.` },
-      { title: `Controle de ${vocab.service}s`, description: `Registre cada ${vocab.service} realizada e acompanhe em tempo real.` },
+      { title: `Controle de ${vocab.service}s`, description: `Registre cada ${vocab.service} e acompanhe em tempo real.` },
       { title: "Financeiro integrado", description: "Cobranças, fluxo de caixa e relatórios. Inadimplência em destaque." },
       { title: "AKAAI NFe", description: "Emissor próprio de Nota Fiscal Eletrônica. Emissão automática integrada ao sistema." },
       { title: "Lembretes automáticos", description: "WhatsApp para confirmar horários e reduzir faltas." },

@@ -11,6 +11,8 @@ import { HeroCanvas } from "@/components/home/hero-canvas"
 import { HeroGridOverlay } from "@/components/home/hero-grid-overlay"
 import { DustCanvas } from "@/components/home/dust-canvas"
 import { GlobalSpine, GlobalTechOverlay } from "@/components/home/global-overlays"
+import { LineupSectionBackground } from "@/components/home/lineup-section-background"
+import { CoreSectionBackground } from "@/components/home/core-section-background"
 
 const springTransition = { type: "spring" as const, stiffness: 100, damping: 20 }
 
@@ -231,6 +233,9 @@ function BenefitsSection() {
       id="beneficios"
       className="py-24 md:py-32 bg-black relative overflow-hidden"
     >
+      <div className="absolute inset-0 z-0">
+        <LineupSectionBackground />
+      </div>
       <div
         className="absolute top-0 left-0 right-0 h-32 pointer-events-none z-[2]"
         style={{ background: "linear-gradient(to bottom, #000000 0%, transparent 100%)" }}
@@ -240,7 +245,7 @@ function BenefitsSection() {
         style={{ background: "linear-gradient(to top, #000000 0%, transparent 100%)" }}
       />
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none z-[1]"
         style={{
           background:
             "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255,255,255,0.03) 0%, transparent 60%)",
@@ -307,8 +312,11 @@ function BenefitsSection() {
 function CTASection() {
   return (
     <section className="py-24 md:py-32 bg-black relative overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <CoreSectionBackground />
+      </div>
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none z-[1]"
         style={{
           background:
             "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(255,255,255,0.04) 0%, transparent 60%)",

@@ -31,6 +31,13 @@ import {
 import { cn } from "@/lib/utils"
 import { getThemeForNiche } from "@/config/niche-landing-theme"
 import { nicheDictionary } from "@/config/niche-dictionary"
+import { DustCanvas } from "@/components/home/dust-canvas"
+import { GlobalSpine, GlobalTechOverlay } from "@/components/home/global-overlays"
+
+/** Paleta akaaicore — branco/zinc neutro para nichos genéricos */
+const AKAAICORE_BADGE = "border-white/20 bg-white/10 text-white/90"
+const AKAAICORE_CTA_BORDER = "border-white/20 bg-white/5"
+const AKAAICORE_HERO_BLUR = "bg-white/10"
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Music,
@@ -51,39 +58,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Camera,
   Coffee,
   Wine,
-}
-
-const BADGE_CLASS: Record<string, string> = {
-  violet: "border-violet-500/30 bg-violet-500/10 text-violet-300",
-  blue: "border-blue-500/30 bg-blue-500/10 text-blue-300",
-  emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  rose: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-  amber: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  indigo: "border-indigo-500/30 bg-indigo-500/10 text-indigo-300",
-  teal: "border-teal-500/30 bg-teal-500/10 text-teal-300",
-  fuchsia: "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300",
-}
-
-const CTA_BORDER_CLASS: Record<string, string> = {
-  violet: "border-violet-500/30 bg-violet-500/5",
-  blue: "border-blue-500/30 bg-blue-500/5",
-  emerald: "border-emerald-500/30 bg-emerald-500/5",
-  rose: "border-rose-500/30 bg-rose-500/5",
-  amber: "border-amber-500/30 bg-amber-500/5",
-  indigo: "border-indigo-500/30 bg-indigo-500/5",
-  teal: "border-teal-500/30 bg-teal-500/5",
-  fuchsia: "border-fuchsia-500/30 bg-fuchsia-500/5",
-}
-
-const ICON_COLOR_CLASS: Record<string, string> = {
-  violet: "text-violet-400",
-  blue: "text-blue-400",
-  emerald: "text-emerald-400",
-  rose: "text-rose-400",
-  amber: "text-amber-400",
-  indigo: "text-indigo-400",
-  teal: "text-teal-400",
-  fuchsia: "text-fuchsia-400",
 }
 
 interface StudioLandingPageProps {
@@ -108,17 +82,21 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
   }, [])
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans">
+    <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden selection:bg-white/20 relative">
+      <DustCanvas />
+      <GlobalSpine />
+      <GlobalTechOverlay />
+      <div className="relative z-10">
       {/* Navbar */}
       <header
         className={cn(
           "fixed top-0 w-full z-50 transition-all duration-500",
-          scrolled ? "bg-slate-950/90 backdrop-blur-xl border-b border-white/10 py-3" : "bg-transparent py-5"
+          scrolled ? "bg-black/95 backdrop-blur-xl border-b border-white/10 py-3" : "bg-transparent py-5"
         )}
       >
         <div className="container mx-auto px-6 flex items-center justify-between">
           <Link href={`/s/${studio.slug}`} className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-white hover:opacity-90 transition-opacity">
-            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br", theme.gradientFrom, theme.gradientTo)}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/20">
               <Icon className="w-5 h-5 text-white" />
             </div>
             <span>{studio.name}</span>
@@ -140,7 +118,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
               </Button>
             </Link>
             <Link href={`/s/${studio.slug}/register`}>
-              <Button size="sm" className={cn("font-bold", theme.gradientFrom, theme.gradientTo, "border-none")}>
+              <Button size="sm" className="font-bold bg-white text-black hover:bg-white/90 border-none">
                 Criar Conta
               </Button>
             </Link>
@@ -156,7 +134,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 w-full bg-slate-900/95 backdrop-blur-xl border-b border-white/10 p-4">
+          <div className="md:hidden absolute top-full left-0 w-full bg-black/98 backdrop-blur-xl border-b border-white/10 p-4">
             <div className="flex flex-col gap-2">
               <a href="#features" className="py-2 text-white/80 font-medium" onClick={() => setMobileMenuOpen(false)}>
                 Funcionalidades
@@ -168,7 +146,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
                 <Button variant="outline" className="w-full border-white/20 text-white">Entrar</Button>
               </Link>
               <Link href={`/s/${studio.slug}/register`} onClick={() => setMobileMenuOpen(false)}>
-                <Button className={cn("w-full", theme.gradientFrom, theme.gradientTo, "border-none")}>Criar Conta</Button>
+                <Button className="w-full bg-white text-black hover:bg-white/90 border-none">Criar Conta</Button>
               </Link>
             </div>
           </div>
@@ -177,9 +155,9 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
 
       {/* Hero */}
       <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[128px] opacity-20 bg-violet-500/30" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-[128px] opacity-20 bg-pink-500/30" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-900/50 to-black" />
+        <div className={cn("absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[128px] opacity-20", AKAAICORE_HERO_BLUR)} />
+        <div className={cn("absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-[128px] opacity-20", AKAAICORE_HERO_BLUR)} />
 
         <div className="container mx-auto px-6 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
@@ -189,7 +167,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium mb-8",
-                  BADGE_CLASS[theme.primaryColor] ?? BADGE_CLASS.violet
+                  AKAAICORE_BADGE
                 )}
               >
                 {theme.heroBadge}
@@ -203,7 +181,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
               className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tighter mb-6 leading-tight"
             >
               Bem-vindo ao <br />
-              <span className={cn("text-transparent bg-clip-text bg-gradient-to-r", theme.gradientFrom, theme.gradientTo)}>
+              <span className="text-white">
                 {studio.name}
               </span>
             </motion.h1>
@@ -224,7 +202,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
             >
               <Link href={`/s/${studio.slug}/register`}>
-                <Button size="lg" className={cn("h-14 px-10 text-lg font-bold", theme.gradientFrom, theme.gradientTo, "border-none")}>
+                <Button size="lg" className="h-14 px-10 text-lg font-bold bg-white text-black hover:bg-white/90 border-none">
                   Criar Conta Grátis
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
@@ -279,7 +257,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
             viewport={{ once: true }}
             className={cn(
               "max-w-3xl mx-auto text-center p-10 rounded-3xl border",
-              CTA_BORDER_CLASS[theme.primaryColor] ?? CTA_BORDER_CLASS.violet
+              AKAAICORE_CTA_BORDER
             )}
           >
             <h2 className="text-2xl md:text-3xl font-black text-white mb-4">
@@ -290,7 +268,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href={`/s/${studio.slug}/register`}>
-                <Button size="lg" className={cn("h-14 px-10 text-lg font-bold", theme.gradientFrom, theme.gradientTo, "border-none")}>
+                <Button size="lg" className="h-14 px-10 text-lg font-bold bg-white text-black hover:bg-white/90 border-none">
                   Criar Conta Grátis
                 </Button>
               </Link>
@@ -307,7 +285,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
       {/* Footer */}
       <footer className="py-12 border-t border-white/10 text-center">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <Icon className={cn("w-5 h-5", ICON_COLOR_CLASS[theme.primaryColor] ?? ICON_COLOR_CLASS.violet)} />
+          <Icon className="w-5 h-5 text-white/80" />
           <span className="font-bold text-white">{studio.name}</span>
         </div>
         <p className="text-slate-500 text-sm mb-6">
@@ -322,6 +300,7 @@ export function StudioLandingPage({ studio, niche, vocabulary }: StudioLandingPa
           </Link>
         </div>
       </footer>
+      </div>
     </div>
   )
 }

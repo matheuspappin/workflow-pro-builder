@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-function createSSRClient(request: NextRequest) {
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) { return request.cookies.get(name)?.value },
-      set() {},
-      remove() {},
-    },
-  })
-}
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSSRClient(request)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
     const body = await request.json()
     const {
       studio_id,
@@ -38,26 +21,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Verificar permissão
-    const studioIdFromMeta = user.user_metadata?.studio_id
-    const { data: ownedStudio } = await supabaseAdmin
-      .from('studios')
-      .select('id')
-      .eq('id', studio_id)
-      .eq('owner_id', user.id)
-      .maybeSingle()
-    const { data: professional } = await supabaseAdmin
-      .from('professionals')
-      .select('studio_id')
-      .eq('user_id', user.id)
-      .eq('studio_id', studio_id)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    const hasAccess = ownedStudio || professional || studioIdFromMeta === studio_id
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
-    }
+    const access = await checkStudioAccess(request, studio_id)
+    if (!access.authorized) return access.response
 
     const student_id = is_our_extinguisher ? null : (customer_id || null)
     const typeStr = [agent_type, capacity].filter(Boolean).join(' ')

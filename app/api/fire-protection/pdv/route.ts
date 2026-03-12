@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +11,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const { data, error } = await supabaseAdmin
       .from('service_orders')
@@ -52,6 +56,9 @@ export async function POST(request: NextRequest) {
     if (!studio_id || !items?.length) {
       return NextResponse.json({ error: 'studio_id e items são obrigatórios' }, { status: 400 })
     }
+
+    const accessPost = await checkStudioAccess(request, studio_id)
+    if (!accessPost.authorized) return accessPost.response
 
     // Calcular totais
     const totalItems = items.reduce((sum: number, item: any) => sum + (item.unit_price * item.quantity), 0)

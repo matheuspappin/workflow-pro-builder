@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function GET(
   request: NextRequest,
@@ -13,6 +14,9 @@ export async function GET(
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const { data, error } = await supabaseAdmin
       .from('service_orders')
@@ -49,6 +53,9 @@ export async function PATCH(
     if (!studio_id) {
       return NextResponse.json({ error: 'studio_id é obrigatório' }, { status: 400 })
     }
+
+    const accessPatch = await checkStudioAccess(request, studio_id)
+    if (!accessPatch.authorized) return accessPatch.response
 
     const updatePayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -117,6 +124,9 @@ export async function DELETE(
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const accessDel = await checkStudioAccess(request, studioId)
+    if (!accessDel.authorized) return accessDel.response
 
     // Soft delete: apenas cancela a OS
     const { error } = await supabaseAdmin

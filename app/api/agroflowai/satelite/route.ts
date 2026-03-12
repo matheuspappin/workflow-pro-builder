@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 const NASA_FIRMS_KEY = process.env.NASA_FIRMS_API_KEY || ''
 const CACHE_TTL_MS = 30 * 60 * 1000 // 30 min
@@ -156,6 +157,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     // Serve do cache se ainda válido
     if (!forceRefresh && cacheStore && Date.now() - cacheStore.ts < CACHE_TTL_MS) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { z } from 'zod'
 import logger from '@/lib/logger'
 import { checkStudioAccess } from '@/lib/auth'
 
@@ -12,14 +13,59 @@ function getAdmin() {
   })
 }
 
+const CreateStudentSchema = z.object({
+  studioId: z.string().uuid('studioId deve ser um UUID válido'),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(200).trim(),
+  email: z.string().email('E-mail inválido').optional().nullable(),
+  phone: z.string().min(8).max(20).optional().nullable(),
+})
+
+const UpdateStudentSchema = z.object({
+  id: z.string().uuid('id deve ser um UUID válido'),
+  studioId: z.string().uuid('studioId deve ser um UUID válido'),
+  name: z.string().min(2).max(200).trim().optional(),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().min(8).max(20).optional().nullable(),
+  status: z.enum(['active', 'inactive', 'suspended']).optional(),
+  first_name: z.string().max(100).optional().nullable(),
+  last_name: z.string().max(100).optional().nullable(),
+  email_2: z.string().email().optional().nullable(),
+  phone_1: z.string().max(20).optional().nullable(),
+  phone_2: z.string().max(20).optional().nullable(),
+  phone_3: z.string().max(20).optional().nullable(),
+  tags: z.array(z.string().max(50)).max(20).optional().nullable(),
+  source: z.string().max(100).optional().nullable(),
+  language: z.string().max(10).optional().nullable(),
+  category: z.string().max(100).optional().nullable(),
+  company: z.string().max(200).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  email_subscriber_status: z.string().max(50).optional().nullable(),
+  sms_subscriber_status: z.string().max(50).optional().nullable(),
+  last_activity_description: z.string().max(500).optional().nullable(),
+  last_activity_at: z.string().datetime().optional().nullable(),
+  birth_date: z.string().optional().nullable(),
+  document: z.string().max(20).optional().nullable(),
+  metadata: z.record(z.unknown()).optional().nullable(),
+})
+
 // POST /api/dance-studio/students
 export async function POST(request: NextRequest) {
-  const body = await request.json()
-  const { studioId, name, email, phone } = body
-
-  if (!studioId || !name) {
-    return NextResponse.json({ error: 'studioId e name são obrigatórios' }, { status: 400 })
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Corpo da requisição inválido' }, { status: 400 })
   }
+
+  const parsed = CreateStudentSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Dados inválidos', details: parsed.error.flatten().fieldErrors },
+      { status: 422 }
+    )
+  }
+
+  const { studioId, name, email, phone } = parsed.data
 
   const access = await checkStudioAccess(request, studioId)
   if (!access.authorized) return access.response
@@ -29,34 +75,40 @@ export async function POST(request: NextRequest) {
   try {
     const { data, error } = await supabase
       .from('students')
-      .insert({ studio_id: studioId, name, email: email || null, phone: phone || null, status: 'active' })
+      .insert({ studio_id: studioId, name, email: email ?? null, phone: phone ?? null, status: 'active' })
       .select('id, name, email, phone, status')
       .single()
 
     if (error) throw error
 
     return NextResponse.json(data, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('❌ [DANCE-STUDIO/STUDENTS POST] Erro:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { status: 500 }
+    )
   }
 }
 
-// PATCH /api/dance-studio/students — atualizar aluno (inclui todos os campos CRM)
+// PATCH /api/dance-studio/students
 export async function PATCH(request: NextRequest) {
-  const body = await request.json()
-  const {
-    id, studioId, name, email, phone, status,
-    first_name, last_name, email_2, phone_1, phone_2, phone_3,
-    tags, source, language, category, company, address,
-    email_subscriber_status, sms_subscriber_status,
-    last_activity_description, last_activity_at,
-    birth_date, document, metadata,
-  } = body
-
-  if (!id || !studioId) {
-    return NextResponse.json({ error: 'id e studioId são obrigatórios' }, { status: 400 })
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Corpo da requisição inválido' }, { status: 400 })
   }
+
+  const parsed = UpdateStudentSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Dados inválidos', details: parsed.error.flatten().fieldErrors },
+      { status: 422 }
+    )
+  }
+
+  const { id, studioId, ...fields } = parsed.data
 
   const access = await checkStudioAccess(request, studioId)
   if (!access.authorized) return access.response
@@ -64,29 +116,9 @@ export async function PATCH(request: NextRequest) {
   const supabase = getAdmin()
 
   const updates: Record<string, unknown> = {}
-  if (name !== undefined) updates.name = name
-  if (email !== undefined) updates.email = email ?? null
-  if (phone !== undefined) updates.phone = phone ?? null
-  if (status !== undefined && ['active', 'inactive', 'suspended'].includes(status)) updates.status = status
-  if (first_name !== undefined) updates.first_name = first_name ?? null
-  if (last_name !== undefined) updates.last_name = last_name ?? null
-  if (email_2 !== undefined) updates.email_2 = email_2 ?? null
-  if (phone_1 !== undefined) updates.phone_1 = phone_1 ?? null
-  if (phone_2 !== undefined) updates.phone_2 = phone_2 ?? null
-  if (phone_3 !== undefined) updates.phone_3 = phone_3 ?? null
-  if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : null
-  if (source !== undefined) updates.source = source ?? null
-  if (language !== undefined) updates.language = language ?? null
-  if (category !== undefined) updates.category = category ?? null
-  if (company !== undefined) updates.company = company ?? null
-  if (address !== undefined) updates.address = address ?? null
-  if (email_subscriber_status !== undefined) updates.email_subscriber_status = email_subscriber_status ?? null
-  if (sms_subscriber_status !== undefined) updates.sms_subscriber_status = sms_subscriber_status ?? null
-  if (last_activity_description !== undefined) updates.last_activity_description = last_activity_description ?? null
-  if (last_activity_at !== undefined) updates.last_activity_at = last_activity_at ?? null
-  if (birth_date !== undefined) updates.birth_date = birth_date ?? null
-  if (document !== undefined) updates.document = document ?? null
-  if (metadata !== undefined && typeof metadata === 'object') updates.metadata = metadata
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) updates[key] = value
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 })
@@ -107,9 +139,12 @@ export async function PATCH(request: NextRequest) {
     if (!data) return NextResponse.json({ error: 'Aluno não encontrado' }, { status: 404 })
 
     return NextResponse.json(data)
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('❌ [DANCE-STUDIO/STUDENTS PATCH] Erro:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { status: 500 }
+    )
   }
 }
 
@@ -120,6 +155,11 @@ export async function GET(request: NextRequest) {
 
   if (!studioId) {
     return NextResponse.json({ error: 'studioId obrigatório' }, { status: 400 })
+  }
+
+  // Validação básica do UUID antes de qualquer query
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studioId)) {
+    return NextResponse.json({ error: 'studioId inválido' }, { status: 400 })
   }
 
   const access = await checkStudioAccess(request, studioId)
@@ -137,8 +177,11 @@ export async function GET(request: NextRequest) {
     if (error) throw error
 
     return NextResponse.json(students || [])
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('❌ [DANCE-STUDIO/STUDENTS] Erro:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { status: 500 }
+    )
   }
 }

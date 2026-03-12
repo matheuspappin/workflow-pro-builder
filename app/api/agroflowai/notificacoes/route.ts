@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     let query = supabaseAdmin
       .from('agroflowai_notifications')
@@ -45,6 +49,9 @@ export async function POST(request: NextRequest) {
     if (!title) return NextResponse.json({ error: 'title é obrigatório' }, { status: 400 })
     if (!notifBody) return NextResponse.json({ error: 'body é obrigatório' }, { status: 400 })
 
+    const accessPost = await checkStudioAccess(request, sid)
+    if (!accessPost.authorized) return accessPost.response
+
     const { data, error } = await supabaseAdmin
       .from('agroflowai_notifications')
       .insert({
@@ -73,6 +80,9 @@ export async function PATCH(request: NextRequest) {
 
     const sid = studioId || studio_id
     if (!sid) return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
+
+    const accessPatch = await checkStudioAccess(request, sid)
+    if (!accessPatch.authorized) return accessPatch.response
 
     if (markAllRead) {
       let query = supabaseAdmin
@@ -115,6 +125,9 @@ export async function DELETE(request: NextRequest) {
 
     if (!studioId) return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 })
+
+    const accessDel = await checkStudioAccess(request, studioId)
+    if (!accessDel.authorized) return accessDel.response
 
     const { error } = await supabaseAdmin
       .from('agroflowai_notifications')

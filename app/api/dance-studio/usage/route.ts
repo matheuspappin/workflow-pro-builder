@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { PLAN_LIMITS } from '@/lib/plan-limits'
+import { checkStudioAccess } from '@/lib/auth'
 
 /**
  * GET /api/dance-studio/usage?studioId=xxx
@@ -13,6 +14,9 @@ export async function GET(req: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(req, studioId)
+    if (!access.authorized) return access.response
 
     const [studentsRes, teachersRes, studioRes] = await Promise.all([
       supabaseAdmin.from('students').select('*', { count: 'exact', head: true }).eq('studio_id', studioId),

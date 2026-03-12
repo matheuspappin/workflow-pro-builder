@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { z } from 'zod';
 import { getStripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
-import { emitNfeForPackagePurchase } from '@/lib/actions/nfe-emit-package-purchase';
+
+const CheckoutMetadataSchema = z.object({
+  type: z.enum(['system_plan', 'verticalization_plan', 'service_order', 'package', 'pos_sale', 'student_payment']),
+  studio_id: z.string().uuid(),
+  invoice_id: z.string().optional().default(''),
+  student_id: z.string().optional(),
+  plan_id: z.string().optional(),
+  verticalization_plan_id: z.string().optional(),
+  payment_method: z.string().optional(),
+  items_json: z.string().optional(),
+})
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -38,7 +49,13 @@ export async function POST(req: NextRequest) {
         return new NextResponse("Metadata missing", { status: 400 });
       }
 
-      const { invoice_id, type, studio_id, student_id, plan_id, verticalization_plan_id } = metadata;
+      const metadataParse = CheckoutMetadataSchema.safeParse(metadata)
+      if (!metadataParse.success) {
+        logger.error("Metadata inválido no checkout session:", { sessionId: session.id, errors: metadataParse.error.issues })
+        return new NextResponse("Invalid metadata", { status: 400 });
+      }
+
+      const { invoice_id, type, studio_id, student_id, plan_id, verticalization_plan_id } = metadataParse.data;
 
       if (type === 'system_plan' || type === 'verticalization_plan') {
           logger.info(`✅ Pagamento de plano concluído: estúdio ${studio_id}, plano ${plan_id} (${type})`);
@@ -147,16 +164,18 @@ export async function POST(req: NextRequest) {
                 if (payInsertErr) {
                   logger.error('[WEBHOOK] Erro ao inserir payment:', payInsertErr);
                 } else if (payment?.id) {
-                  // Emissão automática de NF-e (não falha o webhook se der erro)
-                  try {
-                    const nfeResult = await emitNfeForPackagePurchase(payment.id, studio_id);
-                    if (!nfeResult.success) {
-                      logger.warn(`[WEBHOOK] NF-e não emitida automaticamente: ${nfeResult.error}. Item ficará pendente no Emissor Fiscal.`);
-                    } else {
-                      logger.info(`[WEBHOOK] NF-e emitida automaticamente: ${nfeResult.invoiceNumber}`);
-                    }
-                  } catch (nfeErr: unknown) {
-                    logger.error('[WEBHOOK] Erro ao emitir NF-e (item ficará pendente):', nfeErr);
+                  // Enfileira emissão de NF-e de forma assíncrona.
+                  // O cron /api/cron/process-nfe-queue processa com retry e backoff.
+                  // O webhook retorna 200 imediatamente, sem depender do microserviço PHP.
+                  const { error: queueErr } = await supabaseAdmin.rpc('enqueue_nfe_emission', {
+                    p_studio_id: studio_id,
+                    p_invoice_id: payment.id,
+                    p_payload: { payment_id: payment.id, studio_id },
+                  });
+                  if (queueErr) {
+                    logger.error('[WEBHOOK] Erro ao enfileirar NF-e (item não será emitido automaticamente):', queueErr);
+                  } else {
+                    logger.info(`[WEBHOOK] NF-e enfileirada para emissão assíncrona: payment ${payment.id}`);
                   }
                 }
               }
@@ -164,9 +183,9 @@ export async function POST(req: NextRequest) {
       }
       else if (type === 'pos_sale') {
           logger.info(`✅ Venda de PDV concluída: ${studio_id}`);
-          const items = JSON.parse(metadata.items_json || '[]');
+          const items = JSON.parse(metadataParse.data.items_json || '[]');
           const totalAmount = session.amount_total ? session.amount_total / 100 : 0;
-          const method = metadata.payment_method || 'stripe_card';
+          const method = metadataParse.data.payment_method || 'stripe_card';
 
           // 1. Criar o registro de pagamento
           const { data: payment, error: paymentError } = await supabaseAdmin

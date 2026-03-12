@@ -948,6 +948,7 @@ function LineupSection() {
       href: '/solutions/agroflowai',
       icon: Sprout,
       theme: 'agro' as const,
+      imageSrc: '/images/agro-parallax.png',
       modules: ['Propriedades geo-referenciadas', 'NDVI / Sentinel', 'NASA FIRMS', 'Documentos & alertas', 'OS de campo'],
     },
     {
@@ -997,17 +998,11 @@ function LineupSection() {
               className="group"
             >
               <Link href={v.href}>
-                <div className={cn(
-                  "border border-zinc-800 bg-zinc-950/50 rounded-2xl overflow-hidden hover:border-zinc-700 transition-all duration-500 h-full flex flex-col",
-                  v.imageSrc && "relative min-h-[420px]"
-                )}>
-                  <div className={v.imageSrc ? "absolute inset-0 z-0" : "relative overflow-hidden"}>
-                    <LineupCard3D icon={v.icon} index={i} theme={v.theme} imageSrc={v.imageSrc} fullCard={!!v.imageSrc} />
+                <div className="border border-zinc-800 bg-zinc-950/50 rounded-2xl overflow-hidden hover:border-zinc-700 transition-all duration-500 h-full flex flex-col">
+                  <div className="relative overflow-hidden h-52">
+                    <LineupCard3D icon={v.icon} index={i} theme={v.theme} imageSrc={v.imageSrc} />
                   </div>
-                  <div className={cn(
-                    "p-8 flex-1 flex flex-col",
-                    v.imageSrc && "relative z-10 min-h-[320px]"
-                  )}>
+                  <div className="p-8 flex-1 flex flex-col">
                     <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-3">{v.tagline}</p>
                     <h3 className="text-2xl font-black text-white mb-3 tracking-tight">{v.name}</h3>
                     <p className="text-white/60 font-medium text-sm leading-relaxed mb-6 flex-grow">{v.description}</p>

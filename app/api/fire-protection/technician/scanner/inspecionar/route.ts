@@ -47,6 +47,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Extintor não encontrado' }, { status: 404 })
     }
 
+    // Verificar que o asset pertence ao studio do técnico
+    const studioIds = professionals.map((p: { studio_id: string }) => p.studio_id).filter(Boolean)
+    if (!studioIds.includes(asset.studio_id)) {
+      return NextResponse.json({ error: 'Extintor de outro studio' }, { status: 403 })
+    }
+
     // Atualizar data da última vistoria no asset
     await supabaseAdmin
       .from('assets')

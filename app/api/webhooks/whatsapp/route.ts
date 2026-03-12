@@ -6,9 +6,29 @@ import logger from '@/lib/logger'
 import { getAiEndpointForStudio } from '@/lib/ai-router'
 import { resolveContactFromWhatsApp } from '@/lib/contact-resolver'
 
-// Cache em memória para evitar processar a mesma mensagem duas vezes seguidas
-// Em produção real, isso seria um Redis, mas para dev local resolve 100%
-const processedMessages = new Set<string>();
+// Deduplicação em Redis (produção) ou memória (dev)
+const processedMessages = new Set<string>()
+
+async function markMessageProcessed(messageId: string): Promise<boolean> {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (url && token) {
+    try {
+      const { Redis } = await import('@upstash/redis')
+      const redis = new Redis({ url, token })
+      // SET NX EX 120 — retorna 'OK' se inserido, null se já existia
+      const result = await redis.set(`wa:dedup:${messageId}`, '1', { nx: true, ex: 120 })
+      return result === 'OK'
+    } catch (err) {
+      logger.warn('[WhatsApp dedup] Redis falhou, usando fallback em memória:', err)
+    }
+  }
+  // Fallback em memória (instância única / dev)
+  if (processedMessages.has(messageId)) return false
+  processedMessages.add(messageId)
+  setTimeout(() => processedMessages.delete(messageId), 120_000)
+  return true
+}
 
 function validateWebhookSignature(request: NextRequest, rawBody: string): boolean {
   const secret = process.env.WEBHOOK_WHATSAPP_SECRET || process.env.EVOLUTION_WEBHOOK_SECRET
@@ -70,12 +90,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
-    // Se já processamos esse ID, ignoramos completamente (Check via DB em produção é melhor)
+    // Deduplicação: Redis (multi-instância) com fallback em DB
+    const isNew = await markMessageProcessed(messageId)
+    if (!isNew) {
+      logger.info(`⏭️ Ignorando mensagem duplicada (Redis/cache): ${messageId}`)
+      return NextResponse.json({ success: true })
+    }
+
+    // Verificação adicional no DB (garante consistência mesmo se Redis reiniciar)
     const { data: existingMsg } = await supabaseAdmin
       .from('whatsapp_messages')
       .select('id')
       .eq('message_id', messageId)
-      .maybeSingle();
+      .maybeSingle()
 
     if (existingMsg) {
       logger.info(`⏭️ Ignorando mensagem duplicada (DB): ${messageId}`)
@@ -101,10 +128,6 @@ export async function POST(request: NextRequest) {
     if (!remoteJid || !messageContent || fromMe || remoteJid.includes('@g.us')) {
       return NextResponse.json({ success: true })
     }
-
-    // Marcar como processada para não repetir
-    processedMessages.add(messageId);
-    setTimeout(() => processedMessages.delete(messageId), 30000); // Limpa do cache após 30s
 
     // 4. IDENTIFICAÇÃO DO PERFIL E ESTÚDIO
     const senderNumber = remoteJid.replace(/\D/g, '')
@@ -178,7 +201,7 @@ export async function POST(request: NextRequest) {
     const history = chat ? await fetchWhatsAppChatHistory(chat.id, studioId, 20, messageId) : []
 
     const aiEndpoint = await getAiEndpointForStudio(studioId)
-    const internalKey = process.env.INTERNAL_AI_SECRET || process.env.WEBHOOK_WHATSAPP_SECRET || process.env.EVOLUTION_WEBHOOK_SECRET
+    const internalKey = process.env.INTERNAL_AI_SECRET
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (internalKey && !aiEndpoint.includes('/api/gemini')) {
       headers['x-internal-ai-key'] = internalKey

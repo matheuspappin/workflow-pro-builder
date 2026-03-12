@@ -129,7 +129,6 @@ interface LineupCard3DProps {
   index: number
   theme?: keyof typeof FUTURISTIC_THEMES
   imageSrc?: string
-  fullCard?: boolean
 }
 
 // 4D Parallax interativo: 5 camadas de profundidade + tilt 3D + vertex displacement + animação
@@ -474,13 +473,13 @@ function SceneContent({
   )
 }
 
-export function LineupCard3D({ icon: Icon, index, theme = 'fire', imageSrc, fullCard }: LineupCard3DProps) {
+export function LineupCard3D({ icon: Icon, index, theme = 'fire', imageSrc }: LineupCard3DProps) {
   const pointerRef = useRef({ x: 0, y: 0, hover: false })
   const cardTheme: keyof typeof FUTURISTIC_THEMES = theme
 
   return (
     <div
-      className={fullCard ? "relative w-full h-full overflow-hidden" : "relative h-44 w-full overflow-hidden"}
+      className="relative w-full h-full overflow-hidden"
       onMouseEnter={() => { pointerRef.current.hover = true }}
       onMouseLeave={() => {
         pointerRef.current.hover = false
@@ -497,14 +496,7 @@ export function LineupCard3D({ icon: Icon, index, theme = 'fire', imageSrc, full
       >
         <SceneContent index={index} pointerRef={pointerRef} theme={cardTheme} imageSrc={imageSrc} />
       </Canvas>
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: fullCard
-            ? "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 35%, rgba(0,0,0,0.85) 65%, rgba(0,0,0,0.95) 100%)"
-            : "linear-gradient(to top, #000 0%, rgba(0,0,0,0.4) 50%, transparent 100%)",
-        }}
-      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
       <div className="absolute bottom-4 left-6 flex items-center gap-2 pointer-events-none z-10">
         <Icon className="w-8 h-8 text-white" />
         <span className="text-[10px] font-mono text-white/70 uppercase tracking-wider">

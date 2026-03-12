@@ -42,6 +42,8 @@ import {
 import { cn } from "@/lib/utils"
 import type { NicheLandingContent } from "@/config/niche-landing-content"
 import { OFFICIAL_LOGO } from "@/config/branding"
+import { DustCanvas } from "@/components/home/dust-canvas"
+import { GlobalSpine, GlobalTechOverlay } from "@/components/home/global-overlays"
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Music,
@@ -64,44 +66,16 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Wine,
 }
 
-const BADGE_CLASS: Record<string, string> = {
-  violet: "border-violet-500/30 bg-violet-500/10 text-violet-300",
-  blue: "border-blue-500/30 bg-blue-500/10 text-blue-300",
-  emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  rose: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-  amber: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  indigo: "border-indigo-500/30 bg-indigo-500/10 text-indigo-300",
-  teal: "border-teal-500/30 bg-teal-500/10 text-teal-300",
-  fuchsia: "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300",
-}
-
-const CTA_BORDER_CLASS: Record<string, string> = {
-  violet: "border-violet-500/30 bg-violet-500/5",
-  blue: "border-blue-500/30 bg-blue-500/5",
-  emerald: "border-emerald-500/30 bg-emerald-500/5",
-  rose: "border-rose-500/30 bg-rose-500/5",
-  amber: "border-amber-500/30 bg-amber-500/5",
-  indigo: "border-indigo-500/30 bg-indigo-500/5",
-  teal: "border-teal-500/30 bg-teal-500/5",
-  fuchsia: "border-fuchsia-500/30 bg-fuchsia-500/5",
-}
+/** Paleta akaaicore — branco/zinc neutro para nichos genéricos */
+const AKAAICORE_BADGE = "border-white/20 bg-white/10 text-white/90"
+const AKAAICORE_CTA_BORDER = "border-white/20 bg-white/5"
+const AKAAICORE_HERO_BLUR = "bg-white/10"
 
 const STAT_ICONS: Record<string, LucideIcon> = {
   "Negócios ativos": Users,
   "Satisfação": ThumbsUp,
   "Teste grátis": Clock,
   "Suporte": Headphones,
-}
-
-const HERO_BLUR_CLASS: Record<string, string> = {
-  violet: "bg-violet-500/30",
-  blue: "bg-blue-500/30",
-  emerald: "bg-emerald-500/30",
-  rose: "bg-rose-500/30",
-  amber: "bg-amber-500/30",
-  indigo: "bg-indigo-500/30",
-  teal: "bg-teal-500/30",
-  fuchsia: "bg-fuchsia-500/30",
 }
 
 interface NicheLandingClientProps {
@@ -131,12 +105,16 @@ export function NicheLandingClient({
   }, [])
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans antialiased">
+    <div className="min-h-screen bg-black text-white font-sans antialiased overflow-x-hidden selection:bg-white/20 relative">
+      <DustCanvas />
+      <GlobalSpine />
+      <GlobalTechOverlay />
+      <div className="relative z-10">
       {/* Navbar */}
       <header
         className={cn(
           "fixed top-0 w-full z-50 transition-all duration-500",
-          scrolled ? "bg-slate-950/95 backdrop-blur-xl border-b border-white/10 py-3" : "bg-transparent py-5"
+          scrolled ? "bg-black/95 backdrop-blur-xl border-b border-white/10 py-3" : "bg-transparent py-5"
         )}
       >
         <div className="container mx-auto px-4 sm:px-6 flex items-center justify-between max-w-6xl">
@@ -167,7 +145,7 @@ export function NicheLandingClient({
               </Button>
             </Link>
             <Link href={registerUrl}>
-              <Button size="sm" className={cn("font-bold", content.gradientFrom, content.gradientTo, "border-none")}>
+                <Button size="sm" className="font-bold bg-white text-black hover:bg-white/90 border-none">
                 Teste Grátis
               </Button>
             </Link>
@@ -178,7 +156,7 @@ export function NicheLandingClient({
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 w-full bg-slate-950/98 backdrop-blur-xl border-b border-white/10 p-5">
+          <div className="md:hidden absolute top-full left-0 w-full bg-black/98 backdrop-blur-xl border-b border-white/10 p-5">
             <nav className="flex flex-col gap-0.5">
               <a href="#features" className="py-3.5 px-2 text-white/90 font-medium rounded-lg hover:bg-white/5" onClick={() => setMobileMenuOpen(false)}>Funcionalidades</a>
               <a href="#como-funciona" className="py-3.5 px-2 text-white/90 font-medium rounded-lg hover:bg-white/5" onClick={() => setMobileMenuOpen(false)}>Como funciona</a>
@@ -191,7 +169,7 @@ export function NicheLandingClient({
                 <Button variant="outline" className="w-full border-white/20 text-white">Entrar</Button>
               </Link>
               <Link href={registerUrl} onClick={() => setMobileMenuOpen(false)} className="flex-1">
-                <Button className={cn("w-full", content.gradientFrom, content.gradientTo, "border-none")}>Teste Grátis</Button>
+                <Button className="w-full bg-white text-black hover:bg-white/90 border-none">Teste Grátis</Button>
               </Link>
             </div>
           </div>
@@ -200,9 +178,9 @@ export function NicheLandingClient({
 
       {/* Hero */}
       <section className="relative pt-28 sm:pt-36 pb-20 sm:pb-28 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950" />
-        <div className={cn("absolute top-1/4 left-1/4 w-80 sm:w-[28rem] h-80 sm:h-[28rem] rounded-full blur-[140px] opacity-20", HERO_BLUR_CLASS[content.primaryColor] ?? "bg-violet-500/30")} />
-        <div className={cn("absolute bottom-1/4 right-1/4 w-80 sm:w-[28rem] h-80 sm:h-[28rem] rounded-full blur-[140px] opacity-15", HERO_BLUR_CLASS[content.primaryColor] ?? "bg-violet-500/30")} />
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-900/30 to-black" />
+        <div className={cn("absolute top-1/4 left-1/4 w-80 sm:w-[28rem] h-80 sm:h-[28rem] rounded-full blur-[140px] opacity-20", AKAAICORE_HERO_BLUR)} />
+        <div className={cn("absolute bottom-1/4 right-1/4 w-80 sm:w-[28rem] h-80 sm:h-[28rem] rounded-full blur-[140px] opacity-15", AKAAICORE_HERO_BLUR)} />
 
         <div className="container mx-auto px-4 sm:px-6 relative z-10 max-w-6xl">
           <div className="max-w-4xl mx-auto text-center">
@@ -210,7 +188,7 @@ export function NicheLandingClient({
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium mb-6 sm:mb-8", BADGE_CLASS[content.primaryColor] ?? BADGE_CLASS.violet)}
+                className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium mb-6 sm:mb-8", AKAAICORE_BADGE)}
               >
                 {content.heroBadge}
               </motion.div>
@@ -241,7 +219,7 @@ export function NicheLandingClient({
               className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4"
             >
               <Link href={registerUrl}>
-                <Button size="lg" className={cn("h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold", content.gradientFrom, content.gradientTo, "border-none shadow-lg hover:shadow-xl transition-shadow")}>
+                <Button size="lg" className="h-12 sm:h-14 px-8 sm:px-10 text-base sm:text-lg font-bold bg-white text-black hover:bg-white/90 border-none shadow-lg hover:shadow-xl transition-shadow">
                   Começar teste grátis
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
@@ -263,8 +241,8 @@ export function NicheLandingClient({
               >
                 {content.trustBadges.map((badge, i) => (
                   <span key={i} className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-emerald-400" />
+                    <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-white/90" />
                     </span>
                     {badge}
                   </span>
@@ -277,7 +255,7 @@ export function NicheLandingClient({
 
       {/* Pain points */}
       {content.painPoints?.length > 0 && (
-        <section className="py-16 sm:py-24 bg-slate-900/40 border-y border-white/5">
+        <section className="py-16 sm:py-24 bg-zinc-950/50 border-y border-white/5">
           <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
             <div className="text-center mb-12 sm:mb-16">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black mb-3">Você passa por isso?</h2>
@@ -291,14 +269,14 @@ export function NicheLandingClient({
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.08 }}
-                  className="group p-6 sm:p-8 rounded-2xl border border-amber-500/10 bg-amber-500/5 hover:border-amber-500/25 hover:bg-amber-500/10 transition-all duration-300"
+                  className="group p-6 sm:p-8 rounded-2xl border border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10 transition-all duration-300"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/20 text-amber-400">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-white/10 text-white/80">
                       <AlertCircle className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-amber-400/95 mb-2 group-hover:text-amber-300 transition-colors">{pain.title}</p>
+                      <p className="text-sm font-bold text-white/90 mb-2 group-hover:text-white transition-colors">{pain.title}</p>
                       <p className="text-slate-400 text-sm leading-relaxed">{pain.description}</p>
                     </div>
                   </div>
@@ -337,7 +315,7 @@ export function NicheLandingClient({
                 >
                   <div className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center mb-4",
-                    isHighlight ? cn(content.gradientFrom, content.gradientTo) : "bg-white/10 text-white/80"
+                    isHighlight ? "bg-white/20 text-white" : "bg-white/10 text-white/80"
                   )}>
                     <FeatureIcon className="w-6 h-6" />
                   </div>
@@ -351,7 +329,7 @@ export function NicheLandingClient({
       </section>
 
       {/* How it works */}
-      <section id="como-funciona" className="py-16 sm:py-24 bg-slate-900/40 border-y border-white/5">
+      <section id="como-funciona" className="py-16 sm:py-24 bg-zinc-950/50 border-y border-white/5">
         <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black mb-3">Comece em 3 passos</h2>
@@ -370,7 +348,7 @@ export function NicheLandingClient({
                   className="relative"
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-white shadow-lg", content.gradientFrom, content.gradientTo)}>
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl text-black bg-white shadow-lg">
                       {step.step}
                     </div>
                     <h3 className="text-lg font-bold text-white mt-4 mb-2">{step.title}</h3>
@@ -404,10 +382,10 @@ export function NicheLandingClient({
                       "backdrop-blur-sm"
                     )}
                   >
-                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4", content.gradientFrom, content.gradientTo)}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 bg-white/20">
                       <StatIcon className="w-5 h-5 text-white" />
                     </div>
-                    <p className={cn("text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight", content.gradientFrom, content.gradientTo, "bg-clip-text text-transparent")}>
+                    <p className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
                       {stat.value}
                     </p>
                     <p className="text-slate-400 text-sm sm:text-base mt-1 font-medium">{stat.label}</p>
@@ -421,7 +399,7 @@ export function NicheLandingClient({
 
       {/* Testimonials */}
       {content.testimonials?.length > 0 && (
-        <section id="depoimentos" className="py-16 sm:py-24 bg-slate-900/40 border-y border-white/5">
+        <section id="depoimentos" className="py-16 sm:py-24 bg-zinc-950/50 border-y border-white/5">
           <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
             <div className="text-center mb-12 sm:mb-16">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black mb-3">O que dizem quem usa</h2>
@@ -435,7 +413,7 @@ export function NicheLandingClient({
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className="relative p-6 sm:p-8 rounded-2xl border border-white/10 bg-slate-950/60 backdrop-blur-sm hover:border-white/20 transition-all duration-300"
+                  className="relative p-6 sm:p-8 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-sm hover:border-white/20 transition-all duration-300"
                 >
                   <Quote className="absolute top-4 right-4 w-8 h-8 text-white/10" />
                   <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6 pr-8">&ldquo;{t.quote}&rdquo;</p>
@@ -499,7 +477,7 @@ export function NicheLandingClient({
             viewport={{ once: true }}
             className={cn(
               "text-center p-8 sm:p-14 rounded-3xl border shadow-2xl",
-              CTA_BORDER_CLASS[content.primaryColor] ?? CTA_BORDER_CLASS.violet
+              AKAAICORE_CTA_BORDER
             )}
           >
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-4">
@@ -510,7 +488,7 @@ export function NicheLandingClient({
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href={registerUrl}>
-                <Button size="lg" className={cn("h-14 px-10 text-lg font-bold shadow-lg hover:shadow-xl transition-shadow", content.gradientFrom, content.gradientTo, "border-none")}>
+                <Button size="lg" className="h-14 px-10 text-lg font-bold shadow-lg hover:shadow-xl transition-shadow bg-white text-black hover:bg-white/90 border-none">
                   Começar teste grátis
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
@@ -522,15 +500,15 @@ export function NicheLandingClient({
               </Link>
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-slate-500 text-sm">
-              <span className="flex items-center gap-2"><Shield className="w-4 h-4 text-emerald-500/80" /> LGPD</span>
-              <span className="flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500/80" /> Ative em minutos</span>
+              <span className="flex items-center gap-2"><Shield className="w-4 h-4 text-white/80" /> LGPD</span>
+              <span className="flex items-center gap-2"><Zap className="w-4 h-4 text-white/80" /> Ative em minutos</span>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 sm:py-16 border-t border-white/10 bg-slate-950/50">
+      <footer className="py-12 sm:py-16 border-t border-white/10 bg-black/80">
         <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-8">
             <div className="flex items-center gap-3">
@@ -551,6 +529,7 @@ export function NicheLandingClient({
           </div>
         </div>
       </footer>
+      </div>
     </div>
   )
 }

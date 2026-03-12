@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 // Catálogo padrão fire protection para quando o studio não tem produtos/serviços cadastrados
 const DEFAULT_PRODUCTS = [
@@ -40,6 +41,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     // Buscar produtos cadastrados do studio
     let productsQuery = supabaseAdmin

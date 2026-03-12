@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function GET(
   request: NextRequest,
@@ -13,6 +14,9 @@ export async function GET(
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     const { data, error } = await supabaseAdmin
       .from('agroflowai_os_history')
@@ -41,6 +45,9 @@ export async function POST(
     if (!studioId || !content?.trim()) {
       return NextResponse.json({ error: 'studioId e content são obrigatórios' }, { status: 400 })
     }
+
+    const accessPost = await checkStudioAccess(request, studioId)
+    if (!accessPost.authorized) return accessPost.response
 
     const { data, error } = await supabaseAdmin
       .from('agroflowai_os_history')

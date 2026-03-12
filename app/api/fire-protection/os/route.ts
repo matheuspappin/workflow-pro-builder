@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { checkStudioAccess } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +11,9 @@ export async function GET(request: NextRequest) {
     if (!studioId) {
       return NextResponse.json({ error: 'studioId é obrigatório' }, { status: 400 })
     }
+
+    const access = await checkStudioAccess(request, studioId)
+    if (!access.authorized) return access.response
 
     let query = supabaseAdmin
       .from('service_orders')
@@ -47,6 +51,9 @@ export async function POST(request: NextRequest) {
     if (!studio_id || !title) {
       return NextResponse.json({ error: 'studio_id e title são obrigatórios' }, { status: 400 })
     }
+
+    const accessPost = await checkStudioAccess(request, studio_id)
+    if (!accessPost.authorized) return accessPost.response
 
     const { data, error } = await supabaseAdmin
       .from('service_orders')
