@@ -100,7 +100,7 @@ function RegisterContent() {
     async function resolveInvite() {
       try {
         const roleParam = initialRoleFromUrl === 'teacher' ? 'teacher' : 'student'
-        const res = await fetch(`/api/studio/resolve-invite?code=${encodeURIComponent(inviteCode)}&role=${roleParam}`)
+        const res = await fetch(`/api/studio/resolve-invite?code=${encodeURIComponent(inviteCode!)}&role=${roleParam}`)
         if (res.ok) {
           const data = await res.json()
           setInviteStudioName(data.studio_name || null)
