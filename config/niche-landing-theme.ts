@@ -122,7 +122,7 @@ export function getThemeForNiche(niche: string): NicheLandingTheme {
 export const VERTICALIZATION_NICHES = ["fire_protection", "environmental_compliance", "agroflowai", "dance"] as const
 
 export function isVerticalizationNiche(niche: string): boolean {
-  return VERTICALIZATION_NICHES.includes(niche)
+  return VERTICALIZATION_NICHES.includes(niche as typeof VERTICALIZATION_NICHES[number])
 }
 
 /**
