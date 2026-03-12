@@ -5,7 +5,7 @@ import { detectIntent } from '@/lib/intent-detection'
 import { supabase } from '@/lib/supabase'
 import { aiMessageSchema, availabilityCheckSchema, aiAppointmentSchema } from '@/lib/validation/ai-chat-schema'
 import { requireStudioAccess } from '@/lib/auth/require-studio-access'
-import { checkRateLimit, cacheKeys } from '@/lib/cache/ai-cache'
+import { checkAiRateLimit } from '@/lib/rate-limit'
 import logger from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
@@ -28,16 +28,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Acesso não autorizado' }, { status: 403 })
     }
 
-    // 4. Rate limiting
-    const forwarded = request.headers.get('x-forwarded-for')
-    const clientIP = forwarded ? forwarded.split(',')[0] : 'unknown'
-    const rateLimitKey = `ai_appointments:${studioId}:${clientIP}`
-    
-    const rateLimit = await checkRateLimit(rateLimitKey, 50, 60) // 50 requests por minuto
+    // 4. Rate limiting por studio (Upstash Redis em produção)
+    const rateLimit = await checkAiRateLimit(studioId)
     if (!rateLimit.allowed) {
       return NextResponse.json({ 
         error: 'Muitas solicitações. Tente novamente em alguns minutos.',
-        remaining: rateLimit.remaining 
+        retryAfter: rateLimit.retryAfter
       }, { status: 429 })
     }
 
