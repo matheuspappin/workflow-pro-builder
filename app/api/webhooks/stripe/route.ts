@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
           logger.info(`✅ Pagamento de plano concluído: estúdio ${studio_id}, plano ${plan_id} (${type})`);
           const rpcParams: Record<string, string> = {
             p_invoice_id: invoice_id,
-            p_plan_id: plan_id,
+            p_plan_id: plan_id ?? '',
             p_studio_id: studio_id,
           };
           if (verticalization_plan_id) {
