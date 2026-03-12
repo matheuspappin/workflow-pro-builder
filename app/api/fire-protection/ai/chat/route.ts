@@ -728,7 +728,7 @@ Responda em português. Seja objetivo e CONFIRME o que foi feito.`
           ai_response: finalText,
           intent_type: 'chat',
           channel: 'chat',
-        }).then(() => {}).catch((e) => logger.warn('Erro ao salvar ai_interactions:', e)),
+        }).then(() => {}, (e) => logger.warn('Erro ao salvar ai_interactions:', e)),
         aiLearning.learnFromInteraction({ studioId: contextStudioId, question: lastMsg, answer: finalText, confidence: 0.8 }).catch((e) => logger.warn('Erro learnFromInteraction:', e))
       ]).catch(() => {})
     }

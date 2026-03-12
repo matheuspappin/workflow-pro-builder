@@ -230,7 +230,7 @@ ${invLowStock}
                 ai_response: aiResponse,
                 intent_type: 'chat',
                 channel: 'chat',
-              }).then(() => {}).catch((e) => logger.warn('Erro ao salvar ai_interactions:', e)),
+              }).then(() => {}, (e) => logger.warn('Erro ao salvar ai_interactions:', e)),
               aiLearning.learnFromInteraction({ studioId, question: message, answer: aiResponse, confidence: 0.8 }).catch((e) => logger.warn('Erro learnFromInteraction:', e))
             ]).catch(() => {})
           }
