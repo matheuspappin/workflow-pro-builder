@@ -60,7 +60,7 @@ import {
 import { useToast } from "@/components/ui/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { useOrganization } from "@/components/providers/organization-provider"
-import { getApiKeys, setApiKeys, validateApiKey } from "@/lib/api-config"
+import { validateApiKey } from "@/lib/api-config"
 import { updateStudioSetting } from "@/lib/database-utils"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
@@ -383,13 +383,6 @@ function SettingsContent() {
     if (tab) {
       setActiveTab(tab)
     }
-
-    // Load API keys using the utility function
-    const apiKeys = getApiKeys()
-    setApiSettings({
-      openaiApiKey: apiKeys.openaiApiKey || "",
-      geminiApiKey: apiKeys.geminiApiKey || "",
-    })
 
     // Load integration settings
     const loadIntegrations = async () => {
@@ -1022,12 +1015,6 @@ function SettingsContent() {
       email: userSettings.email,
       studioName: studioSettings.name,
     }))
-
-    // Save API keys using the utility function
-    setApiKeys({
-      openaiApiKey: apiSettings.openaiApiKey,
-      geminiApiKey: apiSettings.geminiApiKey,
-    })
 
     // Save integration settings
     localStorage.setItem("danceflow_integrations", JSON.stringify(integrationSettings))

@@ -1,47 +1,24 @@
 // Utilitários para gerenciamento das configurações das APIs de IA
-// IMPORTANTE: Chaves de API nunca devem ser armazenadas no cliente.
-// Todas as chaves devem ser configuradas como variáveis de ambiente no servidor.
+// SEGURANÇA: Este módulo é SERVER-ONLY. Nunca importe em componentes de cliente.
+// Chaves de API NUNCA devem ser expostas ao browser via NEXT_PUBLIC_*.
 
 export interface ApiKeys {
   openaiApiKey?: string
   geminiApiKey?: string
 }
 
-const STORAGE_KEY = 'workflow_api_keys'
-
+/**
+ * Retorna chaves de API exclusivamente do servidor.
+ * Chamadas client-side a APIs de IA devem passar pelo backend (API Routes).
+ */
 export function getApiKeys(): ApiKeys {
-  // No servidor: variáveis de ambiente
-  if (typeof window === 'undefined') {
-    return {
-      openaiApiKey: process.env.OPENAI_API_KEY,
-      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    }
-  }
-  // No cliente: localStorage (configurações salvas pelo usuário)
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored) as ApiKeys
-      return {
-        openaiApiKey: parsed.openaiApiKey || process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-        geminiApiKey: parsed.geminiApiKey || process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY,
-      }
-    }
-  } catch {
-    // ignore
+  if (typeof window !== 'undefined') {
+    // Proteção: não executar no browser — nunca expor chaves ao cliente
+    throw new Error('[api-config] getApiKeys() não pode ser chamado no cliente. Use uma API Route.')
   }
   return {
-    openaiApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-    geminiApiKey: process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY,
-  }
-}
-
-export function setApiKeys(keys: ApiKeys): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(keys))
-  } catch {
-    // ignore
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
   }
 }
 

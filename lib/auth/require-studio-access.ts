@@ -15,7 +15,9 @@ export class StudioAccessError extends Error {
 
 /**
  * Verifica se o usuário autenticado tem acesso ao studioId fornecido.
- * Retorna o userId se autorizado, ou lança StudioAccessError.
+ * Usa RPC get_user_studio_access() (1 query) quando disponível,
+ * com fallback para as N+1 queries originais.
+ * Retorna o userId e role se autorizado, ou lança StudioAccessError.
  */
 export async function requireStudioAccess(
   request: NextRequest,
@@ -34,30 +36,98 @@ export async function requireStudioAccess(
     throw new StudioAccessError('Não autenticado', 401)
   }
 
-  const role = user.user_metadata?.role || user.app_metadata?.role || ''
+  // Otimização: RPC de 1 query (migration 118)
+  const { data: rpcRows, error: rpcErr } = await supabaseAdmin
+    .rpc('get_user_studio_access', { p_user_id: user.id, p_studio_id: studioId })
+    .single()
 
-  // Super admin sempre tem acesso global
-  if (role === 'super_admin') {
-    return { userId: user.id, role }
+  if (!rpcErr && rpcRows) {
+    const row = rpcRows as { authorized: boolean; role: string; reason: string }
+    if (!row.authorized) {
+      if (row.reason === 'studio_not_found') throw new StudioAccessError('Studio não encontrado', 404)
+      if (row.reason === 'studio_inactive') {
+        await logAdmin('warning', 'auth/studio-access', `Acesso bloqueado: studio ${studioId} inativo. User: ${user.id}`, { studio: studioId, metadata: { userId: user.id, reason: 'studio_inactive' } })
+        throw new StudioAccessError('Sua assinatura expirou ou o estúdio foi desativado.', 402)
+      }
+      if (row.reason === 'trial_expired') {
+        await logAdmin('warning', 'auth/studio-access', `Acesso bloqueado: trial expirado para studio ${studioId}. User: ${user.id}`, { studio: studioId, metadata: { userId: user.id, reason: 'trial_expired' } })
+        throw new StudioAccessError('Seu período de teste expirou. Assine um plano para continuar.', 402)
+      }
+      // no_access: verifica metadata mas NÃO escreve aqui (sem side-effects no hot path de auth)
+      // Para novos alunos com vínculo pendente, use repairStudentLink() explicitamente no fluxo de registro.
+      if (hasStudentMetadata(user, studioId)) {
+        return { userId: user.id, role: 'student' }
+      }
+      throw new StudioAccessError('Acesso negado a este studio', 403)
+    }
+    return { userId: user.id, role: row.role }
   }
 
-  // Verificar se o studio existe e está ativo
+  // Fallback: RPC não existe (migration 118 não aplicada) — fluxo N+1 original
+  return requireStudioAccessFallback(user, studioId)
+}
+
+/**
+ * Verifica (read-only) se o usuário tem metadata de student para o studio.
+ * Não escreve no banco — sem side-effects no hot path de autenticação.
+ */
+function hasStudentMetadata(
+  user: { user_metadata?: Record<string, any>; app_metadata?: Record<string, any> },
+  studioId: string
+): boolean {
+  const metaStudioId = user.user_metadata?.studio_id
+  const metaRole = user.user_metadata?.role || user.app_metadata?.role
+  return metaStudioId === studioId && (!metaRole || metaRole === 'student')
+}
+
+/**
+ * Repara vínculo de student quando a row está desatualizada (ex: registro via convite).
+ * DEVE ser chamado explicitamente no fluxo de registro/login do student, NUNCA dentro de auth guards.
+ *
+ * @example
+ * // Em app/api/auth/register/route.ts, após criar o usuário:
+ * await repairStudentLink(user, studioId)
+ */
+export async function repairStudentLink(
+  user: { id: string; email?: string; user_metadata?: Record<string, any>; app_metadata?: Record<string, any> },
+  studioId: string
+): Promise<boolean> {
+  if (!hasStudentMetadata(user, studioId)) return false
+  const { error } = await supabaseAdmin
+    .from('students')
+    .upsert({
+      id: user.id,
+      studio_id: studioId,
+      name: user.user_metadata?.name || user.email?.split('@')[0] || 'Aluno',
+      email: user.email || '',
+      phone: user.user_metadata?.phone || null,
+      status: 'active',
+    }, { onConflict: 'id' })
+  return !error
+}
+
+/** Fluxo N+1 original — usado como fallback quando migration 118 não foi aplicada. */
+async function requireStudioAccessFallback(
+  user: { id: string; email?: string; user_metadata?: Record<string, any>; app_metadata?: Record<string, any> },
+  studioId: string
+): Promise<{ userId: string; role: string }> {
+  const role = user.user_metadata?.role || user.app_metadata?.role || ''
+
+  if (role === 'super_admin') return { userId: user.id, role }
+
   const { data: studioRecord } = await supabaseAdmin
     .from('studios')
     .select('id, owner_id, status, subscription_status, trial_ends_at')
     .eq('id', studioId)
     .maybeSingle()
 
-  if (!studioRecord) {
-    throw new StudioAccessError('Studio não encontrado', 404)
-  }
+  if (!studioRecord) throw new StudioAccessError('Studio não encontrado', 404)
 
   if (studioRecord.status === 'inactive') {
     await logAdmin('warning', 'auth/studio-access', `Acesso bloqueado: studio ${studioId} inativo. User: ${user.id}`, { studio: studioId, metadata: { userId: user.id, reason: 'studio_inactive' } })
     throw new StudioAccessError('Sua assinatura expirou ou o estúdio foi desativado.', 402)
   }
 
-  // Verificar trial expirado (proteção extra caso o CRON não tenha rodado)
   if (studioRecord.subscription_status === 'trialing' && studioRecord.trial_ends_at) {
     const trialEnd = new Date(studioRecord.trial_ends_at)
     if (trialEnd < new Date()) {
@@ -66,12 +136,8 @@ export async function requireStudioAccess(
     }
   }
 
-  // Verifica se é dono do studio
-  if (studioRecord.owner_id === user.id) {
-    return { userId: user.id, role }
-  }
+  if (studioRecord.owner_id === user.id) return { userId: user.id, role }
 
-  // Verifica se tem acesso via users_internal (admin, receptionist, finance, seller)
   const { data: ui } = await supabaseAdmin
     .from('users_internal')
     .select('studio_id, role')
@@ -80,7 +146,6 @@ export async function requireStudioAccess(
     .maybeSingle()
   if (ui) return { userId: user.id, role: ui.role || role }
 
-  // Verifica se é profissional vinculado ao studio (teacher, engineer, architect, technician)
   const { data: prof } = await supabaseAdmin
     .from('professionals')
     .select('studio_id, professional_type')
@@ -90,7 +155,6 @@ export async function requireStudioAccess(
     .maybeSingle()
   if (prof) return { userId: user.id, role }
 
-  // Verifica se é aluno/cliente vinculado ao studio
   const { data: student } = await supabaseAdmin
     .from('students')
     .select('studio_id')
@@ -99,34 +163,29 @@ export async function requireStudioAccess(
     .maybeSingle()
   if (student) return { userId: user.id, role }
 
-  // Fallback: user tem studio_id em metadata mas students desatualizado (ex: registro com convite)
-  const metaStudioId = user.user_metadata?.studio_id
-  const metaRole = user.user_metadata?.role || user.app_metadata?.role
-  if (metaStudioId === studioId && (metaRole === 'student' || !metaRole)) {
-    const { error: repairErr } = await supabaseAdmin
-      .from('students')
-      .upsert({
-        id: user.id,
-        studio_id: studioId,
-        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Aluno',
-        email: user.email || '',
-        phone: user.user_metadata?.phone || null,
-        status: 'active',
-      }, { onConflict: 'id' })
-    if (!repairErr) return { userId: user.id, role: 'student' }
+  if (hasStudentMetadata(user, studioId)) {
+    return { userId: user.id, role: 'student' }
   }
 
   throw new StudioAccessError('Acesso negado a este studio', 403)
 }
 
 /**
- * Permite chamadas internas (ex: webhook WhatsApp) sem auth de usuário.
- * Usar header X-Internal-AI-Key igual a INTERNAL_AI_SECRET ou WEBHOOK_WHATSAPP_SECRET.
+ * Permite chamadas internas (ex: webhook WhatsApp → AI) sem auth de usuário.
+ * Requer INTERNAL_AI_SECRET exclusivo. Não reutiliza secrets de webhooks externos.
+ * Header: X-Internal-AI-Key: <INTERNAL_AI_SECRET>
  */
 export function allowInternalAiCall(request: NextRequest): boolean {
   const key = request.headers.get('x-internal-ai-key')
-  const secret = process.env.INTERNAL_AI_SECRET || process.env.WEBHOOK_WHATSAPP_SECRET || process.env.EVOLUTION_WEBHOOK_SECRET
-  return !!secret && !!key && key === secret
+  const secret = process.env.INTERNAL_AI_SECRET
+  if (!secret) {
+    console.warn('[allowInternalAiCall] INTERNAL_AI_SECRET não configurado — chamadas internas de AI bloqueadas')
+    return false
+  }
+  if (!key) return false
+  const a = Buffer.from(key, 'utf8')
+  const b = Buffer.from(secret, 'utf8')
+  return a.length === b.length && require('crypto').timingSafeEqual(a, b)
 }
 
 /**
