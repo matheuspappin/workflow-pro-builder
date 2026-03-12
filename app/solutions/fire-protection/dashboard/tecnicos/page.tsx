@@ -165,6 +165,7 @@ function InviteCodeCard() {
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
 
   const loadCode = async () => {
     setLoading(true)
@@ -187,6 +188,16 @@ function InviteCodeCard() {
     setCopied(true)
     toast({ title: "Código copiado!", description: "Compartilhe com o técnico para que ele se vincule." })
     setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleCopyLink = () => {
+    if (!inviteCode || inviteCode === "—") return
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const link = `${origin}/solutions/fire-protection/register?role=teacher&code=${inviteCode}`
+    navigator.clipboard.writeText(link)
+    setCopiedLink(true)
+    toast({ title: "Link copiado!", description: "Envie este link para o técnico criar a conta e já entrar vinculado." })
+    setTimeout(() => setCopiedLink(false), 2500)
   }
 
   const handleRegenerate = async () => {
@@ -250,6 +261,18 @@ function InviteCodeCard() {
               <Button
                 size="icon"
                 variant="outline"
+                className={cn(
+                  "border-orange-200 dark:border-orange-600/30 h-10 w-10 rounded-xl transition-all",
+                  copiedLink && "bg-emerald-50 border-emerald-300 text-emerald-600"
+                )}
+                onClick={handleCopyLink}
+                title="Copiar link"
+              >
+                {copiedLink ? <CheckCheck className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
                 className="border-orange-200 dark:border-orange-600/30 h-10 w-10 rounded-xl"
                 onClick={handleRegenerate}
                 disabled={regenerating}
@@ -261,7 +284,7 @@ function InviteCodeCard() {
           </div>
         )}
         <p className="text-xs text-slate-400 mt-3">
-          O técnico deve acessar <span className="font-bold text-slate-600 dark:text-slate-300">Meu Perfil → Empresa Vinculada</span> e inserir este código.
+          Envie o link (recomendado) ou o código. Quem já tem conta pode acessar <span className="font-bold text-slate-600 dark:text-slate-300">Meu Perfil → Empresa Vinculada</span> e inserir o código.
         </p>
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Header } from "@/components/dashboard/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ import {
   getInventory, createProduct, registerTransaction, getRecentTransactions, Product, Transaction, getProductBySku, updateProduct, deleteProduct
 } from "@/lib/actions/inventory"
 import { BarcodeScanner } from "@/components/dashboard/barcode-scanner"
-import { GLOBAL_SKU_LIST } from "@/lib/constants/global-skus"
+import { searchLocalCatalog, searchCatalog, getProductByBarcodeFromCatalog, type CatalogSearchResult } from "@/lib/constants/global-skus"
 import { searchNcm, type Ncm } from "@/lib/services/brasil-api"
 import { validateGTIN } from "@/lib/validation-utils"
 import { ModuleGuard } from "@/components/providers/module-guard"
@@ -44,10 +44,12 @@ import {
 } from "@/components/ui/alert-dialog"
 
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useOrganization } from "@/components/providers/organization-provider"
 
 export default function InventoryPage() {
   const { toast } = useToast()
   const { vocabulary, t, language } = useVocabulary()
+  const { studioId: orgStudioId } = useOrganization()
   const [products, setProducts] = useState<Product[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [stats, setStats] = useState({ totalItems: 0, totalSalesValue: 0, potentialProfit: 0 })
@@ -88,20 +90,36 @@ export default function InventoryPage() {
     sku: "", 
     ncm: "" 
   })
-  const [skuSearchQuery, setSkuSearchQuery] = useState("")
-  const [showSkuGlobalResults, setShowSkuGlobalResults] = useState(false)
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState("")
+  const [catalogResults, setCatalogResults] = useState<CatalogSearchResult[]>([])
+  const [catalogSearching, setCatalogSearching] = useState(false)
+  const [showCatalogResults, setShowCatalogResults] = useState(false)
   const [ncmSearchQuery, setNcmSearchQuery] = useState("")
   const [ncmResults, setNcmResults] = useState<Ncm[]>([])
   const [showNcmResults, setShowNcmResults] = useState(false)
   const [transactionData, setTransactionData] = useState({ quantity: 1, reason: "", costPrice: 0 })
 
+  // Resolver studioId: OrganizationProvider (workflow_pro) ou localStorage (legado)
   useEffect(() => {
+    if (orgStudioId) {
+      setStudioId(orgStudioId)
+      return
+    }
+    let resolved: string | null = null
     const userStr = localStorage.getItem("danceflow_user")
     if (userStr) {
-      const user = JSON.parse(userStr)
-      setStudioId(user.studioId || user.studio_id)
+      try {
+        const user = JSON.parse(userStr)
+        resolved = user.studioId || user.studio_id || null
+      } catch {
+        // ignore
+      }
     }
-  }, [])
+    if (!resolved) {
+      resolved = localStorage.getItem("workflow_pro_active_studio")
+    }
+    setStudioId(resolved)
+  }, [orgStudioId])
 
   useEffect(() => {
     if (studioId) fetchData()
@@ -128,8 +146,17 @@ export default function InventoryPage() {
   }
 
   const handleCreateProduct = async () => {
-    if (newProduct.sku) {
-      const existing = await getProductBySku(newProduct.sku, studioId!)
+    if (!studioId) {
+      toast({ title: "Erro", description: "Nenhum estúdio selecionado. Faça login novamente.", variant: "destructive" })
+      return
+    }
+    if (!newProduct.name?.trim()) {
+      toast({ title: "Campo obrigatório", description: "Informe o nome do produto.", variant: "destructive" })
+      return
+    }
+
+    if (newProduct.sku?.trim()) {
+      const existing = await getProductBySku(newProduct.sku.trim(), studioId)
       if (existing) {
         if (confirm(`O produto "${existing.name}" já está cadastrado com este SKU.\n\nDeseja adicionar estoque a ele ao invés de criar um novo?`)) {
           setIsNewProductOpen(false)
@@ -147,12 +174,14 @@ export default function InventoryPage() {
     }
 
     try {
-      await createProduct(newProduct, studioId!)
+      await createProduct(newProduct, studioId)
       toast({ title: "Produto cadastrado!" })
       setIsNewProductOpen(false)
+      resetNewProductForm()
       fetchData()
-    } catch (error) {
-      toast({ title: "Erro ao criar produto", variant: "destructive" })
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Erro ao salvar"
+      toast({ title: "Erro ao criar produto", description: msg, variant: "destructive" })
     }
   }
 
@@ -207,13 +236,101 @@ export default function InventoryPage() {
   }
 
   const handleScanSuccess = async (decodedText: string) => {
-    const existingProduct = await getProductBySku(decodedText, studioId!)
-    if (existingProduct) {
-      handleEditClick(existingProduct)
-    } else {
-      setNewProduct(prev => ({ ...prev, sku: decodedText }))
-      setIsNewProductOpen(true)
+    if (!studioId) {
+      toast({ title: "Erro", description: "Estúdio não identificado. Faça login e vincule-se a um estúdio.", variant: "destructive" })
+      return
     }
+    try {
+      const existingProduct = await getProductBySku(decodedText, studioId)
+      if (existingProduct) {
+        handleEditClick(existingProduct)
+      } else {
+        const fromCatalog = await getProductByBarcodeFromCatalog(decodedText)
+        setNewProduct({
+          name: fromCatalog?.name ?? "",
+          category: fromCatalog?.category ?? "Geral",
+          min_quantity: 5,
+          quantity: 0,
+          cost_price: 0,
+          selling_price: fromCatalog?.suggested_price ?? 0,
+          sku: decodedText,
+          ncm: "",
+        })
+        setIsNewProductOpen(true)
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message || "Não foi possível buscar o produto.", variant: "destructive" })
+    }
+  }
+
+  const catalogSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastCatalogQuery = useRef<string>("")
+
+  const handleCatalogSearch = useCallback((query: string) => {
+    setCatalogSearchQuery(query)
+    if (catalogSearchTimeout.current) clearTimeout(catalogSearchTimeout.current)
+    if (query.length < 2) {
+      setCatalogResults([])
+      setShowCatalogResults(false)
+      setCatalogSearching(false)
+      return
+    }
+
+    // 1. Resultados locais IMEDIATOS (sem debounce)
+    const localResults = searchLocalCatalog(query)
+    setCatalogResults(localResults)
+    setShowCatalogResults(true)
+    setCatalogSearching(true)
+
+    // 2. API Open Food Facts com debounce curto (150ms)
+    lastCatalogQuery.current = query
+    catalogSearchTimeout.current = setTimeout(async () => {
+      const q = lastCatalogQuery.current
+      if (!q || q.length < 2) {
+        setCatalogSearching(false)
+        return
+      }
+      try {
+        const fullResults = await searchCatalog(q)
+        // Só atualiza se o usuário não mudou a busca
+        if (lastCatalogQuery.current === q) {
+          setCatalogResults(fullResults)
+        }
+      } finally {
+        if (lastCatalogQuery.current === q) {
+          setCatalogSearching(false)
+        }
+      }
+    }, 150)
+  }, [])
+
+  const handleSelectCatalogResult = (item: CatalogSearchResult) => {
+    setNewProduct(prev => ({
+      ...prev,
+      sku: item.sku,
+      name: item.name,
+      category: item.category,
+      selling_price: item.suggested_price ?? prev.selling_price,
+    }))
+    setCatalogSearchQuery("")
+    setCatalogResults([])
+    setShowCatalogResults(false)
+  }
+
+  const resetNewProductForm = () => {
+    setNewProduct({
+      name: "",
+      category: "Geral",
+      min_quantity: 5,
+      quantity: 0,
+      cost_price: 0,
+      selling_price: 0,
+      sku: "",
+      ncm: "",
+    })
+    setCatalogSearchQuery("")
+    setCatalogResults([])
+    setShowCatalogResults(false)
   }
 
   const handleNcmSearch = async (query: string) => {
@@ -436,14 +553,54 @@ export default function InventoryPage() {
       </div>
 
       {/* MODALS */}
-      <Dialog open={isNewProductOpen} onOpenChange={setIsNewProductOpen}>
+      <Dialog open={isNewProductOpen} onOpenChange={(open) => {
+        setIsNewProductOpen(open)
+        if (!open) resetNewProductForm()
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader><DialogTitle>Cadastrar Novo Produto</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
+            {/* Busca por nome - preenche automaticamente SKU, nome, categoria e preço */}
+            <div className="grid gap-2">
+              <Label>Buscar produto por nome (Open Food Facts + catálogo)</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Digite o nome do produto..."
+                  className="pl-9"
+                  value={catalogSearchQuery}
+                  onChange={e => handleCatalogSearch(e.target.value)}
+                  onFocus={() => catalogResults.length > 0 && setShowCatalogResults(true)}
+                  onBlur={() => setTimeout(() => setShowCatalogResults(false), 200)}
+                />
+                {catalogSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+                {showCatalogResults && catalogResults.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-background shadow-lg max-h-48 overflow-auto">
+                    {catalogResults.map((item) => (
+                      <button
+                        key={item.sku}
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex justify-between items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          handleSelectCatalogResult(item)
+                        }}
+                      >
+                        <span className="truncate">{item.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {item.sku} · {item.category}
+                          {item.suggested_price ? ` · R$ ${item.suggested_price.toFixed(2)}` : ""}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="grid gap-2">
               <Label>Código de Barras (SKU)</Label>
               <div className="flex gap-2">
-                <Input value={newProduct.sku} onChange={e => setNewProduct({...newProduct, sku: e.target.value})} />
+                <Input value={newProduct.sku} onChange={e => setNewProduct({...newProduct, sku: e.target.value})} placeholder="Ou escaneie" />
                 <Button type="button" variant="outline" size="icon" onClick={() => setIsScannerOpen(true)}><Camera className="w-4 h-4" /></Button>
               </div>
             </div>

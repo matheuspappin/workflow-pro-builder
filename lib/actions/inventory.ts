@@ -1,6 +1,6 @@
 "use server"
 
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 import { guardModule } from '@/lib/modules-server'
 import logger from '@/lib/logger'
 
@@ -35,7 +35,8 @@ export interface Transaction {
  * Busca produto por código de barras (SKU)
  */
 export async function getProductBySku(sku: string, studioId: string) {
-  await guardModule('inventory')
+  await guardModule('inventory', { studioId })
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -55,7 +56,8 @@ export async function getProductBySku(sku: string, studioId: string) {
  * Busca o inventário com cálculo de valuation (valor total em estoque)
  */
 export async function getInventory(studioId: string) {
-  await guardModule('inventory')
+  await guardModule('inventory', { studioId })
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -86,8 +88,10 @@ export async function getInventory(studioId: string) {
  * Cria um novo produto
  */
 export async function createProduct(productData: any, studioId: string) {
-  await guardModule('inventory')
-  const existingProduct = await getProductBySku(productData.sku, studioId)
+  await guardModule('inventory', { studioId })
+  const supabase = await createClient()
+  const sku = productData.sku?.toString?.()?.trim?.()
+  const existingProduct = sku ? await getProductBySku(sku, studioId) : null
 
   if (existingProduct) {
     // Se o produto com o mesmo SKU já existe, atualiza o estoque e, opcionalmente, os preços
@@ -113,18 +117,48 @@ export async function createProduct(productData: any, studioId: string) {
 
     return updatedProduct
   } else {
-    // Se não existe, cria um novo produto
+    // Se não existe, cria um novo produto (apenas campos válidos para a tabela)
+    const insertData: Record<string, unknown> = {
+      studio_id: studioId,
+      name: productData.name || 'Produto sem nome',
+      category: productData.category || 'Geral',
+      quantity: productData.quantity ?? 0,
+      min_quantity: productData.min_quantity ?? 5,
+      cost_price: productData.cost_price ?? 0,
+      selling_price: productData.selling_price ?? 0,
+      status: 'active',
+    }
+    const skuVal = productData.sku?.toString?.()?.trim?.()
+    if (skuVal) insertData.sku = skuVal
+    // Se sku vazio, não enviamos (evita conflito UNIQUE com outros produtos sem SKU)
+    if (productData.ncm?.trim()) insertData.ncm = productData.ncm.trim()
+    if (productData.description?.trim()) insertData.description = productData.description.trim()
+    if (productData.image_url?.trim()) insertData.image_url = productData.image_url.trim()
+
     const { data, error } = await supabase
       .from('products')
-      .insert({
-        ...productData,
-        studio_id: studioId,
-        quantity: productData.quantity || 0 // Usa a quantidade inicial se fornecida
-      })
+      .insert(insertData)
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      logger.error('createProduct insert error:', error)
+      throw new Error(error.message || 'Erro ao salvar produto no estoque')
+    }
+
+    // Registrar transação de entrada para estoque inicial (aparece em Últimas Movimentações)
+    const initialQty = productData.quantity ?? 0
+    if (data && initialQty > 0) {
+      await registerTransaction(
+        data.id,
+        'in',
+        initialQty,
+        'Entrada Via Cadastro',
+        studioId,
+        productData.cost_price
+      )
+    }
+
     return data
   }
 }
@@ -133,7 +167,8 @@ export async function createProduct(productData: any, studioId: string) {
  * Atualiza um produto existente
  */
 export async function updateProduct(productId: string, updates: Partial<Product>, studioId: string) {
-  await guardModule('inventory')
+  await guardModule('inventory', { studioId })
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('products')
     .update(updates)
@@ -150,7 +185,8 @@ export async function updateProduct(productId: string, updates: Partial<Product>
  * Remove (arquiva) um produto - Soft Delete
  */
 export async function deleteProduct(productId: string, studioId: string) {
-  await guardModule('inventory')
+  await guardModule('inventory', { studioId })
+  const supabase = await createClient()
   const { error } = await supabase
     .from('products')
     .update({ status: 'archived' }) // Soft delete em vez de exclusão permanente
@@ -178,7 +214,8 @@ export async function registerTransaction(
   paymentMethod?: string, // Novo parâmetro
   studentId?: string // Novo parâmetro
 ) {
-  await guardModule('inventory')
+  await guardModule('inventory', { studioId })
+  const supabase = await createClient()
   // 1. Buscar produto atual para validações
   const { data: product } = await supabase
     .from('products')
@@ -227,19 +264,21 @@ export async function registerTransaction(
   // 4. Criar Log de Transação (Audit Trail)
   const transactionPrice = unitPrice !== undefined ? unitPrice : (type === 'in' ? product.cost_price : product.selling_price)
 
+  const txInsert: Record<string, unknown> = {
+    studio_id: studioId,
+    product_id: productId,
+    type,
+    quantity,
+    unit_price: transactionPrice,
+    reason,
+    total_value: quantity * transactionPrice
+  }
+  if (paymentMethod) txInsert.payment_method = paymentMethod
+  if (studentId) txInsert.student_id = studentId
+
   const { error: logError } = await supabase
     .from('inventory_transactions')
-    .insert({
-      studio_id: studioId,
-      product_id: productId,
-      type,
-      quantity,
-      unit_price: transactionPrice,
-      reason,
-      payment_method: paymentMethod, // Inserir o método de pagamento aqui
-      student_id: studentId, // Associar ao aluno
-      total_value: quantity * transactionPrice
-    })
+    .insert(txInsert)
 
   if (logError) logger.error('Erro ao logar transação:', logError)
 
@@ -250,7 +289,8 @@ export async function registerTransaction(
  * Busca histórico de transações recentes
  */
 export async function getRecentTransactions(studioId: string) {
-  await guardModule('inventory')
+  await guardModule('inventory', { studioId })
+  const supabase = await createClient()
   const { data } = await supabase
     .from('inventory_transactions')
     .select('*, product:products(name)')

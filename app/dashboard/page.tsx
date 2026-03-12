@@ -29,7 +29,11 @@ import {
   PawPrint,
   Car,
   Home,
-  Utensils
+  Utensils,
+  Link2,
+  RefreshCw,
+  CheckCheck,
+  Loader2,
 } from "lucide-react"
 import {
   Line,
@@ -55,6 +59,145 @@ import { useOrganization } from "@/components/providers/organization-provider"
 import { NicheType } from "@/config/niche-dictionary"
 import { getNicheIcon } from "@/lib/niche-utils"
 import { monetaryBasedNiches } from "@/config/niche-modules"
+import { cn } from "@/lib/utils"
+
+interface InviteCodeCardProps {
+  type: 'teacher' | 'student'
+  label: string
+  description: string
+  color: string
+  borderColor: string
+  titleColor: string
+  buttonColor: string
+  registerPath?: string
+}
+
+function InviteCodeCard({ type, label, description, color, borderColor, titleColor, registerPath = "/register" }: InviteCodeCardProps) {
+  const { toast } = useToast()
+  const [inviteCode, setInviteCode] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [regenerating, setRegenerating] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
+
+  const loadCode = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/studio/invite-code", { credentials: "include" })
+      const data = await res.json()
+      const code = type === 'teacher' ? data.teacher_invite_code : data.student_invite_code
+      if (code) setInviteCode(code)
+    } catch {
+      setInviteCode("—")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { loadCode() }, [type])
+
+  const handleCopy = () => {
+    if (!inviteCode || inviteCode === "—") return
+    navigator.clipboard.writeText(inviteCode)
+    setCopied(true)
+    toast({ title: "Código copiado!", description: `Compartilhe com o ${label.toLowerCase()} para que se vincule ao estabelecimento.` })
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleCopyLink = () => {
+    if (!inviteCode || inviteCode === "—") return
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const link = `${origin}${registerPath}?role=${type}&code=${inviteCode}`
+    navigator.clipboard.writeText(link)
+    setCopiedLink(true)
+    toast({ title: "Link copiado!", description: `Envie este link para o ${label.toLowerCase()} criar a conta e já entrar vinculado.` })
+    setTimeout(() => setCopiedLink(false), 2500)
+  }
+
+  const handleRegenerate = async () => {
+    if (!confirm(`Gerar um novo código invalidará o código atual de ${label}. Continuar?`)) return
+    setRegenerating(true)
+    try {
+      const res = await fetch("/api/studio/invite-code", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      })
+      const data = await res.json()
+      if (data.invite_code) {
+        setInviteCode(data.invite_code)
+        toast({ title: "Novo código gerado com sucesso!" })
+      }
+    } catch {
+      toast({ title: "Erro ao regenerar código", variant: "destructive" })
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  return (
+    <Card className={cn("border shadow-sm", borderColor, color)}>
+      <CardHeader className="pb-3">
+        <CardTitle className={cn("text-base font-bold flex items-center gap-2", titleColor)}>
+          <Link2 className="w-4 h-4" />
+          {label}
+        </CardTitle>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center gap-2 text-slate-400 text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Carregando código...
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Código</p>
+              <p className="font-mono text-2xl font-black text-slate-900 dark:text-white tracking-[0.3em]">
+                {inviteCode || "—"}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                size="icon"
+                variant="outline"
+                className={cn("h-10 w-10 rounded-xl transition-all", copied && "bg-emerald-50 border-emerald-300 text-emerald-600")}
+                onClick={handleCopy}
+                title="Copiar código"
+              >
+                {copied ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className={cn("h-10 w-10 rounded-xl transition-all", copiedLink && "bg-emerald-50 border-emerald-300 text-emerald-600")}
+                onClick={handleCopyLink}
+                title="Copiar link"
+              >
+                {copiedLink ? <CheckCheck className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-xl"
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                title="Gerar novo código"
+              >
+                <RefreshCw className={cn("w-4 h-4", regenerating && "animate-spin")} />
+              </Button>
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-slate-400 mt-3">
+          Envie o link (recomendado) ou o código. Quem já tem conta pode acessar <span className="font-bold text-slate-600 dark:text-slate-300">Meu Perfil → Estabelecimento Vinculado</span> e inserir o código.
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
 
 // Mock data
 const revenueData = [
@@ -72,7 +215,7 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const [userName, setUserName] = useState("")
   const [studioSlug, setStudioSlug] = useState("")
-  const [copyingRole, setCopyingRole] = useState<string | null>(null)
+  const [studioId, setStudioId] = useState<string | null>(null)
   
   // Business mode logic direto no componente
   const isServiceOrderBased = businessModel === 'MONETARY'
@@ -110,9 +253,10 @@ export default function DashboardPage() {
         setStudioSlug(slug)
 
         // Carregar dados reais do Supabase
-        const studioId = userData.studio_id || userData.studioId || userData.studio?.id
-        if (studioId) {
-          const stats = await getDashboardStats(studioId)
+        const sid = userData.studio_id || userData.studioId || userData.studio?.id
+        setStudioId(sid || null)
+        if (sid) {
+          const stats = await getDashboardStats(sid)
           console.log('📊 Dashboard Stats carregados:', stats)
           setDashboardData(stats)
         } else {
@@ -127,59 +271,6 @@ export default function DashboardPage() {
 
     loadDashboardData()
   }, []) // ✅ Sem dependências - executa apenas uma vez
-
-  const handleCopyLink = async (role: 'client' | 'professional' | 'engineer' | 'architect') => {
-    console.log('Botão clicado:', role, 'studioSlug:', studioSlug)
-    if (!studioSlug) {
-      toast({
-        title: "Erro ao copiar",
-        description: "Slug do estúdio não encontrado. Tente sair e entrar novamente.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const link = `${window.location.origin}/s/${studioSlug}/join?role=${role}`
-    
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(link)
-      } else {
-        // Fallback
-        const textArea = document.createElement("textarea")
-        textArea.value = link
-        textArea.style.position = "fixed"
-        textArea.style.left = "-9999px"
-        textArea.style.top = "0"
-        document.body.appendChild(textArea)
-        textArea.focus()
-        textArea.select()
-        const successful = document.execCommand('copy')
-        document.body.removeChild(textArea)
-        if (!successful) throw new Error('Falha ao copiar no fallback')
-      }
-
-      setCopyingRole(role)
-      let roleName = vocabulary.provider.toLowerCase()
-      if (role === 'client') roleName = vocabulary.client.toLowerCase()
-      if (role === 'engineer') roleName = 'engenheiro técnico'
-      if (role === 'architect') roleName = 'arquiteto parceiro'
-      if (role === 'architect') roleName = 'arquiteto parceiro'
-
-      toast({
-        title: "Link copiado!",
-        description: `O link de convite para ${roleName} foi copiado.`,
-      })
-      setTimeout(() => setCopyingRole(null), 2000)
-    } catch (err) {
-      console.error('Erro ao copiar link:', err)
-      toast({
-        title: "Erro ao copiar",
-        description: "Não foi possível copiar o link automaticamente.",
-        variant: "destructive",
-      })
-    }
-  }
 
   const ClientIcon = getNicheIcon(niche || 'dance', 'client');
   const ServiceIcon = getNicheIcon(niche || 'dance', 'service');
@@ -290,117 +381,28 @@ export default function DashboardPage() {
             </Link>
           )}
 
-          {/* Convites (Sempre visível se tiver slug) */}
-          {studioSlug && (
-            <>
-              {/* Convite para Cliente */}
-              <Card className="bg-card border-border shadow-sm h-full hover:border-red-600/30 transition-colors">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-4 overflow-hidden w-full">
-                    <div className="w-12 h-12 rounded-xl bg-red-600/10 flex items-center justify-center shrink-0">
-                      <User className="w-6 h-6 text-red-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{t.dashboard.invite} {vocabulary.client}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Button 
-                          type="button"
-                          size="sm" 
-                          variant="secondary" 
-                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-red-600 hover:text-white transition-all pointer-events-auto cursor-pointer" 
-                          style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                          onClick={() => {
-                            console.log('Botão cliente clicado!')
-                            handleCopyLink('client')
-                          }}
-                        >
-                          {copyingRole === 'client' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                          <span className="truncate">{t.dashboard.copyLink}</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Convite para Profissional */}
-              <Card className="bg-card border-border shadow-sm h-full hover:border-emerald-500/30 transition-colors">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-4 overflow-hidden w-full">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-                      <Briefcase className="w-6 h-6 text-emerald-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{t.dashboard.invite} {vocabulary.provider}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Button 
-                          type="button"
-                          size="sm" 
-                          variant="secondary" 
-                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-emerald-500 hover:text-white transition-all" 
-                          onClick={() => handleCopyLink('professional')}
-                        >
-                          {copyingRole === 'professional' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                          <span className="truncate">{t.dashboard.copyLink}</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Convite para Engenheiro Técnico */}
-              <Card className="bg-card border-border shadow-sm h-full hover:border-blue-500/30 transition-colors">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-4 overflow-hidden w-full">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Wrench className="w-6 h-6 text-blue-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{t.dashboard.invite} Engenheiro</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Button 
-                          type="button"
-                          size="sm" 
-                          variant="secondary" 
-                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-blue-500 hover:text-white transition-all" 
-                          onClick={() => handleCopyLink('engineer')}
-                        >
-                          {copyingRole === 'engineer' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                          <span className="truncate">{t.dashboard.copyLink}</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Convite para Arquiteto */}
-              <Card className="bg-card border-border shadow-sm h-full hover:border-indigo-500/30 transition-colors">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-4 overflow-hidden w-full">
-                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
-                      <Home className="w-6 h-6 text-indigo-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{t.dashboard.invite} Arquiteto</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Button 
-                          type="button"
-                          size="sm" 
-                          variant="secondary" 
-                          className="h-8 w-full justify-start gap-2 px-3 text-xs hover:bg-indigo-500 hover:text-white transition-all" 
-                          onClick={() => handleCopyLink('architect')}
-                        >
-                          {copyingRole === 'architect' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                          <span className="truncate">{t.dashboard.copyLink}</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
+          {/* Convites por código (padrão DanceFlow — todos os nichos genéricos) */}
+          {studioId && (
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InviteCodeCard
+                type="student"
+                label={`${t.dashboard.invite} ${vocabulary.client}`}
+                description={`Código para ${vocabulary.client.toLowerCase()} se vincular ao estabelecimento`}
+                color="bg-red-50 dark:bg-red-950/20"
+                borderColor="border-red-200 dark:border-red-800/50"
+                titleColor="text-red-600 dark:text-red-400"
+                buttonColor=""
+              />
+              <InviteCodeCard
+                type="teacher"
+                label={`${t.dashboard.invite} ${vocabulary.provider}`}
+                description={`Código para ${vocabulary.provider.toLowerCase()} se vincular ao estabelecimento`}
+                color="bg-emerald-50 dark:bg-emerald-950/20"
+                borderColor="border-emerald-200 dark:border-emerald-800/50"
+                titleColor="text-emerald-600 dark:text-emerald-400"
+                buttonColor=""
+              />
+            </div>
           )}
         </div>
 

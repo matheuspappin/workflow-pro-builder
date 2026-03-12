@@ -91,6 +91,11 @@ function Navbar() {
 
         <div className="flex items-center gap-4">
           <LanguageSwitcher />
+          <Button variant="ghost" size="sm" className="hidden sm:flex font-bold text-xs text-white/70 hover:text-white" asChild>
+            <Link href="/portal/affiliate">
+              {lang === 'pt' ? 'Portal Afiliado' : 'Affiliate Portal'}
+            </Link>
+          </Button>
           {isLoggedIn ? (
             <Button size="sm" className="hidden sm:flex px-6 font-black text-xs" asChild>
               <Link href="/dashboard">
@@ -144,6 +149,11 @@ function Navbar() {
                 </Link>
               ))}
               <div className="h-px bg-zinc-800 my-2" />
+              <Link href="/portal/affiliate" onClick={() => setMobileMenuOpen(false)}>
+                <Button type="button" variant="ghost" className="w-full font-bold text-sm text-white/80 hover:text-white justify-start">
+                  {lang === 'pt' ? 'Portal Afiliado' : 'Affiliate Portal'}
+                </Button>
+              </Link>
               <div className="grid grid-cols-2 gap-4 pt-4">
                 {isLoggedIn ? (
                   <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className="col-span-2">
@@ -927,6 +937,7 @@ function LineupSection() {
       href: '/solutions/fire-protection',
       icon: Shield,
       theme: 'fire' as const,
+      imageSrc: '/images/industrial-parallax.png',
       modules: ['Ativos & QR Code', 'Ordem de Serviço', 'Vistorias digitais', 'PPCI', 'PDV', 'Relatórios IA'],
     },
     {
@@ -947,6 +958,7 @@ function LineupSection() {
       href: '/solutions/estudio-de-danca',
       icon: Music,
       theme: 'dance' as const,
+      imageSrc: '/images/dance-studio-parallax.png',
       modules: ['Grade & turmas', 'Alunos & matrículas', 'Monetary Scanner', 'App Professor', 'App Aluno', 'QR de aula'],
     },
   ]
@@ -985,11 +997,17 @@ function LineupSection() {
               className="group"
             >
               <Link href={v.href}>
-                <div className="border border-zinc-800 bg-zinc-950/50 rounded-2xl overflow-hidden hover:border-zinc-700 transition-all duration-500 h-full flex flex-col">
-                  <div className="relative overflow-hidden">
-                    <LineupCard3D icon={v.icon} index={i} theme={v.theme} />
+                <div className={cn(
+                  "border border-zinc-800 bg-zinc-950/50 rounded-2xl overflow-hidden hover:border-zinc-700 transition-all duration-500 h-full flex flex-col",
+                  v.imageSrc && "relative min-h-[420px]"
+                )}>
+                  <div className={v.imageSrc ? "absolute inset-0 z-0" : "relative overflow-hidden"}>
+                    <LineupCard3D icon={v.icon} index={i} theme={v.theme} imageSrc={v.imageSrc} fullCard={!!v.imageSrc} />
                   </div>
-                  <div className="p-8 flex-1 flex flex-col">
+                  <div className={cn(
+                    "p-8 flex-1 flex flex-col",
+                    v.imageSrc && "relative z-10 min-h-[320px]"
+                  )}>
                     <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-3">{v.tagline}</p>
                     <h3 className="text-2xl font-black text-white mb-3 tracking-tight">{v.name}</h3>
                     <p className="text-white/60 font-medium text-sm leading-relaxed mb-6 flex-grow">{v.description}</p>

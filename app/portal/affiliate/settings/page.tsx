@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AffiliateHeader } from '@/components/dashboard/affiliate-header';
 import { getAffiliateProfile, getAffiliatePayoutSettings, saveAffiliatePayoutSettings, createStripeConnectAccountLink, getAffiliateStripeBalance, createAffiliateStripePayout } from '@/lib/actions/affiliate';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -181,15 +182,18 @@ const AffiliateSettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Carregando configurações...</p>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-muted-foreground">Carregando configurações...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Configurações de Afiliado</h1>
+    <div className="p-6 space-y-8">
+      <AffiliateHeader 
+        title="Configurações de Afiliado" 
+        description="Conecte sua conta Stripe e gerencie suas preferências de pagamento." 
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Cartão de Conexão com Stripe */}

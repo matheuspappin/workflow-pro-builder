@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { AffiliateHeader } from '@/components/dashboard/affiliate-header';
 import { getAffiliateProfile } from '@/lib/actions/affiliate';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -42,20 +43,18 @@ export default function AffiliateProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex min-h-[50vh] w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
-        <p className="text-muted-foreground mt-2">
-          Gerencie suas informações pessoais e de afiliado.
-        </p>
-      </div>
+    <div className="p-6 max-w-4xl space-y-8">
+      <AffiliateHeader 
+        title="Meu Perfil" 
+        description="Gerencie suas informações pessoais e de afiliado." 
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

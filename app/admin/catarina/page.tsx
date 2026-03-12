@@ -21,6 +21,8 @@ import {
   Loader2,
   Bot,
   User,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react"
 import {
   Table,
@@ -31,6 +33,15 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
 type CatarinaData = {
   period: string
@@ -51,7 +62,7 @@ type CatarinaData = {
   }>
 }
 
-type ChatMessage = { id: string; role: "user" | "assistant"; content: string }
+type ChatMessage = { id: string; role: "user" | "assistant"; content: string; replyTo?: string }
 
 export default function AdminCatarinaPage() {
   const { toast } = useToast()
@@ -64,6 +75,9 @@ export default function AdminCatarinaPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState("")
   const [chatLoading, setChatLoading] = useState(false)
+  const [feedbackModal, setFeedbackModal] = useState<{ msg: ChatMessage; prevUserMsg: string } | null>(null)
+  const [correctedAnswer, setCorrectedAnswer] = useState("")
+  const [sendingFeedback, setSendingFeedback] = useState(false)
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const sendChatMessage = async () => {
@@ -97,7 +111,7 @@ export default function AdminCatarinaPage() {
       const content = json.response || "Não foi possível obter resposta."
       setChatMessages((prev) => [
         ...prev,
-        { id: Date.now().toString() + "_ai", role: "assistant", content },
+        { id: Date.now().toString() + "_ai", role: "assistant", content, replyTo: msg },
       ])
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : "Erro ao conectar."
@@ -114,6 +128,36 @@ export default function AdminCatarinaPage() {
   useEffect(() => {
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" })
   }, [chatMessages])
+
+  const sendFeedback = async (msg: ChatMessage, feedback: "positive" | "negative" | "correction", corrected?: string) => {
+    const prevUserMsg = msg.replyTo ?? ""
+    setSendingFeedback(true)
+    try {
+      const res = await fetch("/api/admin/catarina/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          originalQuestion: prevUserMsg,
+          originalAnswer: msg.content,
+          feedback,
+          correctedAnswer: corrected,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast({ title: "Feedback enviado", description: "Obrigado! Isso ajuda a melhorar a Catarina." })
+      } else {
+        toast({ title: "Erro", description: json.error || "Falha ao enviar feedback", variant: "destructive" })
+      }
+      setFeedbackModal(null)
+      setCorrectedAnswer("")
+    } catch (e) {
+      toast({ title: "Erro", description: "Falha ao enviar feedback", variant: "destructive" })
+    } finally {
+      setSendingFeedback(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -204,14 +248,34 @@ export default function AdminCatarinaPage() {
                               <Bot className="w-4 h-4 text-white/70" />
                             </div>
                           )}
-                          <div
-                            className={`max-w-[80%] rounded-xl px-4 py-2 text-sm ${
-                              m.role === "user"
-                                ? "bg-white/10 text-white"
-                                : "bg-white/5 text-white/90 border border-white/10"
-                            }`}
-                          >
-                            <p className="whitespace-pre-wrap">{m.content}</p>
+                          <div className="flex flex-col gap-1">
+                            <div
+                              className={`max-w-[80%] rounded-xl px-4 py-2 text-sm ${
+                                m.role === "user"
+                                  ? "bg-white/10 text-white"
+                                  : "bg-white/5 text-white/90 border border-white/10"
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap">{m.content}</p>
+                            </div>
+                            {m.role === "assistant" && m.replyTo && (
+                              <div className="flex gap-1 mt-1">
+                                <button
+                                  onClick={() => sendFeedback(m, "positive")}
+                                  className="p-1.5 rounded-lg hover:bg-green-900/30 text-green-500"
+                                  title="Resposta útil"
+                                >
+                                  <ThumbsUp className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setFeedbackModal({ msg: m, prevUserMsg: m.replyTo! })}
+                                  className="p-1.5 rounded-lg hover:bg-red-900/30 text-red-500"
+                                  title="Resposta incorreta"
+                                >
+                                  <ThumbsDown className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                           {m.role === "user" && (
                             <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
@@ -246,6 +310,54 @@ export default function AdminCatarinaPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <Dialog open={!!feedbackModal} onOpenChange={(open) => !open && setFeedbackModal(null)}>
+              <DialogContent className="bg-slate-900 border-white/10 text-white">
+                <DialogHeader>
+                  <DialogTitle>Corrigir resposta</DialogTitle>
+                  <DialogDescription className="text-white/60">
+                    Digite como a Catarina deveria ter respondido. Isso ajuda a melhorar as respostas futuras.
+                  </DialogDescription>
+                </DialogHeader>
+                {feedbackModal && (
+                  <div className="space-y-4">
+                    <div className="text-sm">
+                      <p className="text-white/50 font-bold uppercase text-xs mb-1">Pergunta</p>
+                      <p className="text-white/80">{feedbackModal.prevUserMsg}</p>
+                    </div>
+                    <div className="text-sm">
+                      <p className="text-white/50 font-bold uppercase text-xs mb-1">Resposta corrigida</p>
+                      <Textarea
+                        placeholder="Como a Catarina deveria ter respondido..."
+                        value={correctedAnswer}
+                        onChange={(e) => setCorrectedAnswer(e.target.value)}
+                        className="min-h-[120px] bg-slate-800 border-white/10 text-white"
+                      />
+                    </div>
+                  </div>
+                )}
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={() => setFeedbackModal(null)} className="border-white/20 text-white">
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => feedbackModal && sendFeedback(feedbackModal.msg, "negative")}
+                    disabled={sendingFeedback}
+                    className="border-white/20 text-white"
+                  >
+                    Só marcar como incorreto
+                  </Button>
+                  <Button
+                    onClick={() => feedbackModal && sendFeedback(feedbackModal.msg, "correction", correctedAnswer)}
+                    disabled={sendingFeedback || !correctedAnswer.trim()}
+                    className="bg-white/10 hover:bg-white/20 text-white"
+                  >
+                    {sendingFeedback ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar correção"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="metrics" className="mt-6 space-y-6">

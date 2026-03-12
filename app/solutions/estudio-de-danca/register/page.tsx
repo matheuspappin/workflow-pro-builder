@@ -51,8 +51,7 @@ function RegisterContent() {
   )
   const [inviteStudioName, setInviteStudioName] = useState<string | null>(null)
   const [inviteLoading, setInviteLoading] = useState(!!inviteCode)
-  const [plan, setPlan] = useState('gratuito')
-  const [plans, setPlans] = useState<any[]>([])
+  const [plan] = useState('custom')
   const [loadingPlans, setLoadingPlans] = useState(true)
   const [systemModules, setSystemModules] = useState<any[]>([])
   const [selectedModules, setSelectedModules] = useState<Record<string, boolean>>({})
@@ -89,36 +88,10 @@ function RegisterContent() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [plansRes, modulesData] = await Promise.all([
-          fetch(`/api/verticalization/plans?slug=${encodeURIComponent(VERTICALIZATION_SLUG)}`),
+        const [modulesData] = await Promise.all([
           getSystemModules()
         ])
-        const plansJson = await plansRes.json()
-        const plansData = plansRes.ok && Array.isArray(plansJson.plans) ? plansJson.plans : []
 
-        let mappedPlans: any[] = []
-        if (plansData.length > 0) {
-          mappedPlans = plansData.map((p: any) => ({
-            id: p.plan_id ?? p.id,
-            plan_id: p.plan_id,
-            name: p.name,
-            price: p.plan_id === 'enterprise' ? 'Sob Consulta' : `R$ ${Number(p.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`,
-            description: p.description || '',
-            features: p.features || [],
-            isPopular: p.is_popular
-          }))
-        }
-        mappedPlans.push({
-          id: 'custom',
-          plan_id: 'custom',
-          name: 'Personalizado',
-          price: 'Sob Medida',
-          description: 'Monte seu plano ideal',
-          features: ['Escolha seus módulos'],
-          isPopular: false
-        })
-
-        setPlans(mappedPlans)
         setSystemModules(modulesData || [])
 
         const suggestedModules = getDefaultModulesForNiche(NICHE_ID)
@@ -463,30 +436,11 @@ function RegisterContent() {
 
                   {role === 'admin' && (
                     <div className="space-y-4 col-span-full pt-2">
-                      <Label className="text-slate-300 font-bold uppercase tracking-widest text-[10px]">Escolha seu Plano</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {loadingPlans ? (
-                          <div className="col-span-full flex justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-                          </div>
-                        ) : plans.map((p) => (
-                          <div
-                            key={p.id}
-                            className={cn(
-                              "cursor-pointer rounded-2xl border-2 p-5 transition-all relative overflow-hidden",
-                              plan === p.id ? "border-violet-600 bg-violet-600/10 shadow-lg" : "border-white/5 bg-slate-800/50 hover:border-white/20"
-                            )}
-                            onClick={() => setPlan(p.id)}
-                          >
-                            {plan === p.id && <div className="absolute top-0 right-0 w-8 h-8 bg-violet-600 flex items-center justify-center rounded-bl-2xl"><Check className="w-4 h-4 text-white" /></div>}
-                            <h4 className={cn("font-black text-sm uppercase tracking-widest mb-1", plan === p.id ? "text-violet-500" : "text-white")}>{p.name}</h4>
-                            <div className="text-xl font-black text-white mb-2">{p.price}</div>
-                            <p className="text-[10px] text-slate-500 font-medium leading-tight">{p.description}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {plan === 'custom' && (
+                      {loadingPlans ? (
+                        <div className="flex justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
+                        </div>
+                      ) : (
                         <Card className="border-dashed border-2 border-violet-500/30 bg-violet-500/5">
                           <CardContent className="p-6 space-y-4">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

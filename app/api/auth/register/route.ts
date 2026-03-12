@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       studioId,
       modules,
       multiUnitQuantity = 1,
+      professionalsTier,
       language: registerLanguage,
       professionalRegistration,
       verticalizationSlug,
@@ -307,12 +308,16 @@ export async function POST(request: NextRequest) {
 
         const vocabulary = nicheDictionary.pt[niche as keyof typeof nicheDictionary.pt] || nicheDictionary.pt.dance
 
+        const tierId = (professionalsTier && ['1-10', '11-20', '21-50'].includes(professionalsTier)) ? professionalsTier : '1-10'
+        const themeConfig = { professionals_tier: tierId }
+
         const orgSettingsRows = createdStudioIds.map(sid => ({
           studio_id: sid,
           niche: niche,
           enabled_modules: enabledModules,
           vocabulary: vocabulary,
           business_type: finalBusinessModel,
+          theme_config: themeConfig,
         }))
         await supabaseAdmin.from('organization_settings').insert(orgSettingsRows)
         logger.info(`✅ Configurações do ecossistema (organization_settings) inseridas para ${orgSettingsRows.length} estúdio(s), nicho ${niche}.`);

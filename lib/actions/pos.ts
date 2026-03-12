@@ -16,9 +16,12 @@ export async function processPosPayment(
   // 1. Get the Business Model
   let model = await getPaymentRequirement(studioId, supabase);
 
-  // Se o método for explicitamente dinheiro, pix ou cartão, é MONETARY
-  const monetaryMethods = ['cash', 'money', 'dinheiro', 'card', 'credit_card', 'debit_card', 'pix'];
-  if (monetaryMethods.includes(paymentMethod?.toLowerCase())) {
+  // Se o método for explicitamente crédito, forçar CREDIT
+  if (paymentMethod?.toLowerCase() === 'credit') {
+    model = 'CREDIT';
+  }
+  // Se o método for dinheiro, pix ou cartão, é MONETARY
+  else if (['cash', 'money', 'dinheiro', 'card', 'credit_card', 'debit_card', 'pix'].includes(paymentMethod?.toLowerCase())) {
     model = 'MONETARY';
   }
 
@@ -109,4 +112,41 @@ export async function createPosStripeSession(
 export async function getStudioBusinessModel(studioId: string) {
   const supabase = await createClient();
   return await getPaymentRequirement(studioId, supabase);
+}
+
+/** Taxa de conversão R$ → créditos: MIN(price/lessons_count) dos pacotes ativos. Fallback: 70 */
+export async function getPdvCreditConversionRate(studioId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data: packages } = await supabase
+    .from('lesson_packages')
+    .select('price, lessons_count')
+    .eq('studio_id', studioId)
+    .eq('is_active', true);
+
+  if (packages?.length) {
+    const rates = packages.map(p => (p.price || 0) / Math.max(1, p.lessons_count || 1));
+    return Math.min(...rates);
+  }
+
+  const { data: setting } = await supabase
+    .from('studio_settings')
+    .select('setting_value')
+    .eq('studio_id', studioId)
+    .eq('setting_key', 'pdv_credit_reais_per_unit')
+    .maybeSingle();
+
+  return setting?.setting_value ? parseFloat(setting.setting_value) : 70;
+}
+
+/** Saldo de créditos do aluno para exibir no PDV */
+export async function getStudentCredits(studentId: string, studioId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('student_lesson_credits')
+    .select('remaining_credits')
+    .eq('student_id', studentId)
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  return Number(data?.remaining_credits ?? 0);
 }

@@ -146,7 +146,7 @@ export default function ChatPage() {
           })) || [],
           pendingAction: parsed.pendingAction || null,
           aiProvider: parsed.aiProvider || "chatgpt",
-          selectedGeminiModel: parsed.selectedGeminiModel || "gemini-2.5-flash"
+          selectedGeminiModel: parsed.selectedGeminiModel || "gemini-2.5-pro"
         }
       }
     } catch (error) {
@@ -191,7 +191,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [aiProvider, setAiProvider] = useState<"chatgpt" | "gemini">("chatgpt")
-  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>("gemini-2.5-flash")
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>("gemini-2.5-pro")
   const [pendingAction, setPendingAction] = useState<any>(null)
   const [lastRequestTime, setLastRequestTime] = useState<number>(0)
   const [responseCache, setResponseCache] = useState<Map<string, any>>(new Map())
@@ -217,7 +217,7 @@ export default function ChatPage() {
       if (initialState.messages?.length > 0) setMessages(initialState.messages)
       else setMessages(defaultMessages)
       setAiProvider(initialState.aiProvider || "chatgpt")
-      setSelectedGeminiModel(initialState.selectedGeminiModel || "gemini-2.5-flash")
+      setSelectedGeminiModel(initialState.selectedGeminiModel || "gemini-2.5-pro")
       setPendingAction(initialState.pendingAction || null)
     } else {
       setMessages(defaultMessages)
@@ -492,7 +492,7 @@ export default function ChatPage() {
     setMessages(clearedMessages)
     setPendingAction(null)
     setAiProvider("chatgpt")
-    setSelectedGeminiModel("gemini-2.5-flash")
+    setSelectedGeminiModel("gemini-2.5-pro")
     setCurrentSessionId(null) // Resetar ID da sessão
 
     // Limpar estado salvo
@@ -658,10 +658,9 @@ export default function ChatPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="gemini-2.5-flash">Flash 2.5</SelectItem>
                           <SelectItem value="gemini-2.5-pro">Pro 2.5</SelectItem>
-                          <SelectItem value="gemini-1.5-flash">Flash 1.5</SelectItem>
-                          <SelectItem value="gemini-1.5-pro">Pro 1.5</SelectItem>
+                          <SelectItem value="gemini-2.5-flash">Flash 2.5</SelectItem>
+                          <SelectItem value="gemini-2.0-flash">Flash 2.0</SelectItem>
                         </SelectContent>
                       </Select>
                     )}

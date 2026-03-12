@@ -4,6 +4,7 @@ import { checkStudioAccess, allowInternalAiCall } from '@/lib/auth'
 import logger from '@/lib/logger'
 import { buildCatarinaSystemPrompt, getContextTimestamp } from '@/lib/catarina'
 import { resolveContactLayer } from '@/lib/ai-router'
+import { aiLearning } from '@/lib/actions/ai-learning'
 
 const AGRO_OS_TYPES = ['laudo_car', 'vistoria_ndvi', 'regularizacao', 'licenciamento', 'monitoramento', 'outro', 'environmental_os']
 
@@ -115,14 +116,14 @@ export async function POST(request: NextRequest) {
       if (!access.authorized) return access.response
     }
 
-    const { data: latestReport } = await supabaseAdmin
-      .from('studio_ai_reports')
-      .select('content, created_at, metadata')
-      .eq('studio_id', contextStudioId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const [reportRes, trainingRes, learnedRes, rulesRes] = await Promise.all([
+      supabaseAdmin.from('studio_ai_reports').select('content, created_at, metadata').eq('studio_id', contextStudioId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'agroflowai').order('created_at', { ascending: false }).limit(6).then((r) => r).catch(() => ({ data: [] as any[] })),
+      aiLearning.getLearnedKnowledge(contextStudioId, typeof message === 'string' ? message : (message?.content || '')).catch(() => []),
+      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'agroflowai').maybeSingle().then((r) => r).catch(() => ({ data: null }))
+    ])
 
+    const latestReport = (reportRes as any)?.data
     let contextContent: string
     if (latestReport?.content) {
       contextContent = latestReport.content
@@ -130,6 +131,20 @@ export async function POST(request: NextRequest) {
     } else {
       contextContent = await buildAgroFlowContext(contextStudioId)
     }
+
+    const trainingRows = (trainingRes as any)?.data || []
+    const fewShot = trainingRows.length > 0
+      ? `\n--- EXEMPLOS ---\n${trainingRows.map((r: any) => `[U]: ${r.student_message}\n[IA]: ${r.ai_response}`).join('\n\n')}\n---\n`
+      : ''
+    const rulesRow = (rulesRes as any)?.data
+    const rulesSection = rulesRow?.rules_text?.trim()
+      ? `\n--- VALORES E REGRAS ESPECÍFICAS (USE ESTES DADOS) ---\n${rulesRow.rules_text.trim()}\n---\n`
+      : ''
+    const learned = (learnedRes || []) as { question?: string; answer?: string }[]
+    const learnedSection = learned.length > 0
+      ? `\n--- CONHECIMENTO APRENDIDO ---\n${learned.map((k: any) => `Q: ${k.question}\nR: ${k.answer}`).join('\n\n')}\n---\n`
+      : ''
+    contextContent = contextContent + rulesSection + fewShot + learnedSection
 
     const isAdmin = context?.is_admin || false
     const isStudent = context?.is_student || false
@@ -201,14 +216,14 @@ export async function POST(request: NextRequest) {
       }
       contents.push({ role: 'user', parts: [{ text: lastMsg }] })
 
-      const modelToUse = model || 'gemini-2.5-flash'
+      const modelToUse = model || 'gemini-2.5-pro'
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents,
-          generationConfig: { temperature: 0.5, maxOutputTokens: 1000 },
+          generationConfig: { temperature: 0.25, maxOutputTokens: 1000 },
         }),
       })
 
@@ -220,6 +235,19 @@ export async function POST(request: NextRequest) {
 
       const result = await res.json()
       const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar uma resposta.'
+      if (text) {
+        Promise.all([
+          supabaseAdmin.from('ai_interactions').insert({
+            studio_id: contextStudioId,
+            customer_contact: context?.contact_name || 'chat_user',
+            message: lastMsg,
+            ai_response: text,
+            intent_type: 'chat',
+            channel: 'chat',
+          }).then(() => {}).catch((e) => logger.warn('Erro ao salvar ai_interactions:', e)),
+          aiLearning.learnFromInteraction({ studioId: contextStudioId, question: lastMsg, answer: text, confidence: 0.8 }).catch((e) => logger.warn('Erro learnFromInteraction:', e))
+        ]).catch(() => {})
+      }
       return NextResponse.json({ response: text })
     }
 
@@ -252,6 +280,19 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json()
     const text = data.choices?.[0]?.message?.content || 'Não foi possível gerar uma resposta.'
+    if (text) {
+      Promise.all([
+        supabaseAdmin.from('ai_interactions').insert({
+          studio_id: contextStudioId,
+          customer_contact: context?.contact_name || 'chat_user',
+          message: lastMsg,
+          ai_response: text,
+          intent_type: 'chat',
+          channel: 'chat',
+        }).then(() => {}).catch((e) => logger.warn('Erro ao salvar ai_interactions:', e)),
+        aiLearning.learnFromInteraction({ studioId: contextStudioId, question: lastMsg, answer: text, confidence: 0.8 }).catch((e) => logger.warn('Erro learnFromInteraction:', e))
+      ]).catch(() => {})
+    }
     return NextResponse.json({ response: text })
   } catch (error: any) {
     logger.error('Erro agroflowai ai/chat:', error)

@@ -270,7 +270,7 @@ export async function updateServiceOrder(id: string, data: ServiceOrderFormValue
 }
 
 export async function getPendingServiceOrders(studioId: string) {
-  await guardModule('service_orders')
+  await guardModule('service_orders', { studioId })
   const supabase = await createClient()
   
   const { data, error } = await supabase

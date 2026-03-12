@@ -236,7 +236,7 @@ export default function FireProtectionAdminPage() {
                 </div>
                 <p className="text-slate-400 text-sm max-w-xl">
                   Verticalização white-label para empresas de segurança contra incêndio.
-                  Nicho: <strong className="text-red-300">fire_protection</strong> — Gerenciado via Workflow Pro.
+                  Nicho: <strong className="text-red-300">fire_protection</strong> — Gerenciado via akaaicore.
                 </p>
               </div>
             </div>
@@ -463,7 +463,7 @@ export default function FireProtectionAdminPage() {
               Configuração Técnica
             </CardTitle>
             <CardDescription className="text-slate-600 text-xs">
-              Parâmetros desta verticalização no sistema Workflow Pro
+              Parâmetros desta verticalização no sistema akaaicore
             </CardDescription>
           </CardHeader>
           <CardContent>

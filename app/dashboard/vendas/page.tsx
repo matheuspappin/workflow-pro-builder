@@ -34,7 +34,7 @@ export default function POSPage() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { vocabulary, t, language, businessModel } = useOrganization()
+  const { vocabulary, t, language, businessModel, studioId: orgStudioId } = useOrganization()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [studioId, setStudioId] = useState<string | null>(null)
@@ -71,13 +71,24 @@ export default function POSPage() {
     }
   }, [searchParams])
 
+  // Resolver studioId: OrganizationProvider (workflow_pro) ou danceflow_user (legado)
   useEffect(() => {
+    if (orgStudioId) {
+      setStudioId(orgStudioId)
+      return
+    }
     const userStr = localStorage.getItem("danceflow_user")
     if (userStr) {
-      const user = JSON.parse(userStr)
-      setStudioId(user.studioId || user.studio_id)
+      try {
+        const user = JSON.parse(userStr)
+        setStudioId(user.studioId || user.studio_id || null)
+      } catch {
+        setStudioId(null)
+      }
+    } else {
+      setStudioId(null)
     }
-  }, [])
+  }, [orgStudioId])
 
   useEffect(() => {
     if (studioId) fetchData()
@@ -203,9 +214,17 @@ export default function POSPage() {
           isOpen={isScannerOpen} 
           onClose={() => setIsScannerOpen(false)} 
           onScanSuccess={async (sku) => {
-            const prod = await getProductBySku(sku, studioId!)
-            if (prod) addToCart(prod)
-            else toast({ title: "Não encontrado", variant: "destructive" })
+            if (!studioId) {
+              toast({ title: "Erro", description: "Estúdio não identificado. Faça login e vincule-se a um estúdio.", variant: "destructive" })
+              return
+            }
+            try {
+              const prod = await getProductBySku(sku, studioId)
+              if (prod) addToCart(prod)
+              else toast({ title: "Não encontrado", variant: "destructive" })
+            } catch (err: any) {
+              toast({ title: "Erro", description: err?.message || "Não foi possível buscar o produto.", variant: "destructive" })
+            }
           }} 
         />
 
@@ -231,13 +250,13 @@ export default function POSPage() {
             {/* PRODUTOS RÁPIDOS */}
             <div className="space-y-4">
               <h3 className="font-bold text-lg">Produtos</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[320px] overflow-y-auto pr-2 scrollbar-thin">
                 {products.filter(p =>
                   p.quantity > 0 &&
                   (pdvSearchInput.trim() === '' ||
                     p.name?.toLowerCase().includes(pdvSearchInput.toLowerCase()) ||
                     p.sku?.toLowerCase().includes(pdvSearchInput.toLowerCase()))
-                ).slice(0, 8).map(p => (
+                ).map(p => (
                   <Card key={p.id} className="hover:border-primary cursor-pointer transition-all" onClick={() => addToCart(p)}>
                     <CardContent className="p-4 text-center">
                       <p className="font-bold text-sm truncate">{p.name}</p>

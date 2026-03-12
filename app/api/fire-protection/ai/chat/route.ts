@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { checkStudioAccess, allowInternalAiCall } from '@/lib/auth'
 import logger from '@/lib/logger'
 import { getNichePrompt, getContextTimestamp } from '@/lib/catarina'
+import { aiLearning } from '@/lib/actions/ai-learning'
 
 const CHECKLIST_PADRAO = [
   { title: 'Extintores dentro do prazo de validade', order_index: 0 },
@@ -490,7 +491,7 @@ export async function POST(request: NextRequest) {
       if (!access.authorized) return access.response
     }
 
-    // Fire Protection sempre usa contexto próprio (clientes, vistorias, OS, técnicos).
+    // Fire Protection: contexto + treinamento + learned knowledge
     let contextContent: string
     try {
       contextContent = await buildFireProtectionContext(contextStudioId)
@@ -498,6 +499,26 @@ export async function POST(request: NextRequest) {
       logger.error('Erro ao montar contexto FireProtection:', ctxErr)
       contextContent = 'Contexto indisponível.'
     }
+
+    const [trainingRes, learnedRes, rulesRes, modelSettingRes] = await Promise.all([
+      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'fire_protection').order('created_at', { ascending: false }).limit(6).then((r) => r).catch(() => ({ data: [] as any[] })),
+      aiLearning.getLearnedKnowledge(contextStudioId, typeof message === 'string' ? message : (message?.content || '')).catch(() => []),
+      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'fire_protection').maybeSingle().then((r) => r).catch(() => ({ data: null })),
+      supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', contextStudioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r).catch(() => ({ data: null }))
+    ])
+    const trainingRows = trainingRes.data || []
+    const fewShot = trainingRows.length > 0
+      ? `\n--- EXEMPLOS ---\n${trainingRows.map((r: any) => `[U]: ${r.student_message}\n[IA]: ${r.ai_response}`).join('\n\n')}\n---\n`
+      : ''
+    const rulesRow = (rulesRes as any)?.data
+    const rulesSection = rulesRow?.rules_text?.trim()
+      ? `\n--- VALORES E REGRAS ESPECÍFICAS (USE ESTES DADOS) ---\n${rulesRow.rules_text.trim()}\n---\n`
+      : ''
+    const learned = (learnedRes || []) as { question?: string; answer?: string }[]
+    const learnedSection = learned.length > 0
+      ? `\n--- CONHECIMENTO APRENDIDO ---\n${learned.map((k: any) => `Q: ${k.question}\nR: ${k.answer}`).join('\n\n')}\n---\n`
+      : ''
+    contextContent = contextContent + rulesSection + fewShot + learnedSection
 
     const { data: studioRow } = await supabaseAdmin
       .from('studios')
@@ -588,7 +609,10 @@ Responda em português. Seja objetivo e CONFIRME o que foi feito.`
     }
     contents.push({ role: 'user', parts: [{ text: lastMsg }] })
 
-    const modelFallbacks = [model || 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+    const validModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash']
+    const configuredModel = (modelSettingRes as any)?.data?.setting_value?.trim()
+    const preferredModel = configuredModel && validModels.includes(configuredModel) ? configuredModel : (model || 'gemini-2.5-pro')
+    const modelFallbacks = [preferredModel, ...validModels.filter((m) => m !== preferredModel)]
     const maxTurns = 6
     let turn = 0
     let finalText = ''
@@ -692,6 +716,21 @@ Responda em português. Seja objetivo e CONFIRME o que foi feito.`
         finalText = 'Não foi possível gerar uma resposta. Tente reformular a pergunta ou verifique a conexão.'
       }
       break
+    }
+
+    // Pós-processamento: salvar interação e aprender
+    if (finalText) {
+      Promise.all([
+        supabaseAdmin.from('ai_interactions').insert({
+          studio_id: contextStudioId,
+          customer_contact: context?.contact_name || 'chat_user',
+          message: lastMsg,
+          ai_response: finalText,
+          intent_type: 'chat',
+          channel: 'chat',
+        }).then(() => {}).catch((e) => logger.warn('Erro ao salvar ai_interactions:', e)),
+        aiLearning.learnFromInteraction({ studioId: contextStudioId, question: lastMsg, answer: finalText, confidence: 0.8 }).catch((e) => logger.warn('Erro learnFromInteraction:', e))
+      ]).catch(() => {})
     }
 
     return NextResponse.json({ response: finalText })

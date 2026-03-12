@@ -160,7 +160,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       // Iniciar buscas independentes em paralelo
       const studiosPromise = supabase
         .from('studios')
-        .select('id, name, slug, business_model, plan, verticalization_plan_id')
+        .select('id, name, slug, business_model, plan, verticalization_plan_id, status, subscription_status, trial_ends_at')
         .eq('owner_id', user.id);
 
       // Resolver studioId inicial
@@ -230,6 +230,34 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setState(prev => ({ ...prev, isLoading: false, studioId: null, studios: studios, planId: null, planName: null }))
         
         if (!isSuperAdmin) return;
+      }
+
+      // Verificar se estúdio está inativo ou trial expirado → redirect para renovação
+      if (studioId && !isSuperAdmin && typeof window !== 'undefined' && window.location.pathname !== '/subscription-expired') {
+        const activeStudio = studios.find((s: any) => s.id === studioId)
+        let status = activeStudio?.status
+        let subscription_status = activeStudio?.subscription_status
+        let trial_ends_at = activeStudio?.trial_ends_at
+
+        if (!activeStudio) {
+          const { data: studioRow } = await supabase
+            .from('studios')
+            .select('status, subscription_status, trial_ends_at')
+            .eq('id', studioId)
+            .maybeSingle()
+          status = studioRow?.status
+          subscription_status = studioRow?.subscription_status
+          trial_ends_at = studioRow?.trial_ends_at
+        }
+
+        const isInactive = status === 'inactive'
+        const isTrialExpired = subscription_status === 'trialing' && trial_ends_at && new Date(trial_ends_at) < new Date()
+
+        if (isInactive || isTrialExpired) {
+          logger.info(`🔄 Estúdio ${studioId} inativo ou trial expirado. Redirecionando para /subscription-expired`)
+          window.location.href = '/subscription-expired'
+          return
+        }
       }
 
       // 3. Buscar configurações e modelo de negócio

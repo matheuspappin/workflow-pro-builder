@@ -1,5 +1,5 @@
 /**
- * Chaves de localStorage padronizadas para o ecossistema Workflow Pro.
+ * Chaves de localStorage padronizadas para o ecossistema akaaicore.
  *
  * IMPORTANTE: Cada verticalização tem uma chave específica para contexto de usuário,
  * mas TODAS compartilham a mesma estrutura de dados:

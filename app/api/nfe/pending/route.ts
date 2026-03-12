@@ -4,7 +4,7 @@ import { guardModule } from '@/lib/modules-server'
 
 /**
  * API NF-e — Lista itens pendentes de emissão
- * Módulo fiscal independente — agrega de service_orders (PDV) e erp_orders
+ * Módulo fiscal independente — agrega service_orders (PDV), erp_orders e package_purchase (compra de créditos DanceFlow)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -75,7 +75,47 @@ export async function GET(request: NextRequest) {
       created_at: o.created_at,
     }))
 
-    const pending = [...serviceOrders, ...erpOrders].sort(
+    // 3. Pendentes de package_purchase (compra de créditos DanceFlow) — pagos, sem nota em financial_notes
+    const { data: emittedPkg } = await supabaseAdmin
+      .from('financial_notes')
+      .select('source_id')
+      .eq('studio_id', sid)
+      .eq('source_type', 'package_purchase')
+      .eq('status', 'emitted')
+
+    const emittedPkgIds = new Set((emittedPkg || []).map((n: any) => n.source_id))
+
+    const { data: pendingPayments } = await supabaseAdmin
+      .from('payments')
+      .select(`
+        id,
+        amount,
+        description,
+        created_at,
+        student:students(id, name)
+      `)
+      .eq('studio_id', sid)
+      .eq('payment_source', 'package_purchase')
+      .eq('status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    const packagePurchases = (pendingPayments || [])
+      .filter((p: any) => !emittedPkgIds.has(p.id))
+      .map((p: any) => {
+        const student = Array.isArray(p.student) ? p.student[0] : p.student
+        return {
+          id: p.id,
+          source_type: 'package_purchase' as const,
+          external_id: p.id?.slice(0, 8),
+          customer_name: student?.name || 'Cliente',
+          total_amount: Number(p.amount || 0),
+          status: 'paid',
+          created_at: p.created_at,
+        }
+      })
+
+    const pending = [...serviceOrders, ...erpOrders, ...packagePurchases].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
 

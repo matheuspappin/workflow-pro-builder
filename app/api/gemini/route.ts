@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStudentsData, getTeachersData, getFinancialData, getClassesData } from '@/lib/supabase'
+import { getStudentsData, getTeachersData, getFinancialData, getClassesData, getLeadsData, getInventoryData } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger'
 import { buildCatarinaSystemPrompt, getContextTimestamp } from '@/lib/catarina'
 import { resolveContactLayer } from '@/lib/ai-router'
+import { aiLearning } from '@/lib/actions/ai-learning'
 
 /**
  * ENGINE DE IA - Catarina (Secretária Virtual)
@@ -45,30 +47,85 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey) return NextResponse.json({ error: 'Chave API não configurada' }, { status: 500 })
 
-    // 1. BUSCAR O RELATÓRIO DE CONTEXTO MAIS RECENTE (Fonte da Verdade)
-    const { data: latestReport } = await supabase
-      .from('studio_ai_reports')
-      .select('content, created_at')
-      .eq('studio_id', studioId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 1. CARREGAR CONTEXTO (paralelo: relatório, treinamento, learned knowledge, regras, modelo, CRM, estoque)
+    const [reportRes, trainingRes, learnedRes, rulesRes, modelSettingRes, leadsData, invData] = await Promise.all([
+      supabase.from('studio_ai_reports').select('content, created_at').eq('studio_id', studioId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'dance').order('created_at', { ascending: false }).limit(8).then((r) => r).catch(() => ({ data: [] as any[] })),
+      studioId !== "00000000-0000-0000-0000-000000000000" ? aiLearning.getLearnedKnowledge(studioId, message).catch(() => []) : Promise.resolve([]),
+      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'dance').maybeSingle().then((r) => r).catch(() => ({ data: null })),
+      studioId !== "00000000-0000-0000-0000-000000000000" ? supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', studioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+      getLeadsData(studioId),
+      getInventoryData(studioId)
+    ])
 
-    // Se não houver relatório recente, gera um contexto básico na hora (fallback)
-    let contextContent = latestReport?.content || "";
-    
+    const latestReport = reportRes?.data
+    let contextContent = latestReport?.content || ""
+
     if (!contextContent) {
-      // Fallback: Busca dados básicos se não houver relatório
       const [sStats, tStats, fStats, cStats] = await Promise.all([
         getStudentsData(studioId), getTeachersData(studioId), getFinancialData(studioId), getClassesData(studioId)
       ])
       contextContent = `
-        RESUMO ATUAL (Sincronização Direta):
-        - Alunos Ativos: ${sStats.active}
-        - Financeiro Mensal: R$ ${fStats.monthlyRevenue}
-        - Turmas: ${cStats.active}
-      `;
+RESUMO ATUAL (Sincronização Direta - USE ESTES DADOS para responder "quantos alunos", "quantas turmas", etc.):
+- Total de Alunos: ${sStats.total}
+- Alunos Ativos: ${sStats.active}
+- Novos este mês: ${sStats.newThisMonth}
+- Taxa de retenção: ${sStats.retentionRate}%
+- Financeiro Mensal: R$ ${fStats.monthlyRevenue}
+- Turmas Ativas: ${cStats.active}
+- Professores Ativos: ${tStats.active}
+`
     }
+
+    // Sempre incluir CRM e Estoque (Catarina deve ter acesso a essas informações)
+    const leadsByStage = Object.entries(leadsData.byStage).map(([s, n]) => `${s}: ${n}`).join(', ') || 'nenhum'
+    const leadsRecent = leadsData.recent.length > 0
+      ? leadsData.recent.map(l => `  - ${l.name}${l.phone ? ` (${l.phone})` : ''} - ${l.stage}`).join('\n')
+      : '  (nenhum lead cadastrado)'
+    const invProducts = invData.products.length > 0
+      ? invData.products.map(p => `  - ${p.name}: ${p.quantity} un (mín: ${p.minStock})${p.price ? ` - R$ ${p.price}` : ''}`).join('\n')
+      : '  (nenhum produto cadastrado)'
+    const invLowStock = invData.lowStock.length > 0
+      ? invData.lowStock.map(p => `  - ${p.name}: ${p.quantity} (mínimo: ${p.minStock})`).join('\n')
+      : '  (nenhum produto abaixo do mínimo)'
+    const crmInventorySection = `
+
+--- CRM (LEADS/CLIENTES) - USE para "quantos clientes no CRM", listar leads ---
+- Total de clientes no CRM: ${leadsData.total}
+- Por estágio: ${leadsByStage}
+- Últimos cadastrados:
+${leadsRecent}
+
+--- ESTOQUE - USE para perguntas sobre produtos, itens disponíveis, estoque baixo ---
+- Total de produtos: ${invData.totalProducts}
+- Total de itens em estoque: ${invData.totalItems}
+- Valor total (preço de venda): R$ ${invData.totalValue.toFixed(2)}
+- Produtos principais:
+${invProducts}
+- Produtos abaixo do mínimo:
+${invLowStock}
+`
+    contextContent = contextContent + crmInventorySection
+
+    // Few-shot: exemplos de treinamento
+    const trainingRows = trainingRes.data || []
+    const fewShotExamples = trainingRows.length > 0
+      ? `\n--- EXEMPLOS DE CONVERSA (use como referência de estilo e tom) ---\n${trainingRows.map((r: any) => `[Usuário]: ${r.student_message}\n[IA]: ${r.ai_response}`).join('\n\n')}\n--- FIM DOS EXEMPLOS ---\n`
+      : ""
+
+    // Valores e regras específicas (Controlador)
+    const rulesRow = (rulesRes as any)?.data
+    const rulesSection = rulesRow?.rules_text?.trim()
+      ? `\n--- VALORES E REGRAS ESPECÍFICAS (USE ESTES DADOS) ---\n${rulesRow.rules_text.trim()}\n--- FIM ---\n`
+      : ""
+
+    // Conhecimento aprendido
+    const learned = (learnedRes || []) as { question?: string; answer?: string }[]
+    const learnedSection = learned.length > 0
+      ? `\n--- CONHECIMENTO APRENDIDO (use quando relevante) ---\n${learned.map((k: any) => `Q: ${k.question}\nR: ${k.answer}`).join('\n\n')}\n--- FIM ---\n`
+      : ""
+
+    contextContent = contextContent + rulesSection + fewShotExamples + learnedSection
 
     // 2. CONSTRUIR O SYSTEM PROMPT (Catarina)
     const contactLayer = resolveContactLayer(isAdmin, isStudent, 'dance', contactLayerFromContext)
@@ -99,9 +156,13 @@ export async function POST(request: NextRequest) {
     contents.push({ role: 'user', parts: [{ text: message }] })
 
     // 4. CHAMADA AO GEMINI (com fallback de modelos)
-    const modelFallbacks = [model || 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+    const configuredModel = (modelSettingRes as any)?.data?.setting_value?.trim()
+    const validModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash']
+    const preferredModel = configuredModel && validModels.includes(configuredModel) ? configuredModel : (model || 'gemini-2.5-pro')
+    const modelFallbacks = [preferredModel, ...validModels.filter((m) => m !== preferredModel)]
     let lastError: string | null = null
 
+    const startTime = Date.now()
     for (const modelToUse of modelFallbacks) {
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`, {
@@ -110,16 +171,19 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: contents,
-            generationConfig: { temperature: 0.5, maxOutputTokens: 800 },
+            generationConfig: { temperature: 0.25, maxOutputTokens: 800 },
           }),
         })
 
         const result = await response.json()
+        const latencyMs = Date.now() - startTime
 
         if (!response.ok) {
           const errMsg = result?.error?.message || result?.error?.status || `HTTP ${response.status}`
           lastError = errMsg
-          logger.warn(`Gemini ${modelToUse} falhou:`, errMsg)
+          const isRetryable = response.status >= 500 || response.status === 429
+          logger.warn(`Gemini ${modelToUse} falhou (${latencyMs}ms):`, errMsg, isRetryable ? '- retrying' : '')
+          if (isRetryable) await new Promise((r) => setTimeout(r, 500))
           continue
         }
 
@@ -127,8 +191,24 @@ export async function POST(request: NextRequest) {
           logger.warn('⚠️ Gemini bloqueou o prompt:', result.promptFeedback)
         }
 
+        logger.info(`Gemini ${modelToUse} ok`, { studioId: studioId.slice(0, 8), latencyMs, model: modelToUse })
+
         const aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text
         if (aiResponse) {
+          // Pós-processamento: salvar interação e aprender (fire-and-forget)
+          if (studioId && studioId !== "00000000-0000-0000-0000-000000000000") {
+            Promise.all([
+              supabaseAdmin.from('ai_interactions').insert({
+                studio_id: studioId,
+                customer_contact: context?.contact_name || 'chat_user',
+                message,
+                ai_response: aiResponse,
+                intent_type: 'chat',
+                channel: 'chat',
+              }).then(() => {}).catch((e) => logger.warn('Erro ao salvar ai_interactions:', e)),
+              aiLearning.learnFromInteraction({ studioId, question: message, answer: aiResponse, confidence: 0.8 }).catch((e) => logger.warn('Erro learnFromInteraction:', e))
+            ]).catch(() => {})
+          }
           return NextResponse.json({ response: aiResponse })
         }
       } catch (e: any) {

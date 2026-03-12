@@ -209,3 +209,125 @@ export const GLOBAL_SKU_LIST: GlobalSku[] = [
   { sku: "7896050601337", name: "Água Mineral Bonafont 500ml", category: "Bebidas", suggested_price: 4.00 },
   { sku: "7898236370014", name: "Água Mineral Minalba Sem Gás 510ml", category: "Bebidas", suggested_price: 3.00 },
 ];
+
+/** Resultado unificado de busca (Global SKU + Open Food Facts) */
+export interface CatalogSearchResult {
+  sku: string
+  name: string
+  category: string
+  suggested_price?: number
+  source: 'global' | 'openfoodfacts'
+}
+
+/** Normaliza texto para busca (remove acentos, hyphens, espaços extras) */
+function normalizeForSearch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[-_\s]+/g, ' ')
+    .trim()
+}
+
+/**
+ * Busca SÍNCRONA apenas no catálogo local (GLOBAL_SKU_LIST).
+ * Retorna imediatamente - use para feedback instantâneo ao digitar.
+ * Aceita "coca cola", "coca-cola", "coca cola" etc.
+ */
+export function searchLocalCatalog(query: string): CatalogSearchResult[] {
+  const q = query.trim()
+  if (q.length < 2) return []
+
+  const qNorm = normalizeForSearch(q)
+  const qParts = qNorm.split(/\s+/).filter(Boolean)
+
+  return GLOBAL_SKU_LIST.filter((p) => {
+    const nameNorm = normalizeForSearch(p.name)
+    const skuMatch = p.sku.includes(q)
+    const nameContains = nameNorm.includes(qNorm)
+    const allPartsMatch = qParts.every((part) => nameNorm.includes(part))
+    return skuMatch || nameContains || allPartsMatch
+  })
+    .slice(0, 15)
+    .map((p) => ({
+      sku: p.sku,
+      name: p.name,
+      category: p.category,
+      suggested_price: p.suggested_price,
+      source: 'global' as const,
+    }))
+}
+
+/**
+ * Busca produtos por nome: primeiro no catálogo local (GLOBAL_SKU_LIST),
+ * depois no Open Food Facts. Retorna resultados unificados.
+ * Use searchLocalCatalog para feedback instantâneo; esta função para busca completa.
+ */
+export async function searchCatalog(query: string): Promise<CatalogSearchResult[]> {
+  const q = query.trim().toLowerCase()
+  if (q.length < 2) return []
+
+  const seen = new Set<string>()
+  const results: CatalogSearchResult[] = []
+
+  // 1. Catálogo local (instantâneo)
+  const localMatches = searchLocalCatalog(query)
+  for (const p of localMatches) {
+    seen.add(p.sku)
+    results.push(p)
+  }
+
+  // 2. Open Food Facts (API externa - pode demorar)
+  const { searchOpenFoodFacts } = await import('@/lib/services/open-food-facts')
+  const offResults = await searchOpenFoodFacts(query)
+  for (const p of offResults) {
+    if (!seen.has(p.sku)) {
+      seen.add(p.sku)
+      results.push({
+        sku: p.sku,
+        name: p.name,
+        category: p.category,
+        suggested_price: p.suggested_price,
+        source: 'openfoodfacts',
+      })
+    }
+  }
+
+  return results.slice(0, 20)
+}
+
+/**
+ * Obtém produto por código de barras: primeiro no catálogo local,
+ * depois no Open Food Facts.
+ */
+export async function getProductByBarcodeFromCatalog(barcode: string): Promise<CatalogSearchResult | null> {
+  const code = barcode.trim().replace(/\D/g, '')
+  if (!code || code.length < 8) return null
+
+  // 1. Busca local
+  const local = GLOBAL_SKU_LIST.find((p) => p.sku === code)
+  if (local) {
+    return {
+      sku: local.sku,
+      name: local.name,
+      category: local.category,
+      suggested_price: local.suggested_price,
+      source: 'global',
+    }
+  }
+
+  // 2. Open Food Facts
+  const { getProductByBarcode } = await import('@/lib/services/open-food-facts')
+  const off = await getProductByBarcode(code)
+  if (off) {
+    return {
+      sku: off.sku,
+      name: off.name,
+      category: off.category,
+      suggested_price: off.suggested_price,
+      source: 'openfoodfacts',
+    }
+  }
+
+  return null
+}

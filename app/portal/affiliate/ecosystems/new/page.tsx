@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, Copy, Check, Sparkles, Building2, LogOut } from "lucide-react"
+import { AffiliateHeader } from "@/components/dashboard/affiliate-header"
+import { Loader2, Copy, Check, Sparkles, Building2 } from "lucide-react"
 import { nicheDictionary, NicheType } from "@/config/niche-dictionary"
 import { createEcosystemInvite } from "@/lib/actions/ecosystem"
 import { toast } from "sonner"
@@ -95,7 +96,7 @@ export default function NewAffiliateEcosystemPage() {
       const storedUser = localStorage.getItem("danceflow_user")
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser)
-        if (parsedUser.role !== 'partner' && parsedUser.role !== 'admin' && parsedUser.role !== 'super_admin') {
+        if (parsedUser.role !== 'affiliate' && parsedUser.role !== 'partner' && parsedUser.role !== 'admin' && parsedUser.role !== 'super_admin') {
            toast.error("Acesso restrito: Esta área é apenas para afiliados.")
            router.push("/portal/login")
            return
@@ -183,37 +184,18 @@ export default function NewAffiliateEcosystemPage() {
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    localStorage.removeItem("danceflow_user")
-    router.push("/portal/affiliate/login")
-  }
-
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
 
   if (inviteUrl) {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
-         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
-            <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-bold text-xl tracking-tight">Portal do Afiliado</span>
-              </div>
-              <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
-                <LogOut className="w-5 h-5 text-slate-500 hover:text-red-600" />
-              </Button>
-            </div>
-          </header>
-        <div className="p-8 max-w-2xl mx-auto w-full">
+      <div className="p-6">
+        <div className="max-w-2xl mx-auto w-full">
           <Card className="border-emerald-500/50 bg-emerald-500/5">
             <CardHeader>
               <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
@@ -250,24 +232,12 @@ export default function NewAffiliateEcosystemPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight">Portal do Afiliado</span>
-          </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
-            <LogOut className="w-5 h-5 text-slate-500 hover:text-red-600" />
-          </Button>
-        </div>
-      </header>
-      
-      <div className="p-8 max-w-[1200px] mx-auto w-full">
-        <h1 className="text-3xl font-bold mb-6 text-slate-900 dark:text-white">Novo Ecossistema para Cliente</h1>
-        <p className="text-slate-600 dark:text-slate-400 mb-8">Crie e configure um novo sistema (estúdio) para o seu cliente, vinculado à sua conta de afiliado.</p>
+    <div className="p-6">
+      <div className="max-w-[1200px] mx-auto w-full space-y-8">
+        <AffiliateHeader 
+          title="Novo Ecossistema para Cliente" 
+          description="Crie e configure um novo sistema (estúdio) para o seu cliente, vinculado à sua conta de afiliado." 
+        />
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           

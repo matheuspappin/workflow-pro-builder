@@ -6,11 +6,14 @@
 > Um ecossistema SaaS White-Label, Multi-Tenant e Omnichannel que transforma qualquer nicho de mercado em uma solução de software completa e escalável.
 >
 > **Also known as Artificial Intelligence HUB.**
+>
+> **Projeto**: `workflow-pro-builder` v0.1.1
 
 ---
 
 ## 📋 Índice
 
+- [Ecossistema Técnico](#-ecossistema-técnico)
 - [Visão Executiva](#-visão-executiva)
 - [Proposta de Valor](#-proposta-de-valor)
 - [Arquitetura do Ecossistema](#-arquitetura-do-ecossistema)
@@ -26,6 +29,164 @@
 - [Monitoramento e Analytics](#-monitoramento-e-analytics)
 - [Guia de Instalação](#-guia-de-instalação)
 - [Documentação de Referência](#-documentação-de-referência)
+
+---
+
+## 🔧 Ecossistema Técnico
+
+### Identificação do Projeto
+
+| Item | Valor |
+| :--- | :--- |
+| **Nome do pacote** | `workflow-pro-builder` |
+| **Versão** | 0.1.1 |
+| **Gerenciador de pacotes** | pnpm 8+ |
+| **Runtime** | Node.js 20+ (LTS) |
+| **Tipo** | ESM (module) |
+
+### Estrutura de Pastas Principais
+
+```
+workflow-pro-builder/
+├── app/                    # Next.js App Router (rotas, páginas, API)
+│   ├── admin/              # Portal Super Admin
+│   ├── partner/            # Portal do Parceiro
+│   ├── dashboard/          # Dashboard genérico
+│   ├── solutions/          # Verticalizações
+│   │   ├── fire-protection/ # Fire Protection (engenharia)
+│   │   ├── agroflowai/     # AgroFlow AI (agronegócio)
+│   │   └── estudio-de-danca/ # DanceFlow (dança)
+│   └── api/                # API Routes
+├── components/             # Componentes React
+├── config/                 # Configurações centralizadas
+│   ├── niche-dictionary.ts # Vocabulário por nicho (70+ nichos)
+│   ├── portal-routes.ts    # Rotas por verticalização
+│   ├── verticalization-nav-modules.ts
+│   ├── fire-protection-nav.ts
+│   ├── agroflow-nav.ts
+│   ├── dance-studio-nav.ts
+│   └── supabase.js         # Config Supabase (scripts Node)
+├── database/
+│   └── migrations/         # 116+ migrações SQL
+├── lib/                    # Utilitários, actions, hooks
+│   ├── supabase/           # Cliente Supabase (client, server)
+│   ├── actions/             # Server Actions (ecosystem.ts, etc.)
+│   └── ...
+├── microservices/
+│   └── fiscal-php/         # Microserviço NF-e (PHP 8.2+)
+├── scripts/                # Scripts de manutenção (55+)
+├── supabase/
+│   └── migrations/         # Migrações Supabase CLI
+└── mcps/                   # MCP servers (Vercel, Supabase)
+```
+
+### Scripts NPM/PNPM
+
+| Script | Comando | Descrição |
+| :--- | :--- | :--- |
+| **Desenvolvimento** | `pnpm dev` | Inicia Next.js em `0.0.0.0` (acesso em rede) |
+| **Build** | `pnpm build` | Build de produção |
+| **Start** | `pnpm start` | Inicia servidor de produção |
+| **Lint** | `pnpm lint` | ESLint |
+| **Testes** | `pnpm test` | Jest (unitários) |
+| **Cypress** | `pnpm cypress:open` / `pnpm cypress:run` | Testes E2E |
+| **Banco** | `pnpm db:init` | Inicializa banco (Supabase) |
+| **Banco** | `pnpm db:test` | Testa conexão Supabase |
+| **Banco** | `pnpm db:seed` | Seed de dados iniciais |
+| **Banco** | `pnpm db:test-postgres` | Teste conexão Postgres |
+| **Banco** | `pnpm db:test-supabase` | Teste conexão Supabase |
+| **Banco** | `pnpm db:test-cache` | Teste cache |
+| **Banco** | `pnpm db:test-chat` | Teste contexto do chat |
+| **Banco** | `pnpm db:test-chat-improvements` | Teste melhorias do chat |
+| **Fiscal** | `pnpm fiscal:generate-key` | Gera chave fiscal |
+
+### Verticalizações e Rotas
+
+| Slug | Nicho | Base URL | Perfis Específicos |
+| :--- | :--- | :--- | :--- |
+| `fire-protection` | Engenharia contra incêndio | `/solutions/fire-protection` | Técnico, Engenheiro, Arquiteto, Cliente |
+| `agroflowai` | Agronegócio | `/solutions/agroflowai` | Engenheiro, Técnico, Cliente |
+| `estudio-de-danca` | Dança / Artes | `/solutions/estudio-de-danca` | Professor, Aluno, Cliente |
+
+### Microserviços
+
+| Serviço | Stack | Descrição |
+| :--- | :--- | :--- |
+| **fiscal-php** | PHP 8.2, Slim, nfephp-org/sped-nfe | Emissor NF-e stateless |
+
+### MCP (Model Context Protocol)
+
+Servidores MCP disponíveis para integração:
+
+- **user-Vercel**: Deploy e configuração Vercel
+- **user-supabase**: Banco de dados e autenticação Supabase
+
+### Variáveis de Ambiente
+
+#### Obrigatórias (`.env.local`)
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# IA (pelo menos uma)
+GOOGLE_AI_API_KEY=
+# OPENAI_API_KEY=
+```
+
+#### Opcionais
+
+```env
+# Stripe
+STRIPE_SECRET_KEY=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# WhatsApp
+WEBHOOK_WHATSAPP_SECRET=
+EVOLUTION_WEBHOOK_SECRET=
+```
+
+### Banco de Dados
+
+- **PostgreSQL** via Supabase
+- **116+ migrações** em `database/migrations/`
+- **Migrações Supabase CLI** em `supabase/migrations/`
+- **RLS** (Row Level Security) em todas as tabelas
+- **Multi-tenant** via `studio_id`
+
+### Dependências Principais (package.json)
+
+| Categoria | Pacotes |
+| :--- | :--- |
+| **Framework** | next 16.0.10, react 19.2.0 |
+| **Supabase** | @supabase/ssr, @supabase/supabase-js |
+| **UI** | Radix UI, tailwindcss 4.1.9, framer-motion |
+| **Forms** | react-hook-form, @hookform/resolvers, zod |
+| **Pagamentos** | stripe |
+| **Cache/Rate Limit** | @upstash/redis, @upstash/ratelimit |
+| **Monitoramento** | @sentry/nextjs, @vercel/analytics |
+| **Outros** | leaflet, recharts, jspdf, html5-qrcode, nodemailer |
+
+### Scripts de Manutenção (pasta `scripts/`)
+
+| Script | Uso |
+| :--- | :--- |
+| `init-database.js` | Inicialização do banco |
+| `apply-all-pending-migrations.js` | Aplicar migrações pendentes |
+| `create-admin-user.js` | Criar usuário admin |
+| `ensure-super-admin.js` | Garantir super admin |
+| `fix-super-admin.js` / `fix-super-admin-role.js` | Correções de permissão |
+| `check-auth-users.js` | Verificar usuários autenticados |
+| `list-partners.js` | Listar parceiros |
+| `list-recent-studios.js` | Listar estúdios recentes |
+| `setup-system-plans.js` | Configurar planos do sistema |
+| `diagnose-db.js` | Diagnóstico de banco |
 
 ---
 
@@ -337,7 +498,7 @@ O AKAAI CORE suporta **70+ nichos de mercado** organizados por modelo de negóci
 
 ### 🗄️ Arquitetura de Dados
 
-**Banco de Dados PostgreSQL com 91+ Migrações**
+**Banco de Dados PostgreSQL com 116+ Migrações**
 
 - **Multi-tenant Isolation**: `studio_id` em todas as tabelas
 - **Row Level Security (RLS)**: Políticas granulares por perfil
@@ -513,35 +674,46 @@ GET /api/health/ai          // IA services status
 ### Pré-requisitos Mínimos
 
 - **Node.js**: 20+ (LTS recomendado)
-- **pnpm**: 8+ (gerenciador de pacotes)
-- **Conta Supabase**: Projeto PostgreSQL
-- **Conta Stripe**: Para pagamentos
-- **Chave IA**: Google Gemini ou OpenAI
+- **pnpm**: 8+ (gerenciador de pacotes) — `npm i -g pnpm`
+- **Conta Supabase**: Projeto PostgreSQL em [supabase.com](https://supabase.com)
+- **Chave IA**: Google Gemini (`GOOGLE_AI_API_KEY`) ou OpenAI (`OPENAI_API_KEY`)
+- **Stripe** (opcional): Para pagamentos
 
 ### Instalação Rápida (5 minutos)
 
 ```bash
 # 1. Clonar repositório
-git clone https://github.com/sua-org/akaai-core.git
-cd akaai-core
+git clone https://github.com/sua-org/workflow-pro-builder.git
+cd workflow-pro-builder
 
 # 2. Instalar dependências
 pnpm install
 
 # 3. Configurar ambiente
 cp .env.example .env.local
-# Editar .env.local com suas chaves
+# Editar .env.local com suas chaves (Supabase + IA obrigatórios)
 
-# 4. Inicializar banco de dados
+# 4. Executar migrações no Supabase
+# Acesse Supabase Dashboard → SQL Editor
+# Execute os arquivos em database/migrations/ (ordem numérica)
+# Ou use: supabase db push (se usando Supabase CLI)
+
+# 5. Inicializar banco de dados
 pnpm db:test      # Testar conexão
-pnpm db:init      # Criar estrutura
-pnpm db:seed      # Dados iniciais
+pnpm db:init      # Inicializar estrutura e dados
 
-# 5. Iniciar desenvolvimento
+# 6. Iniciar desenvolvimento
 pnpm dev
+# Acesse http://localhost:3000 (ou 0.0.0.0:3000 para rede local)
 ```
 
 ### Configuração de Ambiente
+
+Consulte `.env.example` na raiz do projeto. Copie para `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
 
 #### Variáveis Obrigatórias
 ```env
@@ -550,10 +722,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbG...
 
-# Stripe
-STRIPE_SECRET_KEY=sk_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # IA (pelo menos uma)
 GOOGLE_AI_API_KEY=AIza...
@@ -561,19 +731,24 @@ GOOGLE_AI_API_KEY=AIza...
 OPENAI_API_KEY=sk-...
 ```
 
-#### Variáveis Opcionais (Recomendadas)
+#### Variáveis Opcionais
 ```env
+# Stripe (pagamentos)
+STRIPE_SECRET_KEY=sk_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# WhatsApp
+WEBHOOK_WHATSAPP_SECRET=seu-secret
+EVOLUTION_WEBHOOK_SECRET=seu-secret
+
 # Email
 EMAIL_SMTP_HOST=smtp.gmail.com
 EMAIL_SMTP_PORT=587
 EMAIL_SMTP_USER=seu@email.com
 EMAIL_SENDER_PASSWORD=app_password
 
-# WhatsApp
-WEBHOOK_WHATSAPP_SECRET=seu-secret
-EVOLUTION_WEBHOOK_SECRET=seu-secret
-
-# Rate Limit
+# Rate Limit (Upstash Redis)
 UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
 UPSTASH_REDIS_REST_TOKEN=xxx
 
@@ -611,12 +786,15 @@ CMD ["npm", "start"]
 ## 📚 Documentação de Referência
 
 ### Arquitetura Detalhada
-- **[Database Schema](./DATABASE_README.md)**: Estrutura completa do banco
-- **[API Documentation](./docs/api.md)**: Endpoints completos
-- **[Security Guide](./SECURITY.md)**: Práticas de segurança
-- **[Migration Guide](./MIGRATIONS.md)**: Guia de migrações
+- **[Supabase Integration](./SUPABASE_INTEGRATION_COMPLETE.md)**: Integração Supabase e setup inicial
+- **[Database Schema](./DATABASE_README.md)**: Estrutura completa do banco (se existir)
+- **[Migrations](./database/migrations/)**: 116+ arquivos SQL de migração
+- **[API Documentation](./docs/api.md)**: Endpoints completos (se existir)
+- **[Security Guide](./SECURITY.md)**: Práticas de segurança (se existir)
+- **[Migration Guide](./MIGRATIONS.md)**: Guia de migrações (se existir)
 
 ### Guias Específicos
+- **[Catarina Robustness Plan](./docs/CATARINA-ROBUSTNESS-PLAN.md)**: Plano técnico para IA assistente robusta (self-learning, evolução)
 - **[Verticalization Guide](./docs/verticalizations.md)**: Criar novos nichos
 - **[Partner Setup](./docs/partners.md)**: Configurar parceiros
 - **[AI Integration](./docs/ai-integration.md)**: Configurar IA

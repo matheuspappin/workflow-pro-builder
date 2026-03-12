@@ -23,6 +23,15 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
 const FP_CHAT_STATE_KEY = "fp_chat_state"
 
@@ -66,6 +75,7 @@ type Message = {
   role: "user" | "assistant"
   content: string
   timestamp: string
+  replyTo?: string
 }
 
 const sugestoes = [
@@ -178,7 +188,38 @@ export default function ChatIAPage() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [feedbackModal, setFeedbackModal] = useState<{ msg: Message } | null>(null)
+  const [correctedAnswer, setCorrectedAnswer] = useState("")
+  const [sendingFeedback, setSendingFeedback] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+
+  const sendFeedback = async (msg: Message, feedback: "positive" | "negative" | "correction", corrected?: string) => {
+    if (!studioId) return
+    setSendingFeedback(true)
+    try {
+      await fetch("/api/ai/learning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          studioId,
+          type: "feedback",
+          data: {
+            originalQuestion: msg.replyTo || "",
+            originalAnswer: msg.content,
+            feedback,
+            correctedAnswer: corrected,
+          },
+        }),
+      })
+      setFeedbackModal(null)
+      setCorrectedAnswer("")
+    } catch (e) {
+      console.error("Erro ao enviar feedback:", e)
+    } finally {
+      setSendingFeedback(false)
+    }
+  }
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -299,6 +340,7 @@ export default function ChatIAPage() {
           role: "assistant",
           content: resposta,
           timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          replyTo: content,
         },
       ])
     } catch (err: unknown) {
@@ -537,15 +579,20 @@ export default function ChatIAPage() {
                     >
                       {msg.timestamp}
                     </span>
-                    {msg.role === "assistant" && (
+                    {msg.role === "assistant" && msg.id !== "0" && msg.replyTo && (
                       <div className="flex gap-1">
-                        <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                          <Copy className="w-3 h-3" />
-                        </button>
-                        <button className="text-slate-400 hover:text-emerald-500 transition-colors">
+                        <button
+                          onClick={() => sendFeedback(msg, "positive")}
+                          className="text-slate-400 hover:text-emerald-500 transition-colors"
+                          title="Resposta útil"
+                        >
                           <ThumbsUp className="w-3 h-3" />
                         </button>
-                        <button className="text-slate-400 hover:text-red-500 transition-colors">
+                        <button
+                          onClick={() => setFeedbackModal({ msg })}
+                          className="text-slate-400 hover:text-red-500 transition-colors"
+                          title="Resposta incorreta"
+                        >
                           <ThumbsDown className="w-3 h-3" />
                         </button>
                       </div>
@@ -606,6 +653,31 @@ export default function ChatIAPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!feedbackModal} onOpenChange={(open) => !open && setFeedbackModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Corrigir resposta</DialogTitle>
+            <DialogDescription>
+              Envie a resposta correta para que a IA aprenda. Isso melhora as respostas futuras.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Digite a resposta correta..."
+            value={correctedAnswer}
+            onChange={(e) => setCorrectedAnswer(e.target.value)}
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => feedbackModal && sendFeedback(feedbackModal.msg, "negative")} disabled={sendingFeedback}>
+              Só negativo
+            </Button>
+            <Button onClick={() => feedbackModal && sendFeedback(feedbackModal.msg, "correction", correctedAnswer)} disabled={sendingFeedback || !correctedAnswer.trim()}>
+              Enviar correção
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

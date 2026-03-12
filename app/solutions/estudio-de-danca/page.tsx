@@ -1027,7 +1027,7 @@ function Footer() {
             </span>
           </div>
           <p className="text-slate-600 text-sm text-center">
-            © {new Date().getFullYear()} DanceFlow — powered by Workflow Pro. Todos os direitos reservados.
+            © {new Date().getFullYear()} DanceFlow — powered by akaaicore. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-6">
             <Link href="#" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">Privacidade</Link>

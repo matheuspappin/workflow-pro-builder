@@ -2,17 +2,19 @@
 
 import React, { Suspense, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Zap, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
 
 import { useOrganization } from "@/components/providers/organization-provider"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 function AffiliateLoginContent() {
   const router = useRouter()
@@ -82,10 +84,10 @@ function AffiliateLoginContent() {
       <div className="absolute top-4 right-4 z-50">
         <LanguageSwitcher />
       </div>
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 to-purple-800 p-12 flex-col justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
+      <div className="hidden lg:flex lg:w-1/2 bg-black p-12 flex-col justify-between">
+        <Link href="/portal/affiliate" className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
+            <Image src={OFFICIAL_LOGO} alt="AKAAI CORE" width={28} height={28} className="object-contain" />
           </div>
           <span className="text-xl font-bold text-white">
             Portal do Afiliado
@@ -121,9 +123,9 @@ function AffiliateLoginContent() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 text-center">
-            <Link href="/" className="inline-flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-800 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+            <Link href="/portal/affiliate" className="inline-flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center overflow-hidden">
+                <Image src={OFFICIAL_LOGO} alt="AKAAI CORE" width={28} height={28} className="object-contain" />
               </div>
               <span className="text-xl font-bold text-foreground">
                 Portal do Afiliado
@@ -156,7 +158,7 @@ function AffiliateLoginContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Senha</Label>
-                    <Link href="/forgot-password?returnTo=/portal/affiliate/login" className="text-sm text-indigo-600 hover:underline">
+                    <Link href="/forgot-password?returnTo=/portal/affiliate/login" className="text-sm text-primary hover:underline">
                       Esqueceu a senha?
                     </Link>
                   </div>
@@ -182,7 +184,7 @@ function AffiliateLoginContent() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11"
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-11"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -199,7 +201,7 @@ function AffiliateLoginContent() {
               <div className="mt-6 text-center">
                 <p className="text-sm text-slate-500">
                   Não é afiliado ainda?{" "}
-                  <Link href="/portal/affiliate/register" className="font-bold text-indigo-600 hover:underline">
+                  <Link href="/portal/affiliate/register" className="font-bold text-primary hover:underline">
                     Criar uma conta
                   </Link>
                 </p>
@@ -216,7 +218,7 @@ export default function AffiliateLoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     }>
       <AffiliateLoginContent />

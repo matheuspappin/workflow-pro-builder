@@ -1460,7 +1460,7 @@ function Footer() {
         </div>
 
         <div className="border-t border-white/5 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-700">© 2026 AgroFlowAI · Workflow Pro Builder. Todos os direitos reservados.</p>
+          <p className="text-xs text-slate-700">© 2026 AgroFlowAI · akaaicore Builder. Todos os direitos reservados.</p>
           <p className="text-xs text-slate-700 flex items-center gap-1.5">
             <Shield className="w-3 h-3 text-emerald-800" />
             Dados protegidos · LGPD compliant · ISO 27001

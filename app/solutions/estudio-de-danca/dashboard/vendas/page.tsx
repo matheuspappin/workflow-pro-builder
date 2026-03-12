@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Search, DollarSign, Camera, 
   Trash2, CreditCard, Banknote, QrCode, Loader2,
-  Check
+  Check, Coins
 } from "lucide-react"
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
@@ -19,12 +19,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { 
-  getInventory, getProductBySku, Product
-} from "@/lib/actions/inventory"
-import { processPosPayment, createPosStripeSession } from "@/lib/actions/pos"
-import { getStudents } from "@/lib/database-utils"
-import { getPendingServiceOrders } from "@/lib/actions/service-orders"
+import type { Product } from "@/lib/actions/inventory"
+import { processPosPayment, createPosStripeSession, getPdvCreditConversionRate, getStudentCredits } from "@/lib/actions/pos"
 import { BarcodeScanner } from "@/components/dashboard/barcode-scanner"
 import { OrganizationProvider } from "@/components/providers/organization-provider"
 import { ModuleGuard } from "@/components/providers/module-guard"
@@ -57,6 +53,8 @@ function POSContent() {
   const [osSearchInput, setOsSearchInput] = useState("")
   const [amountReceived, setAmountReceived] = useState<number>(0)
   const [change, setChange] = useState<number>(0)
+  const [reaisPerCredit, setReaisPerCredit] = useState<number>(70)
+  const [studentCredits, setStudentCredits] = useState<number | null>(null)
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -81,16 +79,32 @@ function POSContent() {
     if (studioId) fetchData()
   }, [studioId])
 
+  useEffect(() => {
+    if (studioId) getPdvCreditConversionRate(studioId).then(setReaisPerCredit)
+  }, [studioId])
+
+  useEffect(() => {
+    if (isPaymentModalOpen && studioId && selectedStudentId && selectedStudentId !== 'none') {
+      getStudentCredits(selectedStudentId, studioId).then(setStudentCredits)
+    } else {
+      setStudentCredits(null)
+    }
+  }, [isPaymentModalOpen, studioId, selectedStudentId])
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      const inventory = await getInventory(studioId!)
-      const studentsData = await getStudents({ studioId: studioId!, limit: 100 })
-      const osData = await getPendingServiceOrders(studioId!)
+      const [inventoryRes, studentsRes] = await Promise.all([
+        fetch(`/api/dance-studio/inventory?studioId=${studioId}`).then(r => r.json()),
+        fetch(`/api/dance-studio/students?studioId=${studioId}`).then(async r => {
+          const data = await r.json()
+          return r.ok && Array.isArray(data) ? data : []
+        }),
+      ])
       
-      setProducts(inventory.products)
-      setStudents(studentsData.data)
-      setPendingOS(osData)
+      setProducts(inventoryRes?.products ?? [])
+      setStudents(studentsRes)
+      setPendingOS(inventoryRes?.pendingOS ?? [])
     } catch (error) {
       console.error(error)
     } finally {
@@ -144,14 +158,19 @@ function POSContent() {
     
     setIsFinalizingSale(true)
     try {
-      const items = cart.map(item => ({
-        id: item.product.id,
-        name: item.product.name,
-        priceInCredits: (item.product as any).price_in_credits || 0,
-        priceInCurrency: item.product.selling_price || 0,
-        quantity: item.quantity,
-        type: item.type as any
-      }))
+      const priceInReais = (p: any) => p.selling_price ?? p.price_in_credits ?? 0
+      const items = cart.map(item => {
+        const unitPrice = priceInReais(item.product)
+        const creditsPerUnit = method === 'credit' ? unitPrice / Math.max(0.01, reaisPerCredit) : ((item.product as any).price_in_credits ?? 0)
+        return {
+          id: item.product.id,
+          name: item.product.name,
+          priceInCredits: creditsPerUnit,
+          priceInCurrency: unitPrice,
+          quantity: item.quantity,
+          type: item.type as any
+        }
+      })
 
       if (method === 'pix' || method === 'card') {
         const { url } = await createPosStripeSession(
@@ -200,7 +219,8 @@ function POSContent() {
           isOpen={isScannerOpen} 
           onClose={() => setIsScannerOpen(false)} 
           onScanSuccess={async (sku) => {
-            const prod = await getProductBySku(sku, studioId!)
+            const r = await fetch(`/api/dance-studio/inventory?studioId=${studioId}&sku=${encodeURIComponent(sku)}`)
+            const prod = r.ok ? await r.json() : null
             if (prod) addToCart(prod)
             else toast({ title: "Não encontrado", variant: "destructive" })
           }} 
@@ -226,13 +246,13 @@ function POSContent() {
 
             <div className="space-y-4">
               <h3 className="font-bold text-lg">Produtos</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[320px] overflow-y-auto pr-2 scrollbar-thin">
                 {products.filter(p =>
                   p.quantity > 0 &&
                   (pdvSearchInput.trim() === '' ||
                     p.name?.toLowerCase().includes(pdvSearchInput.toLowerCase()) ||
                     p.sku?.toLowerCase().includes(pdvSearchInput.toLowerCase()))
-                ).slice(0, 8).map(p => (
+                ).map(p => (
                   <Card key={p.id} className="hover:border-primary cursor-pointer transition-all" onClick={() => addToCart(p)}>
                     <CardContent className="p-4 text-center">
                       <p className="font-bold text-sm truncate">{p.name}</p>
@@ -335,9 +355,16 @@ function POSContent() {
             <DialogDescription>Escolha a forma de pagamento e confirme a venda.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            <div className="bg-muted p-4 rounded-lg flex justify-between items-center">
-              <span className="font-medium">Total a pagar:</span>
-              <span className="text-2xl font-black">{formatPrice(cart.reduce((acc, i) => acc + (i.product.selling_price * i.quantity), 0))}</span>
+            <div className="bg-muted p-4 rounded-lg space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Total a pagar:</span>
+                <span className="text-2xl font-black">{formatPrice(cart.reduce((acc, i) => acc + ((i.product.selling_price ?? 0) * i.quantity), 0))}</span>
+              </div>
+              {selectedStudentId && selectedStudentId !== 'none' && (
+                <p className="text-xs text-muted-foreground">
+                  Equivalente a {(cart.reduce((acc, i) => acc + ((i.product.selling_price ?? 0) * i.quantity) / reaisPerCredit, 0)).toFixed(2)} créditos (taxa R$ {reaisPerCredit.toFixed(0)}/crédito)
+                </p>
+              )}
             </div>
 
             <div className="grid gap-4">
@@ -350,6 +377,32 @@ function POSContent() {
               <Button type="button" variant="outline" className="h-16 justify-start gap-4" onClick={() => handleFinalizeSale('card')}>
                 <CreditCard className="w-8 h-8" /> Cartão (Stripe)
               </Button>
+              {selectedStudentId && selectedStudentId !== 'none' && (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-16 justify-start gap-4 w-full"
+                    disabled={
+                      isFinalizingSale ||
+                      (studentCredits !== null && studentCredits < (cart.reduce((acc, i) => acc + ((i.product.selling_price ?? 0) * i.quantity) / reaisPerCredit, 0)))
+                    }
+                    onClick={() => handleFinalizeSale('credit')}
+                  >
+                    <Coins className="w-8 h-8" />
+                    <div className="flex flex-col items-start">
+                      <span>Pagar com Créditos</span>
+                      {studentCredits !== null && (
+                        <span className="text-xs font-normal opacity-80">
+                          Saldo: {studentCredits.toFixed(2)} créditos
+                          {(studentCredits >= (cart.reduce((acc, i) => acc + ((i.product.selling_price ?? 0) * i.quantity) / reaisPerCredit, 0)))
+                            ? ' (suficiente ✓)' : ' (insuficiente)'}
+                        </span>
+                      )}
+                    </div>
+                  </Button>
+                </div>
+              )}
             </div>
 
             {paymentMethod === 'money' && (

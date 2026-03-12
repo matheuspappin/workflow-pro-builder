@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Sidebar } from "@/components/dashboard/sidebar" // Reutilizaremos o Sidebar existente
 import { MobileNav } from "@/components/dashboard/mobile-nav" // Reutilizaremos o MobileNav
 import { cn } from "@/lib/utils"
@@ -14,28 +14,39 @@ export default function AffiliatePortalLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const { toast } = useToast()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthorized, setIsAuthorized] = useState(false)
 
+  const isLandingPage = pathname === "/portal/affiliate"
+  const isAuthPage = pathname === "/portal/affiliate/login" || pathname === "/portal/affiliate/register"
+  const skipAuth = isLandingPage || isAuthPage
+
   useEffect(() => {
+    if (skipAuth) {
+      setIsLoading(false)
+      setIsAuthorized(true)
+      return
+    }
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session) {
+        setIsLoading(false)
         router.push("/portal/affiliate/login")
         return
       }
 
-      // Verifica o papel do usuário. Idealmente, isso viria de um perfil do usuário.
-      // Por enquanto, vamos assumir que o localStorage tem o papel
       const storedUser = localStorage.getItem("danceflow_user")
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser)
-        if (parsedUser.role === 'partner' || parsedUser.role === 'admin' || parsedUser.role === 'super_admin') {
+        if (parsedUser.role === 'affiliate' || parsedUser.role === 'partner' || parsedUser.role === 'admin' || parsedUser.role === 'super_admin') {
           setIsAuthorized(true)
         } else {
+          setIsLoading(false)
           toast({
             title: "Acesso restrito",
             description: "Esta área é apenas para afiliados.",
@@ -44,8 +55,7 @@ export default function AffiliatePortalLayout({
           router.push("/portal/login")
         }
       } else {
-        // Fallback se não tiver no localStorage. Pode ser necessário buscar o perfil do usuário
-        // aqui para determinar a função. Por simplicidade, vamos redirecionar.
+        setIsLoading(false)
         toast({
           title: "Sessão inválida",
           description: "Por favor, faça login novamente.",
@@ -57,13 +67,17 @@ export default function AffiliatePortalLayout({
     }
 
     checkAuth()
-  }, [router, toast])
+  }, [router, toast, skipAuth])
+
+  if (skipAuth) {
+    return <>{children}</>
+  }
 
   if (isLoading || !isAuthorized) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-medium text-slate-500 tracking-widest uppercase">Carregando Painel do Afiliado...</p>
         </div>
       </div>

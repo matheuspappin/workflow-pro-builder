@@ -21,6 +21,7 @@ import {
   CreditCard,
   Wallet,
   Receipt,
+  Video,
 } from "lucide-react"
 
 export type DanceStudioModuleKey =
@@ -92,6 +93,13 @@ export const DANCE_STUDIO_NAV_GROUPS: DanceStudioNavGroup[] = [
         label: "Scanner QR",
         icon: QrCode,
         module: "scanner",
+      },
+      {
+        id: "ao-vivo",
+        href: "/solutions/estudio-de-danca/dashboard/ao-vivo",
+        label: "Aulas ao Vivo",
+        icon: Video,
+        module: "classes",
       },
     ],
   },
@@ -167,7 +175,7 @@ export const DANCE_STUDIO_NAV_GROUPS: DanceStudioNavGroup[] = [
       },
       {
         id: "estoque",
-        href: "/dashboard/estoque",
+        href: "/solutions/estudio-de-danca/dashboard/estoque",
         label: "Estoque",
         icon: Package,
         module: "inventory",

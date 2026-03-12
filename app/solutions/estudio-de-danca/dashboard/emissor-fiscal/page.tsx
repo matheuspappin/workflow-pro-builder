@@ -16,7 +16,7 @@ const DANCE_SESSION_KEY = getSessionKey('estudio-de-danca')
 
 interface PendingItem {
   id: string
-  source_type: 'service_order' | 'erp_order'
+  source_type: 'service_order' | 'erp_order' | 'package_purchase'
   external_id: string
   customer_name: string
   total_amount: number
@@ -181,7 +181,7 @@ export default function EmissorFiscalPage() {
             <div>
               <CardTitle>Pendentes de emissão</CardTitle>
               <CardDescription>
-                Itens de PDV e ERP que ainda não foram faturados.
+                PDV, ERP e compras de créditos que ainda não foram faturados.
               </CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={fetchPending} disabled={loadingPending}>
@@ -231,7 +231,7 @@ export default function EmissorFiscalPage() {
                           </td>
                           <td className="p-4">
                             <Badge variant="outline" className="text-[10px]">
-                              {p.source_type === 'service_order' ? 'PDV' : 'ERP'}
+                              {p.source_type === 'service_order' ? 'PDV' : p.source_type === 'package_purchase' ? 'Créditos' : 'ERP'}
                             </Badge>
                           </td>
                           <td className="p-4 font-mono font-bold text-xs">{p.external_id}</td>

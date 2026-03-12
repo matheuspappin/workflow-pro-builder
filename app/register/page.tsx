@@ -3,18 +3,18 @@
 import React, { Suspense, useEffect } from "react"
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Zap, Eye, EyeOff, Loader2, Check, GraduationCap, User, Building2, Package, Minus, Plus } from "lucide-react"
+import { Sparkles, Eye, EyeOff, Loader2, Check, GraduationCap, User, Building2, Package, Minus, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
 import { validateCPF, validateCNPJ } from "@/lib/validation-utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { supabase } from "@/lib/supabase"
 import { getSystemModules } from "@/lib/actions/modules"
 import { Switch } from "@/components/ui/switch"
 import logger from "@/lib/logger"
@@ -29,40 +29,11 @@ import { cn } from "@/lib/utils"
 
 import { nicheDictionary, NicheType } from "@/config/niche-dictionary"
 import { getDefaultModulesForNiche, monetaryBasedNiches } from "@/config/niche-modules"
+import { PROFESSIONAL_TIERS, getTierById } from "@/config/professional-tiers"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
 import { pluralize } from "@/lib/pluralize"
-
-const defaultPlans = [
-  { 
-    id: 'gratuito', 
-    name: 'Gratuito', 
-    price: 'R$ 0', 
-    description: 'Para testar e começar', 
-    features: ['Até 10 {clients}', '1 {provider}'] 
-  },
-  { 
-    id: 'pro', 
-    name: 'Pro', 
-    price: 'R$ 297', 
-    description: 'Para crescer seu negócio', 
-    features: ['Até 100 {clients}', 'WhatsApp Business'] 
-  },
-  { 
-    id: 'pro-plus', 
-    name: 'Pro+', 
-    price: 'R$ 197', 
-    description: 'Melhor custo-benefício', 
-    features: ['Ilimitado', 'IA + WhatsApp'] 
-  },
-  { 
-    id: 'enterprise', 
-    name: 'Enterprise', 
-    price: 'Sob Consulta', 
-    description: 'Para grandes redes', 
-    features: ['Tudo Ilimitado', 'Multi-unidades'] 
-  },
-]
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 const benefits = [
   "Teste grátis para começar (Dono)",
@@ -78,9 +49,14 @@ function RegisterContent() {
   const { toast } = useToast()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const initialRole = (searchParams.get('role') as any) || 'admin'
+  const inviteCode = searchParams.get('code') || undefined
+  const initialRoleFromUrl = (searchParams.get('role') as any) || 'admin'
   const initialStudioId = searchParams.get('studioId') || undefined
-  const [role, setRole] = useState<'admin' | 'student' | 'teacher' | 'finance' | 'seller' | 'receptionist'>(initialRole)
+  const [role, setRole] = useState<'admin' | 'student' | 'teacher' | 'finance' | 'seller' | 'receptionist'>(
+    inviteCode ? (initialRoleFromUrl === 'teacher' ? 'teacher' : 'student') : initialRoleFromUrl
+  )
+  const [inviteStudioName, setInviteStudioName] = useState<string | null>(null)
+  const [inviteLoading, setInviteLoading] = useState(!!inviteCode)
   const [niche, setNiche] = useState<NicheType>('dance')
   
   const currentVocabulary = nicheDictionary[language as 'pt' | 'en'][niche] || nicheDictionary[language as 'pt' | 'en'].dance;
@@ -109,8 +85,7 @@ function RegisterContent() {
             setBusinessModel('CREDIT')
         }
     }, [niche])
-  const [plan, setPlan] = useState('gratuito')
-  const [plans, setPlans] = useState<any[]>(defaultPlans)
+  const [plan] = useState('custom')
   const [loadingPlans, setLoadingPlans] = useState(true)
   
   // Custom Modules State
@@ -118,47 +93,33 @@ function RegisterContent() {
   const [selectedModules, setSelectedModules] = useState<Record<string, boolean>>({})
   const [multiUnitQuantity, setMultiUnitQuantity] = useState(1)
   const [customTotal, setCustomTotal] = useState(0)
+  const [professionalsTier, setProfessionalsTier] = useState<string>('1-10')
+
+  useEffect(() => {
+    if (!inviteCode) return
+    async function resolveInvite() {
+      try {
+        const roleParam = initialRoleFromUrl === 'teacher' ? 'teacher' : 'student'
+        const res = await fetch(`/api/studio/resolve-invite?code=${encodeURIComponent(inviteCode)}&role=${roleParam}`)
+        if (res.ok) {
+          const data = await res.json()
+          setInviteStudioName(data.studio_name || null)
+        }
+      } catch { /* silencioso */ } finally {
+        setInviteLoading(false)
+      }
+    }
+    resolveInvite()
+  }, [inviteCode, initialRoleFromUrl])
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [plansData, modulesData] = await Promise.all([
-          supabase
-            .from('system_plans')
-            .select('*')
-            .eq('status', 'active')
-            .order('price', { ascending: true }),
+        const [modulesData] = await Promise.all([
           getSystemModules()
         ])
-        
-        const { data, error } = plansData
-        if (error) throw error
-        
-        let mappedPlans = []
-        if (data && data.length > 0) {
-          mappedPlans = data.map(p => ({
-            id: p.id,
-            name: p.name,
-            price: p.id === 'enterprise' ? 'Sob Consulta' : `R$ ${Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
-            description: p.description,
-            features: p.features || [],
-            isPopular: p.is_popular
-          }))
-        } else {
-          mappedPlans = [...defaultPlans]
-        }
 
-        // Add Custom Plan Option
-        mappedPlans.push({
-          id: 'custom',
-          name: t.auth.register.customPlanName,
-          price: t.auth.register.customPlanPrice,
-          description: t.auth.register.customPlanDesc,
-          features: [t.auth.register.customPlanFeature1, t.auth.register.customPlanFeature2],
-          isPopular: false
-        })
-
-        setPlans(mappedPlans)
+        // Apenas plano Personalizado - sem planos genéricos de nicho
         setSystemModules(modulesData || [])
 
         // Initialize with default niche modules if any, or current selection
@@ -221,7 +182,7 @@ function RegisterContent() {
 
   useEffect(() => {
     if (plan === 'custom') {
-      const total = systemModules.reduce((acc, mod) => {
+      const modulesTotal = systemModules.reduce((acc, mod) => {
         if (selectedModules[mod.id]) {
           const price = Number(mod.price)
           if (mod.id === 'multi_unit') {
@@ -231,9 +192,11 @@ function RegisterContent() {
         }
         return acc
       }, 0)
-      setCustomTotal(total)
+      const tier = getTierById(professionalsTier)
+      const tierPrice = role === 'admin' && tier ? tier.price : 0
+      setCustomTotal(modulesTotal + tierPrice)
     }
-  }, [selectedModules, plan, systemModules, multiUnitQuantity])
+  }, [selectedModules, plan, systemModules, multiUnitQuantity, professionalsTier, role])
 
   const [formData, setFormData] = useState({
     name: "",
@@ -440,6 +403,7 @@ function RegisterContent() {
           taxIdType: role === 'admin' ? taxIdType : 'cpf',
           modules: (role === 'admin' && plan === 'custom') ? Object.keys(selectedModules).filter(k => selectedModules[k]) : undefined,
           multiUnitQuantity: (role === 'admin' && plan === 'custom' && selectedModules['multi_unit']) ? multiUnitQuantity : 1,
+          professionalsTier: role === 'admin' ? professionalsTier : undefined,
           language
         })
       })
@@ -447,11 +411,27 @@ function RegisterContent() {
       const data = await response.json()
 
       if (response.ok && data.success) {
+        // Vincular ao estabelecimento via código de convite (padrão DanceFlow)
+        if (inviteCode && (role === 'student' || role === 'teacher')) {
+          try {
+            const vincularRes = await fetch('/api/studio/vincular', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ invite_code: inviteCode }),
+            })
+            if (!vincularRes.ok) {
+              const vincularErr = await vincularRes.json().catch(() => ({}))
+              logger.warn('Vincular retornou erro:', vincularErr)
+            }
+          } catch (err) {
+            logger.warn('Falha ao vincular ao estabelecimento:', err)
+          }
+        }
+
         toast({
           title: "Conta criada com sucesso!",
-          description: role === 'admin' 
-            ? (plan === 'gratuito' ? "Bem-vindo ao Workflow AI!" : "Bem-vindo ao Workflow AI! Seu teste grátis de 14 dias começou.") 
-            : `Bem-vindo, ${formData.name}!`,
+          description: inviteStudioName ? `Bem-vindo ao ${inviteStudioName}!` : (role === 'admin' ? "Bem-vindo ao Workflow AI! Seu teste grátis de 14 dias começou." : `Bem-vindo, ${formData.name}!`),
         })
         
         // Store user data in localStorage
@@ -459,10 +439,12 @@ function RegisterContent() {
         
         // Redirect based on role
         const returnTo = searchParams.get('returnTo')
+        const studioSlug = data.user?.studioSlug || data.user?.studio_slug
         if (returnTo) {
           router.push(returnTo)
         } else if (role === 'student') router.push("/student")
-        else if (role === 'teacher') router.push("/teacher")
+        else if (role === 'teacher') router.push("/technician")
+        else if (role === 'admin' && studioSlug) router.push(`/s/${studioSlug}`)
         else router.push("/dashboard")
       } else {
         toast({
@@ -493,11 +475,11 @@ function RegisterContent() {
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-accent p-12 flex-col justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center overflow-hidden">
+            <Image src={OFFICIAL_LOGO} alt="AKAAI" width={24} height={24} className="w-6 h-6 object-contain" />
           </div>
           <span className="text-xl font-bold text-white">
-            Workflow AI
+            AKAAI CORE
           </span>
         </Link>
 
@@ -544,11 +526,11 @@ function RegisterContent() {
           {/* Mobile Logo */}
           <div className="lg:hidden mb-8 text-center">
             <Link href="/" className="inline-flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <Zap className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center overflow-hidden">
+                <Image src={OFFICIAL_LOGO} alt="AKAAI" width={24} height={24} className="w-6 h-6 object-contain" />
               </div>
               <span className="text-xl font-bold text-foreground">
-                Workflow <span className="text-primary">AI</span>
+                AKAAI <span className="text-primary">CORE</span>
               </span>
             </Link>
           </div>
@@ -562,7 +544,23 @@ function RegisterContent() {
             </CardHeader>
             <CardContent>
               <div className="mb-6">
-              {(initialStudioId && (role === 'finance' || role === 'seller' || role === 'receptionist')) ? (
+              {inviteCode ? (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/10 border border-primary/20">
+                  <Building2 className="w-5 h-5 text-primary shrink-0" />
+                  <div>
+                    {inviteLoading ? (
+                      <span className="text-sm font-medium text-muted-foreground">Verificando convite...</span>
+                    ) : inviteStudioName ? (
+                      <>
+                        <p className="text-sm font-bold text-foreground">Convite de {inviteStudioName}</p>
+                        <p className="text-xs text-muted-foreground">Ao criar sua conta, você será vinculado automaticamente.</p>
+                      </>
+                    ) : (
+                      <span className="text-sm font-medium text-muted-foreground">Cadastro via código de convite</span>
+                    )}
+                  </div>
+                </div>
+              ) : (initialStudioId && (role === 'finance' || role === 'seller' || role === 'receptionist')) ? (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
                   <Building2 className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm font-medium">
@@ -749,6 +747,33 @@ function RegisterContent() {
 
                   {role === 'admin' && (
                     <div className="space-y-2 col-span-1 md:col-span-2">
+                      <Label>{v(t.auth.register.professionalsTier)}</Label>
+                      <p className="text-sm text-muted-foreground">{v(t.auth.register.professionalsTierDesc)}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        {PROFESSIONAL_TIERS.map((tier) => (
+                          <button
+                            key={tier.id}
+                            type="button"
+                            onClick={() => setProfessionalsTier(tier.id)}
+                            className={cn(
+                              "flex flex-col items-center justify-center p-3 rounded-lg border-2 text-sm transition-all",
+                              professionalsTier === tier.id
+                                ? "border-primary bg-primary/10 text-primary-foreground"
+                                : "border-border bg-background hover:border-primary/50"
+                            )}
+                          >
+                            <span className="font-medium">{v((t.auth.register as Record<string, string>)[tier.labelKey] || tier.id)}</span>
+                            <span className="text-xs text-muted-foreground mt-0.5">
+                              R$ {tier.price.toLocaleString('pt-BR')}/mês
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {role === 'admin' && (
+                    <div className="space-y-2 col-span-1 md:col-span-2">
                       <Label htmlFor="studioName">{v(t.auth.register.companyName)}</Label>
                       <Input
                         id="studioName"
@@ -764,52 +789,13 @@ function RegisterContent() {
 
                   {role === 'admin' && (
                     <div className="space-y-3 col-span-1 md:col-span-2 pt-2">
-                      <Label>{v(t.auth.register.choosePlan)}</Label>
                       {loadingPlans ? (
                         <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           {t.auth.register.loadingPlans}
                         </div>
                       ) : (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {plans.map((p) => (
-                              <div
-                                key={p.id}
-                                className={cn(
-                                  "cursor-pointer rounded-xl border-2 p-4 transition-all hover:border-primary/50 relative overflow-hidden group",
-                                  plan === p.id ? "border-primary bg-primary/5 shadow-sm" : "border-muted bg-card hover:bg-accent/5"
-                                )}
-                                onClick={() => setPlan(p.id)}
-                              >
-                                {plan === p.id && (
-                                  <div className="absolute top-0 right-0 w-4 h-4 bg-primary rounded-bl-lg flex items-center justify-center">
-                                    <Check className="w-2.5 h-2.5 text-white" />
-                                  </div>
-                                )}
-                                {p.isPopular && (
-                                  <div className="absolute top-0 left-0 bg-primary/10 text-primary text-[9px] font-bold px-2 py-0.5 rounded-br-lg">
-                                    POPULAR
-                                  </div>
-                                )}
-                                <div className="flex justify-between items-start mb-2 mt-2">
-                                  <span className={cn("font-bold text-sm", plan === p.id ? "text-primary" : "text-foreground")}>{v(p.name)}</span>
-                                  <span className="text-[10px] font-bold bg-background px-2 py-1 rounded-full border shadow-sm">{p.price}</span>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mb-3 font-medium leading-tight">{v(p.description)}</p>
-                                <ul className="space-y-1">
-                                  {p.features.slice(0, 3).map((f: string, i: number) => (
-                                    <li key={i} className="text-[10px] flex items-center gap-1.5 text-muted-foreground">
-                                      <div className="w-1 h-1 rounded-full bg-primary/50" /> {v(f)}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
-
-                          {plan === 'custom' && (
-                            <Card className="border-dashed border-2 border-primary/20 bg-primary/5">
+                        <Card className="border-dashed border-2 border-primary/20 bg-primary/5">
                               <CardHeader className="pb-2">
                                 <CardTitle className="text-base flex items-center gap-2">
                                   <Package className="w-4 h-4 text-primary" />
@@ -894,8 +880,6 @@ function RegisterContent() {
                                 </div>
                               </CardContent>
                             </Card>
-                          )}
-                        </div>
                       )}
                     </div>
                   )}
@@ -956,7 +940,7 @@ function RegisterContent() {
                     </>
                   ) : (
                     role === 'admin' 
-                      ? (plan === 'gratuito' ? v(t.auth.register.submitAdminFree) : v(t.auth.register.submitAdmin))
+                      ? v(t.auth.register.submitAdmin)
                       : v(t.auth.register.submitStudent)
                   )}
                 </Button>

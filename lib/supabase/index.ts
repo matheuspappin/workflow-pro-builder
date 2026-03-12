@@ -249,3 +249,99 @@ export async function getClassesData(studioId: string): Promise<{
     return { total: 0, active: 0, totalEnrollments: 0, occupancyRate: 0 }
   }
 }
+
+/** CRM (leads/clientes) - para Catarina responder "quantos clientes no CRM", listar leads, etc. */
+export async function getLeadsData(studioId: string): Promise<{
+  total: number
+  byStage: Record<string, number>
+  recent: { name: string; email?: string; phone?: string; stage: string; source?: string }[]
+}> {
+  try {
+    const { data: leads, error, count } = await supabase
+      .from('leads')
+      .select('id, name, email, phone, stage, source, created_at', { count: 'exact' })
+      .eq('studio_id', studioId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (error) {
+      logger.warn('Erro ao buscar leads:', error.message)
+      return { total: 0, byStage: {}, recent: [] }
+    }
+
+    const list = leads || []
+    const total = count ?? list.length
+    const byStage: Record<string, number> = {}
+    for (const l of list) {
+      const s = l.stage || 'new'
+      byStage[s] = (byStage[s] || 0) + 1
+    }
+    const recent = list.slice(0, 15).map(l => ({
+      name: l.name || 'Sem nome',
+      email: l.email,
+      phone: l.phone,
+      stage: l.stage || 'new',
+      source: l.source,
+    }))
+
+    return { total, byStage, recent }
+  } catch (error) {
+    return { total: 0, byStage: {}, recent: [] }
+  }
+}
+
+/** Estoque (produtos) - para Catarina responder sobre estoque, produtos, itens disponíveis */
+export async function getInventoryData(studioId: string): Promise<{
+  totalProducts: number
+  totalItems: number
+  totalValue: number
+  lowStock: { name: string; quantity: number; minStock: number }[]
+  products: { name: string; sku?: string; quantity: number; minStock: number; price?: number }[]
+}> {
+  try {
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('id, name, sku, quantity, current_stock, min_stock, min_quantity, selling_price, price, cost_price')
+      .eq('studio_id', studioId)
+      .in('status', ['active'])
+      .order('name', { ascending: true })
+      .limit(100)
+
+    if (error) {
+      logger.warn('Erro ao buscar produtos:', error.message)
+      return { totalProducts: 0, totalItems: 0, totalValue: 0, lowStock: [], products: [] }
+    }
+
+    const list = products || []
+    const totalProducts = list.length
+    const totalItems = list.reduce((acc, p) => acc + (p.quantity ?? p.current_stock ?? 0), 0)
+    const totalValue = list.reduce((acc, p) => {
+      const qty = p.quantity ?? p.current_stock ?? 0
+      const price = p.selling_price ?? p.price ?? 0
+      return acc + qty * price
+    }, 0)
+    const lowStock = list
+      .filter(p => {
+        const qty = p.quantity ?? p.current_stock ?? 0
+        const min = p.min_stock ?? p.min_quantity ?? 0
+        return min > 0 && qty <= min
+      })
+      .map(p => ({
+        name: p.name,
+        quantity: p.quantity ?? p.current_stock ?? 0,
+        minStock: p.min_stock ?? p.min_quantity ?? 0,
+      }))
+    const productsList = list.slice(0, 30).map(p => ({
+      name: p.name,
+      sku: p.sku,
+      quantity: p.quantity ?? p.current_stock ?? 0,
+      minStock: p.min_stock ?? p.min_quantity ?? 0,
+      price: p.selling_price ?? p.price,
+    }))
+
+    return { totalProducts, totalItems, totalValue, lowStock, products: productsList }
+  } catch (error) {
+    return { totalProducts: 0, totalItems: 0, totalValue: 0, lowStock: [], products: [] }
+  }
+}

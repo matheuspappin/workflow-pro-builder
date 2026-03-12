@@ -4,17 +4,29 @@ import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { MessageSquare, Send, Loader2, Music, Bot } from "lucide-react"
+import { MessageSquare, Send, Loader2, Music, Bot, ThumbsUp, ThumbsDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ModuleGuard } from "@/components/providers/module-guard"
+import { getLocalUser } from "@/lib/constants/storage-keys"
+import { supabase } from "@/lib/supabase"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
-function getStudioId(): string | null {
+async function getStudioId(): Promise<string | null> {
   if (typeof window === "undefined") return null
   try {
-    const raw = localStorage.getItem("danceflow_user")
-    if (!raw) return null
-    const user = JSON.parse(raw)
-    return user?.studio_id || user?.studioId || null
+    const user = getLocalUser("estudio-de-danca")
+    const sid = user?.studio_id || user?.studioId || null
+    if (sid) return sid
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.user?.user_metadata?.studio_id ?? null
   } catch {
     return null
   }
@@ -24,6 +36,8 @@ interface Message {
   id: string
   role: "user" | "assistant"
   content: string
+  /** Para mensagens assistant: pergunta do usuário que gerou esta resposta */
+  replyTo?: string
 }
 
 const SUGGESTIONS = [
@@ -34,6 +48,9 @@ const SUGGESTIONS = [
 ]
 
 export default function ChatPage() {
+  const [feedbackModal, setFeedbackModal] = useState<{ msg: Message; prevUserMsg: string } | null>(null)
+  const [correctedAnswer, setCorrectedAnswer] = useState("")
+  const [sendingFeedback, setSendingFeedback] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "0",
@@ -58,7 +75,7 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
-      const studioId = getStudioId()
+      const studioId = await getStudioId()
       const allMessages = [...messages, userMsg]
       const history = allMessages.slice(0, -1).map(m => ({ role: m.role as "user" | "assistant", content: m.content }))
 
@@ -71,7 +88,7 @@ export default function ChatPage() {
           message: msg,
           history,
           context: studioId ? { studio_id: studioId, is_admin: true } : undefined,
-          model: "gemini-2.5-flash",
+          model: "gemini-2.5-pro",
         }),
       })
       const data = await res.json()
@@ -85,7 +102,7 @@ export default function ChatPage() {
 
       setMessages(prev => [
         ...prev,
-        { id: Date.now().toString() + "_ai", role: "assistant", content },
+        { id: Date.now().toString() + "_ai", role: "assistant", content, replyTo: msg },
       ])
     } catch {
       setMessages(prev => [
@@ -94,6 +111,35 @@ export default function ChatPage() {
       ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const sendFeedback = async (msg: Message, feedback: "positive" | "negative" | "correction", corrected?: string) => {
+    const studioId = await getStudioId()
+    if (!studioId) return
+    setSendingFeedback(true)
+    try {
+      await fetch("/api/ai/learning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          studioId,
+          type: "feedback",
+          data: {
+            originalQuestion: msg.replyTo || "",
+            originalAnswer: msg.content,
+            feedback,
+            correctedAnswer: corrected,
+          },
+        }),
+      })
+      setFeedbackModal(null)
+      setCorrectedAnswer("")
+    } catch (e) {
+      console.error("Erro ao enviar feedback:", e)
+    } finally {
+      setSendingFeedback(false)
     }
   }
 
@@ -135,15 +181,35 @@ export default function ChatPage() {
               )}>
                 {msg.role === "assistant" ? <Bot className="w-4 h-4" /> : <Music className="w-4 h-4 text-slate-600 dark:text-slate-300" />}
               </div>
-              <div
-                className={cn(
-                  "max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed",
-                  msg.role === "assistant"
-                    ? "bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-tl-sm"
-                    : "bg-violet-600 text-white rounded-tr-sm"
+              <div className={cn("flex flex-col gap-1", msg.role === "user" && "items-end")}>
+                <div
+                  className={cn(
+                    "max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed",
+                    msg.role === "assistant"
+                      ? "bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-tl-sm"
+                      : "bg-violet-600 text-white rounded-tr-sm"
+                  )}
+                >
+                  {msg.content}
+                </div>
+                {msg.role === "assistant" && msg.id !== "0" && msg.replyTo && (
+                  <div className="flex gap-1 mt-1">
+                    <button
+                      onClick={() => sendFeedback(msg, "positive")}
+                      className="p-1.5 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600"
+                      title="Resposta útil"
+                    >
+                      <ThumbsUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setFeedbackModal({ msg, prevUserMsg: msg.replyTo! })}
+                      className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600"
+                      title="Resposta incorreta"
+                    >
+                      <ThumbsDown className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
-              >
-                {msg.content}
               </div>
             </div>
           ))}
@@ -182,6 +248,31 @@ export default function ChatPage() {
           </form>
         </div>
       </Card>
+
+      <Dialog open={!!feedbackModal} onOpenChange={(open) => !open && setFeedbackModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Corrigir resposta</DialogTitle>
+            <DialogDescription>
+              Envie a resposta correta para que a IA aprenda. Isso melhora as respostas futuras.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Digite a resposta correta..."
+            value={correctedAnswer}
+            onChange={(e) => setCorrectedAnswer(e.target.value)}
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => sendFeedback(feedbackModal!.msg, "negative")} disabled={sendingFeedback}>
+              Só negativo
+            </Button>
+            <Button onClick={() => sendFeedback(feedbackModal!.msg, "correction", correctedAnswer)} disabled={sendingFeedback || !correctedAnswer.trim()}>
+              Enviar correção
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </ModuleGuard>
   )

@@ -1,4 +1,4 @@
--- Tabela de Verticalizações (produtos white-label do Workflow Pro)
+-- Tabela de Verticalizações (produtos white-label do akaaicore)
 CREATE TABLE IF NOT EXISTS verticalizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,

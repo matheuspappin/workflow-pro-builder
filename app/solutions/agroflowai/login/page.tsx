@@ -21,7 +21,7 @@ const AGRO_SESSION_KEY = getSessionKey('agroflowai')
 type RoleId = 'super_admin' | 'admin' | 'student' | 'teacher' | 'engineer' | 'finance'
 
 const profiles: { id: RoleId; label: string; icon: React.ComponentType<{ className?: string }>; description?: string }[] = [
-  { id: 'super_admin', label: 'Administrador do Sistema', icon: Shield, description: 'Super Admin / Painel Workflow Pro' },
+  { id: 'super_admin', label: 'Administrador do Sistema', icon: Shield, description: 'Super Admin / Painel akaaicore' },
   { id: 'admin', label: 'Empresa / Consultoria', icon: Building2 },
   { id: 'finance', label: 'Financeiro', icon: DollarSign },
   { id: 'engineer', label: 'Engenheiro Ambiental', icon: PencilRuler },
@@ -336,7 +336,7 @@ function LoginContent() {
                   className="flex items-center justify-center gap-2 text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors"
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  Super Admin? Acessar painel Workflow Pro
+                  Super Admin? Acessar painel akaaicore
                 </Link>
                 <Link
                   href="/solutions/agroflowai"

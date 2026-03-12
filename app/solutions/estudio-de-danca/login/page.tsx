@@ -25,7 +25,7 @@ function LoginContent() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
 
   const profiles = [
-    { id: 'super_admin' as const, label: 'Administrador do Sistema', icon: Shield, description: 'Super Admin / Painel Workflow Pro' },
+    { id: 'super_admin' as const, label: 'Administrador do Sistema', icon: Shield, description: 'Super Admin / Painel akaaicore' },
     { id: 'admin' as const, label: 'Estúdio', icon: Building2 },
     { id: 'finance' as const, label: 'Financeiro', icon: DollarSign },
     { id: 'teacher' as const, label: 'Professor', icon: GraduationCap },
@@ -308,7 +308,7 @@ function LoginContent() {
                   className="flex items-center justify-center gap-2 text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors"
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  Super Admin? Acessar painel Workflow Pro
+                  Super Admin? Acessar painel akaaicore
                 </Link>
                 <Link
                   href="/solutions/estudio-de-danca"

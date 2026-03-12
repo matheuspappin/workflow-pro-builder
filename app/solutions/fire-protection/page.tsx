@@ -8,6 +8,7 @@ import { ArrowRight } from "lucide-react"
 import { FireWaterCanvas } from "@/components/fire-protection/fire-water-canvas"
 import { FireControlLogoCanvas } from "@/components/fire-protection/fire-control-logo-canvas"
 import { ExtinguisherIcon } from "@/components/fire-protection/extinguisher-icon"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 export default function FireControlPrePage() {
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function FireControlPrePage() {
             asChild
           >
             <Link href="/home">
-              <img src="/icon-ak.png" alt="AKAAI HUB" className="w-7 h-7 opacity-60 group-hover:opacity-90 transition-opacity" />
+              <img src={OFFICIAL_LOGO} alt="AKAAI HUB" className="w-7 h-7 opacity-60 group-hover:opacity-90 transition-opacity object-contain" />
               <span className="font-black text-xs tracking-tight group-hover:text-white/80 transition-colors">AKAAI <span className="text-white/35">HUB</span></span>
             </Link>
           </Button>

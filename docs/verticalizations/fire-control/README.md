@@ -8,7 +8,7 @@
 
 ## Visão Geral
 
-O **Fire Control** é uma verticalização completa para empresas de segurança contra incêndio. Permite que cada empresa (tenant) gerencie clientes, técnicos, engenheiros, extintores, vistorias, projetos PPCI e o ciclo financeiro, tudo em um sistema white-label hospedado na plataforma Workflow Pro.
+O **Fire Control** é uma verticalização completa para empresas de segurança contra incêndio. Permite que cada empresa (tenant) gerencie clientes, técnicos, engenheiros, extintores, vistorias, projetos PPCI e o ciclo financeiro, tudo em um sistema white-label hospedado na plataforma akaaicore.
 
 ---
 

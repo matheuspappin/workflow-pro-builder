@@ -4,6 +4,7 @@ import React, { useRef, useMemo, Suspense, useEffect } from "react"
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { Float, useTexture, Billboard } from "@react-three/drei"
 import * as THREE from "three"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 type Theme = "default" | "yellow" | "aurora"
 
@@ -209,7 +210,7 @@ function AKLogoInsidePlasma({ logoPosRef, logoTargetRef }: {
   logoPosRef: React.RefObject<THREE.Vector3>
   logoTargetRef: React.RefObject<THREE.Vector3>
 }) {
-  const texture = useTexture("/logo-ak.png")
+  const texture = useTexture(OFFICIAL_LOGO)
   const groupRef = useRef<THREE.Group>(null)
 
   const matProps = useMemo(() => {

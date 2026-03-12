@@ -187,6 +187,9 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith('/shop/') ||
       pathname === '/portal/login' ||
       pathname === '/portal/register' ||
+      pathname === '/portal/affiliate' ||
+      pathname === '/portal/affiliate/login' ||
+      pathname === '/portal/affiliate/register' ||
       pathname === '/auth/set-password' ||
       pathname === '/subscription-expired' ||
       pathname.startsWith('/setup/invite/') ||
@@ -373,6 +376,11 @@ export async function proxy(request: NextRequest) {
       if (isAffiliateRoute && effectiveRole !== 'affiliate' && effectiveRole !== 'partner' && effectiveRole !== 'super_admin') {
         return NextResponse.redirect(new URL('/login', request.url))
       }
+
+      // Afiliado logado em /portal/affiliate/login → dashboard
+      if ((pathname === '/portal/affiliate/login' || pathname === '/portal/affiliate/register') && (effectiveRole === 'affiliate' || effectiveRole === 'partner')) {
+        return NextResponse.redirect(new URL('/portal/affiliate/dashboard', request.url))
+      }
     } else if (!user && !isAuthRoute && !isPublicRoute) {
       if (isEngineerRoute || isTechnicianRoute) {
         return NextResponse.redirect(new URL('/solutions/fire-protection/login', request.url))
@@ -383,9 +391,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // --- White-Label / Custom Domain Logic ---
-    return response
-  }
+  // --- White-Label / Custom Domain Logic ---
+  return response
+}
 
 export const config = {
   matcher: [

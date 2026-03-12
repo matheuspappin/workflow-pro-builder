@@ -25,6 +25,7 @@ export const registerSchema = z.object({
   studioId: z.string().optional(),
   modules: z.array(z.string()).optional(),
   multiUnitQuantity: z.number().optional().default(1),
+  professionalsTier: z.string().optional(),
   language: z.string().optional(),
   professionalRegistration: z.string().optional(),
   verticalizationSlug: z.string().optional(),

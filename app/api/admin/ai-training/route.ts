@@ -4,7 +4,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const VALID_SCENARIOS = ['enrollment', 'agendamento'] as const
+const VALID_SCENARIOS = ['enrollment', 'agendamento', 'vistoria', 'os', 'extintores'] as const
+const VALID_NICHES = ['dance', 'fire_protection', 'agroflowai'] as const
 
 async function requireSuperAdmin() {
   const supabase = await createClient()
@@ -62,6 +63,18 @@ function parseConversations(content: string): { scenario_type: string; student_m
         scenario_type = 'agendamento'
         continue
       }
+      if (upper.startsWith('VISTORIA') || upper === '[VISTORIA]') {
+        scenario_type = 'vistoria'
+        continue
+      }
+      if (upper.startsWith('OS') || upper === '[OS]' || upper.startsWith('ORDEM DE SERVIÇO')) {
+        scenario_type = 'os'
+        continue
+      }
+      if (upper.startsWith('EXTINTOR') || upper === '[EXTINTOR]' || upper === '[EXTINTORES]') {
+        scenario_type = 'extintores'
+        continue
+      }
 
       const userMatch = line.match(/^(?:usu[aá]rio|u|user|aluno)\s*:\s*(.+)$/i)
       if (userMatch) {
@@ -97,15 +110,42 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const customKnowledge = (formData.get('customKnowledge') as string) || ''
+    const niche = (formData.get('niche') as string) || 'dance'
+    const validNiche = VALID_NICHES.includes(niche as any) ? niche : 'dance'
 
-    if (!file) {
+    if (!file && !customKnowledge.trim()) {
       return NextResponse.json(
         {
-          error: 'Envie um arquivo .txt com conversas no formato correto.',
-          hint: 'Exemplo: --- | MATRÍCULA | Usuário: oi | IA: olá! Como posso ajudar?',
+          error: 'Envie um arquivo .txt com conversas e/ou preencha Valores e Regras Específicas.',
+          hint: 'Exemplo: --- | MATRÍCULA | Usuário: oi | IA: olá! Como posso ajudar? | Ou: Mensalidade Ballet R$ 200,00. Desconto 10% para irmãos.',
         },
         { status: 400 }
       )
+    }
+
+    let rulesSaved = false
+    if (customKnowledge.trim()) {
+      const { error: rulesError } = await supabaseAdmin
+        .from('niche_ai_rules')
+        .upsert(
+          { niche: validNiche, rules_text: customKnowledge.trim(), updated_at: new Date().toISOString() },
+          { onConflict: 'niche' }
+        )
+      if (rulesError) {
+        logger.warn('Erro ao salvar regras em niche_ai_rules:', rulesError)
+      } else {
+        rulesSaved = true
+      }
+    }
+
+    if (!file) {
+      return NextResponse.json({
+        success: true,
+        inserted: 0,
+        total: 0,
+        message: rulesSaved ? 'Valores e regras salvos com sucesso.' : 'Nada foi salvo.',
+        rulesSaved,
+      })
     }
 
     if (file.size > MAX_FILE_SIZE) {
@@ -136,9 +176,10 @@ export async function POST(request: NextRequest) {
     }
 
     const rows = conversations.map(c => ({
-      scenario_type: c.scenario_type,
+      scenario_type: VALID_SCENARIOS.includes(c.scenario_type as any) ? c.scenario_type : 'enrollment',
       student_message: c.student_message,
       ai_response: c.ai_response,
+      ...(validNiche && { niche: validNiche }),
     }))
 
     const { data, error } = await supabaseAdmin
@@ -164,8 +205,9 @@ export async function POST(request: NextRequest) {
       success: true,
       inserted,
       total: conversations.length,
-      message: `${inserted} conversa(s) adicionada(s) à base de treinamento.`,
+      message: `${inserted} conversa(s) adicionada(s) à base de treinamento.${rulesSaved ? ' Valores e regras também foram salvos.' : ''}`,
       customKnowledgeReceived: !!customKnowledge,
+      rulesSaved,
     })
   } catch (error) {
     console.error('Erro no upload de treinamento:', error)

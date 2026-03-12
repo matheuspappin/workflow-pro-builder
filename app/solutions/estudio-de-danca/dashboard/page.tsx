@@ -8,7 +8,7 @@ import {
   Users, GraduationCap, Calendar, DollarSign, TrendingUp,
   Plus, ArrowRight, Music, Copy, UserPlus, Trophy,
   Loader2, Link2, RefreshCw, CheckCheck, AlertCircle,
-  Clock, ChevronRight,
+  Clock, ChevronRight, Video,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -23,14 +23,16 @@ interface InviteCodeCardProps {
   borderColor: string
   titleColor: string
   buttonColor: string
+  registerPath?: string
 }
 
-function InviteCodeCard({ type, label, description, color, borderColor, titleColor, buttonColor }: InviteCodeCardProps) {
+function InviteCodeCard({ type, label, description, color, borderColor, titleColor, buttonColor, registerPath = "/solutions/estudio-de-danca/register" }: InviteCodeCardProps) {
   const { toast } = useToast()
   const [inviteCode, setInviteCode] = useState("")
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
 
   const loadCode = useCallback(async () => {
     setLoading(true)
@@ -54,6 +56,16 @@ function InviteCodeCard({ type, label, description, color, borderColor, titleCol
     setCopied(true)
     toast({ title: "Código copiado!", description: `Compartilhe com o ${label.toLowerCase()} para que se vincule ao estúdio.` })
     setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleCopyLink = () => {
+    if (!inviteCode || inviteCode === "—") return
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const link = `${origin}${registerPath}?role=${type}&code=${inviteCode}`
+    navigator.clipboard.writeText(link)
+    setCopiedLink(true)
+    toast({ title: "Link copiado!", description: `Envie este link para o ${label.toLowerCase()} criar a conta e já entrar vinculado.` })
+    setTimeout(() => setCopiedLink(false), 2500)
   }
 
   const handleRegenerate = async () => {
@@ -114,6 +126,15 @@ function InviteCodeCard({ type, label, description, color, borderColor, titleCol
               <Button
                 size="icon"
                 variant="outline"
+                className={cn("h-10 w-10 rounded-xl transition-all", copiedLink && "bg-emerald-50 border-emerald-300 text-emerald-600")}
+                onClick={handleCopyLink}
+                title="Copiar link"
+              >
+                {copiedLink ? <CheckCheck className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
                 className="h-10 w-10 rounded-xl"
                 onClick={handleRegenerate}
                 disabled={regenerating}
@@ -125,7 +146,7 @@ function InviteCodeCard({ type, label, description, color, borderColor, titleCol
           </div>
         )}
         <p className="text-xs text-slate-400 mt-3">
-          O {label.toLowerCase()} deve acessar <span className="font-bold text-slate-600 dark:text-slate-300">Meu Perfil → Estúdio Vinculado</span> e inserir este código.
+          Envie o link (recomendado) ou o código. Quem já tem conta pode acessar <span className="font-bold text-slate-600 dark:text-slate-300">Meu Perfil → Estúdio Vinculado</span> e inserir o código.
         </p>
       </CardContent>
     </Card>
@@ -308,6 +329,7 @@ export default function DanceStudioDashboard() {
   ]
 
   const quickActions = [
+    { label: "Aulas ao Vivo", sub: "Monitore quem está no estúdio agora", href: "/solutions/estudio-de-danca/dashboard/ao-vivo", icon: Video, color: "bg-rose-600 hover:bg-rose-700" },
     { label: "Novo Aluno", sub: "Matricular aluno", href: "/solutions/estudio-de-danca/dashboard/alunos", icon: UserPlus, color: "bg-violet-600 hover:bg-violet-700" },
     { label: "Nova Turma", sub: "Criar turma de dança", href: "/solutions/estudio-de-danca/dashboard/turmas", icon: Calendar, color: "bg-pink-600 hover:bg-pink-700" },
     { label: "Financeiro", sub: "Cobranças e pagamentos", href: "/solutions/estudio-de-danca/dashboard/financeiro", icon: DollarSign, color: "bg-emerald-600 hover:bg-emerald-700" },
@@ -355,7 +377,7 @@ export default function DanceStudioDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {quickActions.map((action) => (
           <Link key={action.href} href={action.href}>
             <Card className={cn("text-white border-none shadow-lg cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]", action.color)}>

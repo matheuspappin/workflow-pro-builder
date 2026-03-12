@@ -138,7 +138,7 @@ REGRAS:
 Retorne APENAS JSON válido:
 {"mappings":[{"sourceField":"Nome exato","targetField":"campo_destino","confidence":0.85,"dataType":"text","sampleValue":"ex"}]}`
 
-    const modelFallbacks = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+    const modelFallbacks = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash']
     for (const model of modelFallbacks) {
       try {
         const res = await fetch(

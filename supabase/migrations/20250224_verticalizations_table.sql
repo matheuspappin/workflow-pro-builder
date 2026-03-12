@@ -1,4 +1,4 @@
--- Tabela de Verticalizações (produtos white-label do Workflow Pro)
+-- Tabela de Verticalizações (produtos white-label do akaaicore)
 -- Migration 67 + 68: tabela base + coluna modules
 
 CREATE TABLE IF NOT EXISTS verticalizations (

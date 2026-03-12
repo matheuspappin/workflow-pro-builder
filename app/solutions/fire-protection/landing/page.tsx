@@ -22,6 +22,7 @@ import {
 import QRCode from "react-qr-code"
 import { cn } from "@/lib/utils"
 import { FireWaterCanvas } from "@/components/fire-protection/fire-water-canvas"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 // --- Components ---
 
@@ -681,11 +682,11 @@ function Footer() {
       <div className="flex justify-center gap-6 text-[10px] font-bold uppercase tracking-widest mb-8">
         <Link href="#">Termos</Link><Link href="#">Privacidade</Link><Link href="#">Contato</Link>
       </div>
-      <p className="text-[10px] text-slate-500 mb-10">© 2026 Workflow Pro Builder.</p>
+      <p className="text-[10px] text-slate-500 mb-10">© 2026 akaaicore Builder.</p>
 
       <div className="pt-8 border-t border-white/5 flex flex-col items-center gap-3">
         <Link href="/home" className="flex items-center gap-2.5 group">
-          <img src="/icon.svg" alt="AKAAI HUB" className="w-8 h-8 opacity-70 group-hover:opacity-100 transition-opacity" />
+          <img src={OFFICIAL_LOGO} alt="AKAAI HUB" className="w-8 h-8 opacity-70 group-hover:opacity-100 transition-opacity object-contain" />
           <span className="font-black text-white/60 text-sm tracking-tight group-hover:text-white/90 transition-colors">AKAAI <span className="text-white/40">HUB</span></span>
         </Link>
         <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Powered by AKAAI CORE</span>

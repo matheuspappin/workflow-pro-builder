@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
+import { emitNfeForPackagePurchase } from '@/lib/actions/nfe-emit-package-purchase';
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -125,19 +126,39 @@ export async function POST(req: NextRequest) {
                 const amountPaid = session.amount_total ? session.amount_total / 100 : 0;
                 const today = new Date().toISOString().split('T')[0];
                 const refMonth = new Date().toISOString().slice(0, 7);
-                await supabaseAdmin.from('payments').insert({
-                  studio_id: studio_id,
-                  student_id: student_id,
-                  amount: amountPaid,
-                  due_date: today,
-                  payment_date: today,
-                  status: 'paid',
-                  payment_method: 'stripe_card',
-                  reference_month: refMonth,
-                  description: `Pacote: ${pkg.name} (${pkg.lessons_count} créditos)`,
-                  payment_source: 'package_purchase',
-                  reference_id: invoice_id,
-                });
+                const { data: payment, error: payInsertErr } = await supabaseAdmin
+                  .from('payments')
+                  .insert({
+                    studio_id: studio_id,
+                    student_id: student_id,
+                    amount: amountPaid,
+                    due_date: today,
+                    payment_date: today,
+                    status: 'paid',
+                    payment_method: 'stripe_card',
+                    reference_month: refMonth,
+                    description: `Pacote: ${pkg.name} (${pkg.lessons_count} créditos)`,
+                    payment_source: 'package_purchase',
+                    reference_id: invoice_id,
+                  })
+                  .select('id')
+                  .single();
+
+                if (payInsertErr) {
+                  logger.error('[WEBHOOK] Erro ao inserir payment:', payInsertErr);
+                } else if (payment?.id) {
+                  // Emissão automática de NF-e (não falha o webhook se der erro)
+                  try {
+                    const nfeResult = await emitNfeForPackagePurchase(payment.id, studio_id);
+                    if (!nfeResult.success) {
+                      logger.warn(`[WEBHOOK] NF-e não emitida automaticamente: ${nfeResult.error}. Item ficará pendente no Emissor Fiscal.`);
+                    } else {
+                      logger.info(`[WEBHOOK] NF-e emitida automaticamente: ${nfeResult.invoiceNumber}`);
+                    }
+                  } catch (nfeErr: unknown) {
+                    logger.error('[WEBHOOK] Erro ao emitir NF-e (item ficará pendente):', nfeErr);
+                  }
+                }
               }
           }
       }

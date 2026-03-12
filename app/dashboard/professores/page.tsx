@@ -47,7 +47,6 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useSearchParams } from "next/navigation"
 import { getProfessionals, saveProfessional, getClasses, deleteProfessional } from "@/lib/database-utils"
-import { isLimitReached, PLAN_LIMITS } from "@/lib/plan-limits"
 import { supabase } from "@/lib/supabase"
 import {
   AlertDialog,
@@ -117,7 +116,7 @@ function ProfessionalsContent() {
   const [professionalToDelete, setProfessionalToDelete] = useState<Professional | null>(null)
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null)
   const [availableClasses, setAvailableClasses] = useState<any[]>([])
-  const [studioPlan, setStudioPlan] = useState("gratuito")
+  const [professionalsLimit, setProfessionalsLimit] = useState<number>(10)
   const [modalities, setModalities] = useState<any[]>([])
   
   const [professionalFinances, setProfessionalFinances] = useState({
@@ -131,7 +130,7 @@ function ProfessionalsContent() {
     if (!dataLoaded) {
       loadProfessionals()
       loadClasses()
-      loadStudioPlan()
+      loadProfessionalsLimit()
       loadModalities()
     }
   }, [dataLoaded])
@@ -157,24 +156,15 @@ function ProfessionalsContent() {
     }
   }
 
-  const loadStudioPlan = async () => {
+  const loadProfessionalsLimit = async () => {
     try {
-      const userStr = localStorage.getItem('danceflow_user')
-      if (!userStr) return
-      const storedUser = JSON.parse(userStr)
-      const studioId = storedUser.studio_id || storedUser.studioId
-
-      const { data, error } = await supabase
-        .from('studios')
-        .select('plan')
-        .eq('id', studioId)
-        .single()
-
-      if (!error && data) {
-        setStudioPlan(data.plan || "gratuito")
+      const res = await fetch('/api/studio/professionals-tier', { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        setProfessionalsLimit(data.limit ?? 10)
       }
     } catch (e) {
-      console.error('Erro ao carregar plano:', e)
+      console.error('Erro ao carregar limite de profissionais:', e)
     }
   }
 
@@ -503,11 +493,11 @@ function ProfessionalsContent() {
                 <div>
                   <p className="text-sm text-muted-foreground">{t.providers.active.replace('{providers}', vocabulary.providers)}</p>
                   <div className="flex items-baseline gap-2">
-                    <p className={`text-2xl font-bold ${isLimitReached(totalActiveProfessionals, studioPlan, 'maxProfessionals') ? 'text-destructive' : 'text-card-foreground'}`}>
+                    <p className={`text-2xl font-bold ${totalActiveProfessionals >= professionalsLimit ? 'text-destructive' : 'text-card-foreground'}`}>
                       {totalActiveProfessionals}
                     </p>
                     <span className="text-sm text-muted-foreground font-normal">
-                      / {PLAN_LIMITS[studioPlan]?.maxProfessionals || PLAN_LIMITS.gratuito.maxProfessionals}
+                      / {professionalsLimit} {vocabulary.providers}
                     </span>
                   </div>
                 </div>
@@ -603,7 +593,7 @@ function ProfessionalsContent() {
                 <DialogTrigger asChild>
                   <Button 
                     className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
-                    disabled={isLimitReached(totalActiveProfessionals, studioPlan, 'maxProfessionals')}
+                    disabled={totalActiveProfessionals >= professionalsLimit}
                   >
                     <UserPlus className="w-4 h-4" />
                     {t.providers.inviteProfessional.replace('{provider}', vocabulary.provider)}

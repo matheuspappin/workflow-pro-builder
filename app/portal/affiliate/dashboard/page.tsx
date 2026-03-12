@@ -6,14 +6,12 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { AffiliateHeader } from "@/components/dashboard/affiliate-header"
 import { 
-  BarChart3, 
   Users, 
   Wallet, 
   Building2, 
   ArrowUpRight, 
-  Settings,
-  LogOut,
   Loader2,
   Sparkles
 } from "lucide-react"
@@ -42,11 +40,10 @@ export default function AffiliateDashboard() {
         return
       }
 
-      // Tenta pegar do localStorage primeiro para ser mais rápido
       const storedUser = localStorage.getItem("danceflow_user")
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser)
-        if (parsedUser.role !== 'partner' && parsedUser.role !== 'admin' && parsedUser.role !== 'super_admin') {
+        if (parsedUser.role !== 'affiliate' && parsedUser.role !== 'partner' && parsedUser.role !== 'admin' && parsedUser.role !== 'super_admin') {
            toast({
              title: "Acesso restrito",
              description: "Esta área é apenas para afiliados.",
@@ -56,9 +53,6 @@ export default function AffiliateDashboard() {
            return
         }
         setUser(parsedUser)
-      } else {
-        // Fallback se não tiver no localStorage (ou refetch)
-        // Idealmente, faria um fetch para /api/auth/me ou similar
       }
       
       setIsLoading(false)
@@ -67,56 +61,20 @@ export default function AffiliateDashboard() {
     checkAuth()
   }, [router, toast])
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    localStorage.removeItem("danceflow_user")
-    router.push("/portal/affiliate/login")
-  }
-
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight">Painel do Afiliado</span>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
-              <p className="text-sm font-medium">{user?.name}</p>
-              <p className="text-xs text-slate-500">Afiliado</p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
-              <LogOut className="w-5 h-5 text-slate-500 hover:text-red-600" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        
-        {/* Welcome Section */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Visão Geral
-          </h1>
-          <p className="text-slate-500">
-            Acompanhe o desempenho dos seus estúdios indicados.
-          </p>
-        </div>
+    <div className="p-6 space-y-8">
+      <AffiliateHeader 
+        title="Visão Geral" 
+        description="Acompanhe o desempenho dos seus estúdios indicados." 
+      />
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -199,7 +157,7 @@ export default function AffiliateDashboard() {
               </div>
               <div className="flex gap-4">
                 <Link href="/portal/affiliate/ecosystems/new">
-                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                  <Button className="gap-2">
                     <Sparkles className="w-4 h-4" />
                     Criar Novo Sistema
                   </Button>
@@ -211,8 +169,6 @@ export default function AffiliateDashboard() {
             </div>
           </CardContent>
         </Card>
-
-      </main>
     </div>
   )
 }

@@ -48,6 +48,7 @@ export default function TestesLaboraisPage() {
   const [responseStyle, setResponseStyle] = useState<'simple' | 'complex'>('simple')
   const [trainingFile, setTrainingFile] = useState<File | null>(null)
   const [customKnowledge, setCustomKnowledge] = useState("")
+  const [trainingNiche, setTrainingNiche] = useState<'dance' | 'fire_protection' | 'agroflowai'>('dance')
   const [isTraining, setIsTraining] = useState(false)
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function TestesLaboraisPage() {
       const formData = new FormData()
       if (trainingFile) formData.append("file", trainingFile)
       if (customKnowledge) formData.append("customKnowledge", customKnowledge)
+      formData.append("niche", trainingNiche)
 
       const res = await fetch("/api/admin/ai-training", {
         method: "POST",
@@ -383,7 +385,7 @@ export default function TestesLaboraisPage() {
                       <Upload className="w-5 h-5 text-indigo-600" />
                       <CardTitle>Alimentação de Dados</CardTitle>
                     </div>
-                    <CardDescription>Envie arquivos .txt com conversas simuladas para treinar a IA. Formato: --- | MATRÍCULA ou AGENDAMENTO | Usuário: msg | IA: resposta</CardDescription>
+                    <CardDescription>Envie arquivos .txt com conversas simuladas para treinar a IA. Formato: --- | MATRÍCULA ou AGENDAMENTO ou VISTORIA ou OS | Usuário: msg | IA: resposta</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center hover:border-indigo-500 transition-colors cursor-pointer relative">
@@ -402,6 +404,18 @@ export default function TestesLaboraisPage() {
                       </div>
                     </div>
 
+                    <div className="space-y-2">
+                      <Label>Vertical (para qual Catarina)</Label>
+                      <select
+                        value={trainingNiche}
+                        onChange={(e) => setTrainingNiche(e.target.value as any)}
+                        className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 text-sm font-medium"
+                      >
+                        <option value="dance">DanceFlow (dança)</option>
+                        <option value="fire_protection">Fire Protection</option>
+                        <option value="agroflowai">AgroFlow AI</option>
+                      </select>
+                    </div>
                     <div className="space-y-2">
                       <Label>Valores e Regras Específicas</Label>
                       <Textarea 

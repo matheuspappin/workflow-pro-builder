@@ -1191,7 +1191,7 @@ export default function StudentDashboard() {
               
               <div className="flex items-center gap-3 justify-center text-slate-400">
                 <Shield className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-widest italic">Válido apenas para hoje • Workflow Pro Guard</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest italic">Válido apenas para hoje • akaaicore Guard</span>
               </div>
             </div>
           </div>

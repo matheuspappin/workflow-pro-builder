@@ -39,6 +39,11 @@ export type NicheBranding = {
   name: string;
   accentName?: string;
   gradient: string;
+  /** Classes for accent (logo part, active states, buttons) - dance: violet, fire: red */
+  accentText?: string;
+  accentBg?: string;
+  accentBgMuted?: string;
+  accentShadow?: string;
 }
 
 const nicheBranding: Partial<Record<NicheType, NicheBranding>> = {
@@ -48,20 +53,36 @@ const nicheBranding: Partial<Record<NicheType, NicheBranding>> = {
     secondaryColor: 'text-red-500',
     name: 'Fire',
     accentName: 'Control',
-    gradient: 'from-red-600 to-orange-600'
+    gradient: 'from-red-600 to-orange-600',
+    accentText: 'text-red-600',
+    accentBg: 'bg-red-600',
+    accentBgMuted: 'bg-red-600/10',
+    accentShadow: 'shadow-red-600/20',
   },
   dance: {
-    icon: Sparkles,
+    icon: Music,
     primaryColor: 'text-foreground',
-    secondaryColor: 'text-primary',
-    name: 'Workflow',
-    accentName: 'Pro',
-    gradient: 'from-primary to-accent'
+    secondaryColor: 'text-violet-400',
+    name: 'Dance',
+    accentName: 'Flow',
+    gradient: 'from-violet-600 to-violet-500',
+    accentText: 'text-violet-400',
+    accentBg: 'bg-violet-600',
+    accentBgMuted: 'bg-violet-600/10',
+    accentShadow: 'shadow-violet-600/20',
   }
 };
 
 export const getNicheBranding = (niche: NicheType | string): NicheBranding => {
-  return nicheBranding[niche as NicheType] || nicheBranding.dance!;
+  const b = nicheBranding[niche as NicheType] || nicheBranding.dance!;
+  // Fallback accent classes for niches without explicit accent
+  return {
+    ...b,
+    accentText: b.accentText ?? 'text-red-600',
+    accentBg: b.accentBg ?? 'bg-red-600',
+    accentBgMuted: b.accentBgMuted ?? 'bg-red-600/10',
+    accentShadow: b.accentShadow ?? 'shadow-red-600/20',
+  };
 }
 
 // Mapeamento de ícones para clientes

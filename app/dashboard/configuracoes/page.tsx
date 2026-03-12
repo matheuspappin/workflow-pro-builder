@@ -66,6 +66,7 @@ import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
 import { PLAN_LIMITS, normalizePlanForDisplay } from "@/lib/plan-limits"
 import { supabase } from "@/lib/supabase"
+import { PROFESSIONAL_TIERS } from "@/config/professional-tiers"
 
 import { EcosystemSettings } from "@/components/dashboard/settings/ecosystem-settings"
 import { GamificationSettings } from "@/components/dashboard/settings/gamification-settings"
@@ -154,7 +155,12 @@ function SettingsContent() {
         changePlan: "Alterar Plano",
         chooseNewPlan: "Escolha seu Novo Plano",
         planSelectionDescription: "Selecione o plano ideal para o seu {establishment}.",
-        currentPlan: "Plano Atual"
+        currentPlan: "Plano Atual",
+        professionalsTier: "Faixa de {providers}",
+        professionalsTierDesc: "Quantidade máxima de {providers} permitidos no seu estabelecimento.",
+        tier_1_10: "1–10 {providers}",
+        tier_11_20: "11–20 {providers}",
+        tier_21_50: "21–50 {providers}"
       }
     },
     en: {
@@ -209,7 +215,12 @@ function SettingsContent() {
         changePlan: "Change Plan",
         chooseNewPlan: "Choose your New Plan",
         planSelectionDescription: "Select the ideal plan for your {establishment}.",
-        currentPlan: "Current Plan"
+        currentPlan: "Current Plan",
+        professionalsTier: "{providers} tier",
+        professionalsTierDesc: "Maximum number of {providers} allowed in your establishment.",
+        tier_1_10: "1–10 {providers}",
+        tier_11_20: "11–20 {providers}",
+        tier_21_50: "21–50 {providers}"
       }
     }
   }
@@ -294,7 +305,7 @@ function SettingsContent() {
   const [expandedIntegration, setExpandedIntegration] = useState<"whatsapp" | "payment" | "supabase" | null>(null)
 
   const [geminiModels, setGeminiModels] = useState<any[]>([])
-  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>("gemini-2.5-flash")
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState<string>("gemini-2.5-pro")
   const [loadingModels, setLoadingModels] = useState(false)
 
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
@@ -308,6 +319,15 @@ function SettingsContent() {
     plan: "gratuito"
   })
   const [usageLoaded, setUsageLoaded] = useState(false)
+
+  const [professionalsTier, setProfessionalsTier] = useState<{
+    tierId: string
+    limit: number
+    currentCount: number
+    tiers: typeof PROFESSIONAL_TIERS
+  } | null>(null)
+  const [professionalsTierLoading, setProfessionalsTierLoading] = useState(false)
+  const [professionalsTierSaving, setProfessionalsTierSaving] = useState(false)
 
   const [invoices, setInvoices] = useState<any[]>([])
   const [creditPackages, setCreditPackages] = useState<any[]>([])
@@ -346,6 +366,7 @@ function SettingsContent() {
         loadCreditPackages(sId)
         loadReports(sId)
         loadStudioDetails(sId)
+        loadProfessionalsTier()
       } else {
         setUsageLoaded(true)
       }
@@ -429,6 +450,50 @@ function SettingsContent() {
       console.error('Erro ao carregar relatórios:', e)
     } finally {
       setLoadingReports(false)
+    }
+  }
+
+  const loadProfessionalsTier = async () => {
+    setProfessionalsTierLoading(true)
+    try {
+      const res = await fetch('/api/studio/professionals-tier', { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        setProfessionalsTier({
+          tierId: data.tierId,
+          limit: data.limit,
+          currentCount: data.currentCount ?? 0,
+          tiers: data.tiers || PROFESSIONAL_TIERS,
+        })
+      }
+    } catch (e) {
+      console.error('Erro ao carregar faixa de profissionais:', e)
+    } finally {
+      setProfessionalsTierLoading(false)
+    }
+  }
+
+  const handleUpdateProfessionalsTier = async (tierId: string) => {
+    setProfessionalsTierSaving(true)
+    try {
+      const res = await fetch('/api/studio/professionals-tier', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tierId }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setProfessionalsTier(prev => prev ? { ...prev, tierId: data.tierId, limit: data.limit } : null)
+        toast({ title: t.common.success, description: t.settings.studioSettingsSaved })
+      } else {
+        const err = await res.json()
+        toast({ title: t.common.error, description: err.error || 'Erro ao atualizar', variant: 'destructive' })
+      }
+    } catch (e) {
+      toast({ title: t.common.error, description: 'Erro de conexão', variant: 'destructive' })
+    } finally {
+      setProfessionalsTierSaving(false)
     }
   }
 
@@ -1216,6 +1281,45 @@ function SettingsContent() {
                     {t.save}
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-card-foreground">
+                  {t.settings.professionalsTier.replace('{providers}', vocabulary.providers)}
+                </CardTitle>
+                <CardDescription>
+                  {t.settings.professionalsTierDesc.replace('{providers}', vocabulary.providers.toLowerCase())}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {professionalsTierLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {language === 'pt' ? 'Carregando...' : 'Loading...'}
+                  </div>
+                ) : professionalsTier ? (
+                  <div className="space-y-4">
+                    <p className="text-sm">
+                      {language === 'pt' ? 'Atual' : 'Current'}: {professionalsTier.currentCount} / {professionalsTier.limit} {vocabulary.providers}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {professionalsTier.tiers.map((tier) => (
+                        <Button
+                          key={tier.id}
+                          variant={professionalsTier.tierId === tier.id ? 'default' : 'outline'}
+                          size="sm"
+                          disabled={professionalsTierSaving || (professionalsTier.currentCount > tier.limit && professionalsTier.tierId !== tier.id)}
+                          onClick={() => handleUpdateProfessionalsTier(tier.id)}
+                        >
+                          {(t.settings as Record<string, string>)[`tier_${tier.id.replace('-', '_')}`]?.replace?.('{providers}', vocabulary.providers) || tier.id}
+                          {professionalsTier.currentCount > tier.limit && professionalsTier.tierId !== tier.id && ` (${language === 'pt' ? 'mín.' : 'min'})`}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 

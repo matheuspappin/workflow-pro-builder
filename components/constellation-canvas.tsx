@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useCallback } from "react"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 const DOT_COUNT = 180
 const CONNECTION_DISTANCE = 0.13
@@ -77,7 +78,7 @@ export function ConstellationCanvas() {
 
   useEffect(() => {
     const img = new Image()
-    img.src = "/logo-ak.png"
+    img.src = OFFICIAL_LOGO
     img.crossOrigin = "anonymous"
     img.onload = () => {
       logoRef.current = img

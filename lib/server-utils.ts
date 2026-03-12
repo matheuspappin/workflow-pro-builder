@@ -1,54 +1,28 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import logger from "@/lib/logger"
 
 /**
- * Cria um cliente do Supabase autenticado usando cookies (para Server Actions)
- * Tenta usar @supabase/ssr primeiro, com fallback para tokens manuais
+ * Cria um cliente do Supabase autenticado usando cookies (para Server Actions e Route Handlers)
+ * Usa createClient de @/lib/supabase/server para consistência com o resto do app.
  */
 export async function getAuthenticatedClient() {
   try {
-    const cookieStore = await cookies()
-    
-    // 1. Tentar usando @supabase/ssr (Padrão recomendado)
-    const ssrClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options })
-            } catch (error) {
-              // Ignorar erro de setar cookie em Server Action/Component
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value: '', ...options })
-            } catch (error) {
-            }
-          },
-        },
-      }
-    )
+    const { createClient: createServerSupabase } = await import('@/lib/supabase/server')
+    const ssrClient = await createServerSupabase()
 
-    // Verificar se o usuário é detectado pelo SSR com try-catch
-    try {
-      const { data: { user } } = await ssrClient.auth.getUser()
-      if (user) return ssrClient
-    } catch (e) {
-      logger.debug('SSR getUser error fallback to manual')
+    const { data: { user }, error } = await ssrClient.auth.getUser()
+    if (error) {
+      logger.debug('getAuthenticatedClient: auth error', error.message)
+      return null
     }
+    if (user) return ssrClient
 
-    // 2. Fallback: Tentar encontrar tokens legados ou manuais
-    const token = cookieStore.get('sb-access-token')?.value || 
-                  cookieStore.get('sb-auth-token')?.value ||
-                  cookieStore.getAll().find(c => c.name.includes('auth-token') && c.value.length > 20)?.value
+    // Fallback: tokens em cookies legados (sb-access-token, sb-auth-token)
+    const cookieStore = await cookies()
+    const token = cookieStore.get('sb-access-token')?.value ||
+      cookieStore.get('sb-auth-token')?.value ||
+      cookieStore.getAll().find(c => c.name.includes('auth-token') && c.value.length > 20)?.value
 
     if (token) {
       const manualClient = createClient(
@@ -61,18 +35,15 @@ export async function getAuthenticatedClient() {
             detectSessionInUrl: false,
           },
           global: {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           },
         }
       )
-      
       try {
         const { data: { user: manualUser } } = await manualClient.auth.getUser(token)
         if (manualUser) return manualClient
-      } catch (e) {
-        logger.debug('Manual getUser error')
+      } catch {
+        logger.debug('Manual token getUser failed')
       }
     }
 

@@ -71,18 +71,42 @@ export class CreditPaymentStrategy implements PaymentStrategy {
         .in('id', osIds);
     }
 
+    // Baixa de estoque para produtos (PDV)
+    const productItems = context.items.filter(i => i.type === 'product');
+    for (const item of productItems) {
+      const { data: prod } = await this.supabase
+        .from('products')
+        .select('quantity')
+        .eq('id', item.id)
+        .single();
+      if (prod) {
+        await this.supabase
+          .from('products')
+          .update({ quantity: Math.max(0, prod.quantity - item.quantity) })
+          .eq('id', item.id);
+        await this.supabase.from('inventory_transactions').insert({
+          studio_id: context.studioId,
+          product_id: item.id,
+          type: 'sale',
+          quantity: item.quantity,
+          reason: 'Venda PDV (créditos)',
+          unit_price: item.priceInCurrency,
+        });
+      }
+    }
+
     // Record usage and create payment for financeiro
     for (const item of context.items) {
         const creditsUsed = item.priceInCredits * item.quantity;
+        const usageType = item.type === 'product' ? 'pdv_product' : 'class_attendance';
         await this.supabase.from('student_credit_usage').insert({
             studio_id: context.studioId,
             student_id: context.studentId!,
             credits_used: creditsUsed,
-            usage_type: 'class_attendance',
-            notes: `Purchase: ${item.name} (x${item.quantity})`
+            usage_type: usageType,
+            notes: `PDV: ${item.name} (x${item.quantity})`
         });
 
-        // Registrar cobrança no financeiro (produto ou marketplace pago com crédito)
         const paymentSource = item.type === 'product' ? 'product' : 'marketplace';
         const descPrefix = item.type === 'product' ? 'Produto' : 'Marketplace';
         await createCreditUsagePayment({

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Header } from "@/components/dashboard/header"
+import { getLocalUser } from "@/lib/constants/storage-keys"
+import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -56,24 +58,49 @@ interface LearningMetrics {
   averageLearningScore: number
 }
 
+async function getStudioId(): Promise<string | null> {
+  if (typeof window === "undefined") return null
+  try {
+    const user = getLocalUser("estudio-de-danca") ?? getLocalUser("default")
+    const sid = user?.studio_id || user?.studioId || null
+    if (sid) return sid
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.user?.user_metadata?.studio_id ?? null
+  } catch {
+    return null
+  }
+}
+
 export default function AILearningPage() {
   const { vocabulary, t } = useVocabulary()
   const [metrics, setMetrics] = useState<LearningMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState(30)
+  const [studioId, setStudioId] = useState<string | null>(null)
 
   useEffect(() => {
+    getStudioId().then((sid) => {
+      setStudioId(sid)
+      if (!sid) setLoading(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!studioId) return
     loadLearningMetrics()
-  }, [selectedPeriod])
+  }, [selectedPeriod, studioId])
 
   const loadLearningMetrics = async () => {
+    if (!studioId) return
     try {
       setLoading(true)
-      const response = await fetch(`/api/ai/learning?type=report&days=${selectedPeriod}`)
+      const response = await fetch(`/api/ai/learning?studioId=${encodeURIComponent(studioId)}&type=report&days=${selectedPeriod}`, { credentials: "include" })
       const data = await response.json()
       
       if (data.success) {
         setMetrics(data.data)
+      } else if (data.error) {
+        setMetrics(null)
       }
     } catch (error) {
       console.error('Erro ao carregar métricas:', error)
@@ -94,7 +121,18 @@ export default function AILearningPage() {
     return 'bg-red-500'
   }
 
-  if (loading) {
+  if (!studioId && !loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Brain className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Faça login em um estúdio para ver as métricas de aprendizado.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading && !metrics) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -261,16 +299,16 @@ export default function AILearningPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {metrics?.topKnowledge?.slice(0, 5).map((item, index) => (
+                    {metrics?.topKnowledge?.slice(0, 5).map((item: any, index: number) => (
                       <div key={index} className="flex items-center justify-between">
                         <div className="flex-1">
                           <p className="text-sm font-medium truncate">{item.question}</p>
                           <p className="text-xs text-muted-foreground">{item.category}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium">{item.usageCount}x</p>
+                          <p className="text-sm font-medium">{(item.usage_count ?? item.usageCount ?? 0)}x</p>
                           <p className="text-xs text-muted-foreground">
-                            {item.successRate.toFixed(1)}%
+                            {((item.success_rate ?? item.successRate ?? 0) * 100).toFixed(1)}%
                           </p>
                         </div>
                       </div>
