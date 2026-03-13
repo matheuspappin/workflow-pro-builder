@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     // metadata.type = 'package' → webhook sabe que deve creditar aulas
     // metadata.invoice_id = pkg.id → webhook busca lessons_count do pacote
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'pix'],
       mode: 'payment',
       customer_email: studentEmail,
       line_items: [

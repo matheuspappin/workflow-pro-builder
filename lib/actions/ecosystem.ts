@@ -21,6 +21,7 @@ export async function createEcosystemInvite(data: {
   clientEmail?: string,
   businessModel?: 'CREDIT' | 'MONETARY',
   modules: any,
+  professionalsTier?: string,
   partnerId?: string,
   accessToken?: string
 }) {
@@ -204,13 +205,18 @@ export async function createEcosystemInvite(data: {
 
   // 4. Criar Configurações
   logger.info('⚙️ Criando configurações para o studio...')
+  const tierId = data.professionalsTier && ['1-10', '11-20', '21-50'].includes(data.professionalsTier)
+    ? data.professionalsTier
+    : '1-10'
+  const themeConfig = { professionals_tier: tierId }
   const { error: settingsError } = await dbWriter
     .from('organization_settings')
     .upsert({
       studio_id: studio.id,
       niche: data.niche,
       enabled_modules: data.modules,
-      vocabulary: getVocabularyForNiche(data.niche)
+      vocabulary: getVocabularyForNiche(data.niche),
+      theme_config: themeConfig
     })
 
   if (settingsError) {

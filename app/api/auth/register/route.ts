@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
 
     let studio = null;
     let createdStudioIds: string[] = [];
+    let partnerId: string | null = null;
 
     // 1. Se for ADMIN (Dono), criar o estúdio
     if (role === 'admin') {
@@ -486,18 +487,23 @@ export async function POST(request: NextRequest) {
       
       const slug = await generateUniqueSlug(name || 'partner', 'partners');
 
-      const { error: partnerError } = await supabaseAdmin.from('partners').insert({
-        user_id,
-        name,
-        slug,
-        commission_rate: SYSTEM_CONFIG.DEFAULT_PARTNER_COMMISSION,
-      });
+      const { data: newPartner, error: partnerError } = await supabaseAdmin
+        .from('partners')
+        .insert({
+          user_id,
+          name,
+          slug,
+          commission_rate: SYSTEM_CONFIG.DEFAULT_PARTNER_COMMISSION,
+        })
+        .select('id')
+        .single();
 
-      if (partnerError) {
+      if (partnerError || !newPartner) {
         logger.error('❌ Erro ao criar perfil de parceiro:', partnerError);
         await supabaseAdmin.auth.admin.deleteUser(user_id!); 
         throw new AppError('Falha ao criar perfil de parceiro', 500, 'PARTNER_PROFILE_CREATION_FAILED');
       }
+      partnerId = newPartner.id;
       logger.info('✅ Perfil de parceiro criado com sucesso.');
     } else if (role === 'admin' || role === 'seller' || role === 'receptionist' || role === 'finance') {
       logger.info(`➡️ Tentando criar perfil de ${role} com dados:`, { user_id, studio_id: studio?.id, name, email, phone: cleanPhone, cpf_cnpj: taxId, role, birth_date: birthDate, address });
@@ -571,20 +577,24 @@ export async function POST(request: NextRequest) {
     }
     logger.info('✅ Sessão final:', finalSession ? 'Presente' : 'Ausente');
 
+    const userPayload: Record<string, unknown> = {
+      id: authData.user.id,
+      name,
+      email,
+      role: role,
+      taxId: taxId,
+      phone: cleanPhone,
+      birthDate: birthDate || null,
+      address: address || null,
+      studio_id: studio?.id || null,
+      studioName: studio?.name || "Workflow AI",
+      studioSlug: studio?.slug || "",
+    };
+    if (role === 'partner' || role === 'affiliate') {
+      userPayload.partnerId = partnerId;
+    }
     const response = successResponse({
-      user: {
-        id: authData.user.id,
-        name,
-        email,
-        role: role,
-        taxId: taxId,
-        phone: cleanPhone,
-        birthDate: birthDate || null,
-        address: address || null,
-        studio_id: studio?.id || null,
-        studioName: studio?.name || "Workflow AI",
-        studioSlug: studio?.slug || "",
-      },
+      user: userPayload,
       session: finalSession
     });
     // 3. Setar Cookies para o Middleware

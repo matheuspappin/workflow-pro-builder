@@ -5,6 +5,7 @@ import logger from '@/lib/logger'
 import { buildCatarinaSystemPrompt, getContextTimestamp } from '@/lib/catarina'
 import { resolveContactLayer } from '@/lib/ai-router'
 import { aiLearning } from '@/lib/actions/ai-learning'
+import { getCachedStudioContextAgroflowai } from '@/lib/ai-context-cache'
 
 const AGRO_OS_TYPES = ['laudo_car', 'vistoria_ndvi', 'regularizacao', 'licenciamento', 'monitoramento', 'outro', 'environmental_os']
 
@@ -116,12 +117,11 @@ export async function POST(request: NextRequest) {
       if (!access.authorized) return access.response
     }
 
-    const [reportRes, trainingRes, learnedRes, rulesRes] = await Promise.all([
-      supabaseAdmin.from('studio_ai_reports').select('content, created_at, metadata').eq('studio_id', contextStudioId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'agroflowai').order('created_at', { ascending: false }).limit(6).then((r) => r, () => ({ data: [] as any[] })),
+    const [cached, learnedRes] = await Promise.all([
+      getCachedStudioContextAgroflowai(contextStudioId),
       aiLearning.getLearnedKnowledge(contextStudioId, typeof message === 'string' ? message : (message?.content || '')).catch(() => []),
-      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'agroflowai').maybeSingle().then((r) => r, () => ({ data: null }))
     ])
+    const { reportRes, trainingRes, rulesRes } = cached
 
     const latestReport = (reportRes as any)?.data
     let contextContent: string

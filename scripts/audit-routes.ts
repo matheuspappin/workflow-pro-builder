@@ -100,6 +100,10 @@ function auditRoute(filePath: string): RouteAudit {
   const hasCheckStudioAccess = content.includes('checkStudioAccess')
   const hasRequireStudioAccess = content.includes('requireStudioAccess')
   const hasAllowInternalAiCall = content.includes('allowInternalAiCall')
+  const hasSuperAdminGuard =
+    content.includes('checkSuperAdminDetailed') ||
+    content.includes('requireSuperAdmin') ||
+    content.includes('requireSuperAdmin()')
   const isCron = relative.includes('/cron/')
   const isWebhook = relative.includes('/webhooks/')
   const isAdmin = relative.includes('/admin/')
@@ -126,6 +130,9 @@ function auditRoute(filePath: string): RouteAudit {
     } else if (isWebhook) {
       verdict = 'warning'
       note = 'webhook — verificar assinatura e lógica de studio_id'
+    } else if (isAdmin && hasSuperAdminGuard) {
+      verdict = 'ok'
+      note = 'rota admin — verifica super_admin antes de usar supabaseAdmin'
     } else if (isAdmin) {
       verdict = 'warning'
       note = 'rota admin — verificar se valida super_admin antes'

@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
       stripeClient = getStripe();
     }
 
-    // 2. Criar a sessão no Stripe
+    // 2. Criar a sessão no Stripe (card + PIX para contas BR elegíveis)
     const session = await stripeClient.checkout.sessions.create({
-      payment_method_types: ['card'], // Adicionar 'pix' se a conta for brasileira e configurada
+      payment_method_types: ['card', 'pix'],
       line_items: [
         {
           price_data: {

@@ -94,7 +94,7 @@ export default function AffiliatePortalLayout({
       />
       <main
         className={cn(
-          "transition-all duration-300 min-h-screen pt-16 md:pt-0",
+          "flex flex-col flex-1 transition-all duration-300 min-h-screen pt-16 md:pt-0",
           sidebarCollapsed ? "md:ml-[72px]" : "md:ml-64"
         )}
       >

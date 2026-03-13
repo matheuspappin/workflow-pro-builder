@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyLowCredits } from '@/lib/whatsapp'
-import logger from '@/lib/logger';
+import logger from '@/lib/logger'
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin'
 
 export async function POST(request: NextRequest) {
+  const { isAdmin } = await checkSuperAdminDetailed();
+  if (!isAdmin) {
+    return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 403 });
+  }
+
   // Criar cliente com Service Role para ignorar RLS nas buscas administrativas
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

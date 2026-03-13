@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin';
+import { checkStudioAccess } from '@/lib/auth';
 
 /**
- * Verifica uma sessão de checkout do Stripe e atualiza o estúdio
- * Usado como fallback quando o webhook demora ou não chega (ex: localhost)
+ * Verifica uma sessão de checkout do Stripe e atualiza o estúdio.
+ * Usado como fallback quando o webhook demora ou não chega (ex: localhost).
+ * Requer: super_admin OU acesso ao studio da sessão (dono que acabou de pagar).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Session ID ausente' }, { status: 400 });
     }
 
-    // 1. Buscar sessão no Stripe
+    // 1. Buscar sessão no Stripe (precisamos do studio_id para auth)
     const stripe = getStripe();
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
@@ -32,6 +35,12 @@ export async function GET(request: NextRequest) {
     const isValidType = type === 'system_plan' || type === 'verticalization_plan';
     if (!isValidType || !invoice_id || !studio_id || !plan_id) {
       return NextResponse.json({ error: 'Metadados inválidos na sessão' }, { status: 400 });
+    }
+
+    const { isAdmin } = await checkSuperAdminDetailed();
+    if (!isAdmin) {
+      const access = await checkStudioAccess(request, studio_id);
+      if (!access.authorized) return access.response;
     }
 
     // 2. Verificar se já foi processado (evitar duplicidade)

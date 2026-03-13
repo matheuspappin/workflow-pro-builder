@@ -4,6 +4,7 @@ import { checkStudioAccess, allowInternalAiCall } from '@/lib/auth'
 import logger from '@/lib/logger'
 import { getNichePrompt, getContextTimestamp } from '@/lib/catarina'
 import { aiLearning } from '@/lib/actions/ai-learning'
+import { getCachedStudioContextFireProtection } from '@/lib/ai-context-cache'
 
 const CHECKLIST_PADRAO = [
   { title: 'Extintores dentro do prazo de validade', order_index: 0 },
@@ -500,12 +501,11 @@ export async function POST(request: NextRequest) {
       contextContent = 'Contexto indisponível.'
     }
 
-    const [trainingRes, learnedRes, rulesRes, modelSettingRes] = await Promise.all([
-      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'fire_protection').order('created_at', { ascending: false }).limit(6).then((r) => r, () => ({ data: [] as any[] })),
+    const [cached, learnedRes] = await Promise.all([
+      getCachedStudioContextFireProtection(contextStudioId),
       aiLearning.getLearnedKnowledge(contextStudioId, typeof message === 'string' ? message : (message?.content || '')).catch(() => []),
-      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'fire_protection').maybeSingle().then((r) => r, () => ({ data: null })),
-      supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', contextStudioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r, () => ({ data: null }))
     ])
+    const { trainingRes, rulesRes, modelSettingRes } = cached
     const trainingRows = trainingRes.data || []
     const fewShot = trainingRows.length > 0
       ? `\n--- EXEMPLOS ---\n${trainingRows.map((r: any) => `[U]: ${r.student_message}\n[IA]: ${r.ai_response}`).join('\n\n')}\n---\n`

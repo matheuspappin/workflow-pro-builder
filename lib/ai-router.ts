@@ -5,8 +5,10 @@
 
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger'
+import { getPlugin } from '@/lib/plugins'
+import type { NicheSlug } from '@/lib/plugins'
 
-export type NicheSlug = 'dance' | 'fire_protection' | 'agroflowai'
+export type { NicheSlug }
 
 /** Mapeamento niche (organization_settings) → slug da API */
 const NICHE_TO_SLUG: Record<string, NicheSlug> = {
@@ -16,11 +18,11 @@ const NICHE_TO_SLUG: Record<string, NicheSlug> = {
   environmental_compliance: 'agroflowai', // AgroFlow verticalização
 }
 
-/** Endpoints de IA por nicho - WhatsApp (atendimento ao público) e Chat (consultoria dono) */
+/** Endpoints de IA por nicho — lê de lib/plugins (single source of truth) */
 export const AI_ENDPOINTS: Record<NicheSlug, string> = {
-  dance: '/api/gemini',
-  fire_protection: '/api/fire-protection/ai/chat',
-  agroflowai: '/api/agroflowai/ai/chat',
+  dance: getPlugin('dance').aiEndpoint,
+  fire_protection: getPlugin('fire_protection').aiEndpoint,
+  agroflowai: getPlugin('agroflowai').aiEndpoint,
 }
 
 /** Regras padrão de assuntos por camada - admin vê tudo, outros têm restrições */

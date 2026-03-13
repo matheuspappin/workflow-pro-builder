@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/process-nfe-queue",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/fiscal-health",
+      "schedule": "0 8 * * *"
     }
   ],
   "framework": "nextjs",

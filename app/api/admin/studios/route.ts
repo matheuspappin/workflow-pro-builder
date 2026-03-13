@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import logger from '@/lib/logger';
+import logger from '@/lib/logger'
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { isAdmin } = await checkSuperAdminDetailed()
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
 
     const { data: studios, error } = await supabaseAdmin
@@ -34,11 +32,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { isAdmin } = await checkSuperAdminDetailed()
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
 
     const { id, status, plan, subscription_status, trial_ends_at } = await request.json()
@@ -66,11 +62,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { isAdmin } = await checkSuperAdminDetailed()
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -95,11 +89,9 @@ export async function DELETE(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { isAdmin } = await checkSuperAdminDetailed()
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
     }
 
     const { professionalId, studioId } = await request.json()

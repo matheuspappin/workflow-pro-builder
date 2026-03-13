@@ -2,20 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin';
+import { checkStudioAccess } from '@/lib/auth';
 
 /**
  * Cria uma sessão de checkout do Stripe para planos (Studio -> Plataforma)
  * Suporta: system_plans (global) e verticalization_plans (por vertical)
- * verticalizationSlug: quando informado, busca plano em verticalization_plans
+ * Requer: super_admin (painel admin) OU acesso ao studioId (dono/admin do studio).
  */
 export async function POST(req: NextRequest) {
   try {
-    const { planId, studioId, success_url, cancel_url, verticalizationSlug } = await req.json();
-
+    const body = await req.json();
+    const { planId, studioId } = body;
     if (!planId || !studioId) {
       return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
     }
 
+    const { isAdmin } = await checkSuperAdminDetailed();
+    if (!isAdmin) {
+      const access = await checkStudioAccess(req, studioId);
+      if (!access.authorized) return access.response;
+    }
+
+    const { success_url, cancel_url, verticalizationSlug, billingInterval = 'monthly' } = body;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
     const defaultSuccess = `${baseUrl}/dashboard/configuracoes?success=true&session_id={CHECKOUT_SESSION_ID}`;
     const defaultCancel = `${baseUrl}/dashboard/configuracoes?canceled=true`;
@@ -49,7 +58,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Plano não encontrado nesta verticalização' }, { status: 404 });
       }
 
-      plan = { id: vPlan.plan_id, name: vPlan.name, price: parseFloat(vPlan.price), description: vPlan.description };
+      const vPrice = billingInterval === 'yearly' && vPlan.price_annual
+        ? parseFloat(vPlan.price_annual)
+        : parseFloat(vPlan.price);
+      plan = { id: vPlan.plan_id, name: vPlan.name, price: vPrice, description: vPlan.description };
       planType = 'verticalization_plan';
       verticalizationPlanId = vPlan.id;
     } else {
@@ -63,7 +75,10 @@ export async function POST(req: NextRequest) {
       if (planError || !sp) {
         return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 });
       }
-      plan = { id: sp.id, name: sp.name, price: parseFloat(sp.price), description: sp.description };
+      const spPrice = billingInterval === 'yearly' && sp.price_annual
+        ? parseFloat(sp.price_annual)
+        : parseFloat(sp.price);
+      plan = { id: sp.id, name: sp.name, price: spPrice, description: sp.description };
     }
 
     // Criar fatura pendente
@@ -91,20 +106,22 @@ export async function POST(req: NextRequest) {
       studio_id: studioId,
       plan_id: plan.id,
       type: planType,
+      billing_interval: billingInterval,
     };
     if (verticalizationPlanId) {
       metadata.verticalization_plan_id = verticalizationPlanId;
     }
 
+    const planLabel = billingInterval === 'yearly' ? `${plan.name} (Anual)` : plan.name;
     const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'pix'],
       line_items: [
         {
           price_data: {
             currency: 'brl',
             product_data: {
-              name: `Plano ${plan.name} - Workflow AI`,
+              name: `Plano ${planLabel} - Workflow AI`,
               description: plan.description || '',
             },
             unit_amount: Math.round(plan.price * 100),

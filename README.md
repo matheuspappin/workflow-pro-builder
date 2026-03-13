@@ -799,6 +799,8 @@ CMD ["npm", "start"]
 - **[Partner Setup](./docs/partners.md)**: Configurar parceiros
 - **[AI Integration](./docs/ai-integration.md)**: Configurar IA
 - **[Payment Setup](./docs/payments.md)**: Configurar pagamentos
+- **[Payment Gateway (PIX)](./docs/PAYMENT-GATEWAY.md)**: Stripe PIX, Asaas/Pagar.me (futuro)
+- **[Plugin Architecture](./docs/PLUGIN-ARCHITECTURE.md)**: Verticalizações por nicho (dance, fire_protection, agroflowai)
 
 ### Código e Contribuição
 - **[Contributing Guide](./CONTRIBUTING.md)**: Como contribuir

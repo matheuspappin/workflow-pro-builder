@@ -315,19 +315,24 @@ export async function POST(request: NextRequest) {
 
     // 5. Construir Resposta Final
     // Agent log removed for production safety
+    const userPayload: Record<string, unknown> = {
+      id: authData.user.id,
+      name: profile.name,
+      email: profile.email,
+      role: userRole,
+      studio_id: profile.studio_id,
+      studioName: studio?.name || "Workflow Studio",
+      studioSlug: studio?.slug || "",
+      plan: studio?.plan || "gratuito",
+      professionalType: profile.professional_type || null,
+    };
+    // Afiliados/parceiros: incluir partnerId para criar ecossistemas e exibir comissão
+    if (profileResult.table === 'partners' && profile.id) {
+      userPayload.partnerId = profile.id;
+    }
     const responseData = {
       success: true,
-      user: {
-        id: authData.user.id,
-        name: profile.name,
-        email: profile.email,
-        role: userRole,
-        studio_id: profile.studio_id,
-        studioName: studio?.name || "Workflow Studio",
-        studioSlug: studio?.slug || "",
-        plan: studio?.plan || "gratuito",
-        professionalType: profile.professional_type || null,
-      },
+      user: userPayload,
       session: authData.session,
       // Adiciona flag para redirecionar para a página de join no front-end, se necessário
       redirectToJoin: (userRole === 'engineer' || userRole === 'architect' || userRole === 'teacher' || userRole === 'professional') && !profile.studio_id && requestStudioSlug

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getStripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
+import { processAffiliateCommission } from '@/lib/actions/affiliate-commission';
 
 const CheckoutMetadataSchema = z.object({
   type: z.enum(['system_plan', 'verticalization_plan', 'service_order', 'package', 'pos_sale', 'student_payment']),
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       }
 
       const { invoice_id, type, studio_id, student_id, plan_id, verticalization_plan_id } = metadataParse.data;
+      const billingInterval = (metadata?.billing_interval as string) || 'monthly';
 
       if (type === 'system_plan' || type === 'verticalization_plan') {
           logger.info(`✅ Pagamento de plano concluído: estúdio ${studio_id}, plano ${plan_id} (${type})`);
@@ -63,6 +65,7 @@ export async function POST(req: NextRequest) {
             p_invoice_id: invoice_id,
             p_plan_id: plan_id ?? '',
             p_studio_id: studio_id,
+            p_billing_interval: billingInterval,
           };
           if (verticalization_plan_id) {
             rpcParams.p_verticalization_plan_id = verticalization_plan_id;
@@ -70,6 +73,13 @@ export async function POST(req: NextRequest) {
           const { error: rpcError } = await supabaseAdmin.rpc('mark_studio_invoice_as_paid', rpcParams);
           if (rpcError) {
             logger.error(`Erro ao processar pagamento de plano via webhook:`, rpcError);
+          }
+          // Revenue share: comissão de afiliado quando estúdio indicado paga plano
+          const amountBrl = session.amount_total ? session.amount_total / 100 : 0;
+          if (amountBrl > 0) {
+            processAffiliateCommission(studio_id, invoice_id, amountBrl, session.id).catch((e) =>
+              logger.error('[WEBHOOK] Erro ao processar comissão afiliado:', e)
+            );
           }
       }
       else if (type === 'service_order') {

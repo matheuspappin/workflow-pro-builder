@@ -61,6 +61,7 @@ export default function PlanosPage() {
   const [loadingPlans, setLoadingPlans] = useState(false)
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [selectedNewPlan, setSelectedNewPlan] = useState<string | null>(null)
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
   const [isSyncingFromInvoice, setIsSyncingFromInvoice] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -262,6 +263,7 @@ export default function PlanosPage() {
           success_url: successUrl,
           cancel_url: cancelUrl,
           verticalizationSlug: VERTICALIZATION_SLUG,
+          billingInterval,
         }),
       })
       const data = await response.json()
@@ -531,6 +533,23 @@ export default function PlanosPage() {
             </DialogDescription>
           </DialogHeader>
 
+          <div className="flex justify-center gap-2 py-4">
+            <Button
+              variant={billingInterval === "monthly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setBillingInterval("monthly")}
+            >
+              Mensal
+            </Button>
+            <Button
+              variant={billingInterval === "yearly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setBillingInterval("yearly")}
+            >
+              Anual (2 meses grátis)
+            </Button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 py-6">
             {loadingPlans ? (
               <div className="col-span-full py-10 text-center">
@@ -559,9 +578,20 @@ export default function PlanosPage() {
                     <div className="mb-4">
                       <h4 className="font-bold text-lg uppercase">{plan.name}</h4>
                       <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-2xl font-bold">R$ {Number(plan.price).toFixed(0)}</span>
-                        <span className="text-xs text-slate-500">/mês</span>
+                        <span className="text-2xl font-bold">
+                          R$ {billingInterval === "yearly" && plan.price_annual
+                            ? Number(plan.price_annual).toFixed(0)
+                            : Number(plan.price).toFixed(0)}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {billingInterval === "yearly" ? "/ano" : "/mês"}
+                        </span>
                       </div>
+                      {billingInterval === "yearly" && plan.price_annual && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                          Economize {plan.annual_discount_percent ?? 17}%
+                        </p>
+                      )}
                     </div>
                     <ul className="space-y-2 text-xs flex-1">
                       <li className="flex items-center gap-2">

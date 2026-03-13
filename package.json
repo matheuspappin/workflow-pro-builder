@@ -19,7 +19,11 @@
     "db:test-chat": "node test-chat-context.js",
     "db:test-chat-improvements": "node test-chat-improvements.js",
     "db:seed": "node -e \"require('./config/supabase').initializeDefaultData().then(() => console.log('✅ Seed completado'))\"",
-    "fiscal:generate-key": "node scripts/generate-fiscal-key.cjs"
+    "fiscal:generate-key": "node scripts/generate-fiscal-key.cjs",
+    "migrate:122": "node scripts/apply-migration.js 122_lgpd_studio_data_purge.sql",
+    "migrate:123": "node scripts/apply-migration.js 123_affiliate_commissions.sql",
+    "migrate:124": "node scripts/apply-migration.js 124_annual_plans.sql",
+    "migrate:125": "node scripts/apply-migration.js 125_system_modules_annual.sql"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

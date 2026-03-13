@@ -310,6 +310,7 @@ function SettingsContent() {
 
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [selectedNewPlan, setSelectedNewPlan] = useState<string | null>(null)
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
   const [systemPlans, setSystemPlans] = useState<any[]>([])
   const [loadingSystemPlans, setLoadingSystemPlans] = useState(false)
 
@@ -2595,6 +2596,23 @@ function SettingsContent() {
             </DialogDescription>
           </DialogHeader>
 
+          <div className="flex justify-center gap-2 py-4">
+            <Button
+              variant={billingInterval === "monthly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setBillingInterval("monthly")}
+            >
+              Mensal
+            </Button>
+            <Button
+              variant={billingInterval === "yearly" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setBillingInterval("yearly")}
+            >
+              Anual (2 meses grátis)
+            </Button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 py-6">
             {loadingSystemPlans ? (
               <div className="col-span-full py-10 text-center">
@@ -2615,9 +2633,18 @@ function SettingsContent() {
                   <div className="mb-4">
                     <h4 className="font-bold text-lg uppercase">{plan.name}</h4>
                     <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-2xl font-bold">R$ {Number(plan.price).toFixed(0)}</span>
-                      <span className="text-xs text-muted-foreground">/mês</span>
+                      <span className="text-2xl font-bold">
+                        R$ {billingInterval === "yearly" && plan.price_annual
+                          ? Number(plan.price_annual).toFixed(0)
+                          : Number(plan.price).toFixed(0)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {billingInterval === "yearly" ? "/ano" : "/mês"}
+                      </span>
                     </div>
+                    {billingInterval === "yearly" && plan.price_annual && (
+                      <p className="text-[10px] text-emerald-600 mt-0.5">Economize {plan.annual_discount_percent ?? 17}%</p>
+                    )}
                   </div>
 
                   <ul className="space-y-2 text-xs flex-1">
@@ -2709,7 +2736,8 @@ function SettingsContent() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       planId: selectedNewPlan,
-                      studioId: userData.studio_id
+                      studioId: userData.studio_id,
+                      billingInterval,
                     })
                   });
 

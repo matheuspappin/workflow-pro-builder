@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStudentsData, getTeachersData, getFinancialData, getClassesData, getLeadsData, getInventoryData } from '@/lib/supabase'
+import { getCachedStudioContextDance } from '@/lib/ai-context-cache'
 import { supabase } from '@/lib/supabase'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import logger from '@/lib/logger'
@@ -72,16 +73,20 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey) return NextResponse.json({ error: 'Chave API não configurada' }, { status: 500 })
 
-    // 1. CARREGAR CONTEXTO (paralelo: relatório, treinamento, learned knowledge, regras, modelo, CRM, estoque)
-    const [reportRes, trainingRes, learnedRes, rulesRes, modelSettingRes, leadsData, invData] = await Promise.all([
-      supabase.from('studio_ai_reports').select('content, created_at').eq('studio_id', studioId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabaseAdmin.from('ai_training_conversations').select('student_message, ai_response').eq('niche', 'dance').order('created_at', { ascending: false }).limit(8).then((r) => r, () => ({ data: [] as any[] })),
+    // 1. CARREGAR CONTEXTO — cache Redis para report/training/rules/leads/inv (1h TTL)
+    // learnedKnowledge NÃO cacheado (depende da mensagem do usuário)
+    const [cached, learnedRes] = await Promise.all([
+      studioId !== "00000000-0000-0000-0000-000000000000" ? getCachedStudioContextDance(studioId) : Promise.resolve({
+        reportRes: { data: null },
+        trainingRes: { data: [] },
+        rulesRes: { data: null },
+        modelSettingRes: { data: null },
+        leadsData: { total: 0, byStage: {}, recent: [] },
+        invData: { totalProducts: 0, totalItems: 0, totalValue: 0, products: [], lowStock: [] },
+      }),
       studioId !== "00000000-0000-0000-0000-000000000000" ? aiLearning.getLearnedKnowledge(studioId, message).catch(() => []) : Promise.resolve([]),
-      supabaseAdmin.from('niche_ai_rules').select('rules_text').eq('niche', 'dance').maybeSingle().then((r) => r, () => ({ data: null })),
-      studioId !== "00000000-0000-0000-0000-000000000000" ? supabaseAdmin.from('studio_settings').select('setting_value').eq('studio_id', studioId).eq('setting_key', 'ai_model').maybeSingle().then((r) => r, () => ({ data: null })) : Promise.resolve({ data: null }),
-      getLeadsData(studioId),
-      getInventoryData(studioId)
     ])
+    const { reportRes, trainingRes, rulesRes, modelSettingRes, leadsData, invData } = cached
 
     const latestReport = reportRes?.data
     let contextContent = latestReport?.content || ""

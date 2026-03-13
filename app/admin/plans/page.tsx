@@ -476,17 +476,75 @@ export default function AdminPlansPage() {
                         <Input 
                           id={`price-${module.id}`}
                           type="number"
+                          step="0.01"
+                          min="0"
                           value={module.price}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            // Atualização otimista local
+                            const val = parseFloat(e.target.value) || 0;
                             setModules(prev => prev.map(m => m.id === module.id ? { ...m, price: val } : m))
                           }}
-                          onBlur={(e) => handleModuleUpdate(module.id, { price: parseFloat(e.target.value) })}
+                          onBlur={(e) => handleModuleUpdate(module.id, { price: parseFloat(e.target.value) || 0 })}
                           className="pl-10 font-bold"
                         />
                       </div>
                     </div>
+                    {Number(module.price) > 0 && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor={`price-annual-${module.id}`} className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                            Preço Anual (R$) — opcional
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                            <Input 
+                              id={`price-annual-${module.id}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={module.price_annual ?? ''}
+                              placeholder="Auto: mensal × 12 com desconto"
+                              onChange={(e) => {
+                                const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                setModules(prev => prev.map(m => m.id === module.id ? { ...m, price_annual: val } : m))
+                              }}
+                              onBlur={(e) => {
+                                const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                handleModuleUpdate(module.id, { price_annual: val })
+                              }}
+                              className="pl-10 font-bold"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`annual-discount-${module.id}`} className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                            Desconto Anual (%)
+                          </Label>
+                          <Input 
+                            id={`annual-discount-${module.id}`}
+                            type="number"
+                            min={0}
+                            max={50}
+                            value={module.annual_discount_percent ?? 17}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 17;
+                              setModules(prev => prev.map(m => m.id === module.id ? { ...m, annual_discount_percent: val } : m))
+                            }}
+                            onBlur={(e) => handleModuleUpdate(module.id, { annual_discount_percent: parseInt(e.target.value) || 17 })}
+                            className="font-bold"
+                          />
+                          <p className="text-xs text-slate-500">
+                            Ex: 17% ≈ 2 meses grátis. Se Preço Anual vazio, usa: mensal × 12 × (1 - desconto/100)
+                          </p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50">
+                          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                            Anual: R$ {(module.price_annual ?? 
+                              (Number(module.price) * 12 * (1 - (module.annual_discount_percent ?? 17) / 100))
+                            ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/ano
+                          </p>
+                        </div>
+                      </>
+                    )}
                     <div className="pt-2">
                       <p className="text-xs text-slate-500 mb-2">Recursos:</p>
                       <div className="flex flex-wrap gap-1">

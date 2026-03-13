@@ -14,6 +14,9 @@ export const cacheKeys = {
   studioContext: (studioId: string) =>
     `studio_ctx:${studioId}`,
 
+  studioContextByNiche: (studioId: string, niche: string) =>
+    `studio_ctx:${studioId}:${niche}`,
+
   availability: (studioId: string, date: string, professionalId?: string) =>
     `avail:${studioId}:${date}${professionalId ? `:${professionalId}` : ''}`,
 

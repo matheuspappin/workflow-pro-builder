@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import logger from '@/lib/logger';
+import { checkSuperAdminDetailed } from '@/lib/actions/super-admin';
 
 /**
  * Sincroniza o plano do estúdio a partir da última fatura paga.
  * Útil quando o webhook/verify falharam e o plano exibido não corresponde às faturas.
+ * Requer super_admin.
  */
 export async function POST(req: NextRequest) {
   try {
+    const { isAdmin } = await checkSuperAdminDetailed();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
+    }
+
     const { studioId } = await req.json();
 
     if (!studioId) {

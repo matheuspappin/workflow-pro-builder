@@ -28,6 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_deletion_requests_scheduled ON studio_data_deleti
 
 ALTER TABLE studio_data_deletion_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "deletion_requests_admin_only" ON studio_data_deletion_requests;
 CREATE POLICY "deletion_requests_admin_only" ON studio_data_deletion_requests
   FOR ALL USING (is_super_admin());
 
@@ -71,16 +72,17 @@ BEGIN
 
   -- 4. Anonimizar interações de AI (manter para métricas agregadas - Art. 16, IV)
   -- Remove conteúdo das mensagens mas mantém metadata de contagem
+  -- Colunas: message, ai_response (schema ai_interactions)
   UPDATE ai_interactions
   SET
-    user_message = '[REMOVIDO - LGPD Art.16]',
+    message = '[REMOVIDO - LGPD Art.16]',
     ai_response = '[REMOVIDO - LGPD Art.16]',
-    metadata = jsonb_build_object(
+    action_data = COALESCE(action_data, '{}'::jsonb) || jsonb_build_object(
       'anonymized_at', NOW(),
       'reason', 'studio_churned_lgpd_art16'
     )
   WHERE studio_id = p_studio_id
-    AND user_message != '[REMOVIDO - LGPD Art.16]';
+    AND message != '[REMOVIDO - LGPD Art.16]';
   GET DIAGNOSTICS v_anonymized_interactions = ROW_COUNT;
 
   -- 5. Construir log de auditoria imutável
