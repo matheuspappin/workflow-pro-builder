@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Eye, EyeOff, Loader2, ArrowLeft, Check, ShieldCheck, FireExtinguisher } from "lucide-react"
+import { Sparkles, Eye, EyeOff, Loader2, ArrowLeft, Check, ShieldCheck, FireExtinguisher, Mail, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
@@ -41,6 +41,63 @@ export default function StudioStudentRegister() {
     birthDate: "",
     address: ""
   })
+  const [isEmailVerified, setIsEmailVerified] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
+  const [verificationCode, setVerificationCode] = useState("")
+  const [isSendingCode, setIsSendingCode] = useState(false)
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false)
+
+  const handleSendCode = async () => {
+    if (!formData.email || !formData.email.includes("@")) {
+      toast({ title: "E-mail inválido", description: "Preencha seu e-mail para receber o código.", variant: "destructive" })
+      return
+    }
+    setIsSendingCode(true)
+    try {
+      const response = await fetch("/api/auth/verify-email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setCodeSent(true)
+        toast({ title: "Código enviado!", description: "Verifique seu e-mail." })
+      } else {
+        toast({ title: "Erro ao enviar código", description: data.error, variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" })
+    } finally {
+      setIsSendingCode(false)
+    }
+  }
+
+  const handleVerifyCode = async () => {
+    if (verificationCode.length !== 6) {
+      toast({ title: "Código inválido", description: "O código deve ter 6 dígitos.", variant: "destructive" })
+      return
+    }
+    setIsVerifyingCode(true)
+    try {
+      const response = await fetch("/api/auth/verify-email/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, code: verificationCode }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setIsEmailVerified(true)
+        toast({ title: "E-mail verificado!" })
+      } else {
+        toast({ title: "Código incorreto", description: data.error || "Código inválido ou expirado.", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" })
+    } finally {
+      setIsVerifyingCode(false)
+    }
+  }
 
   useEffect(() => {
     async function loadStudio() {
@@ -66,6 +123,10 @@ export default function StudioStudentRegister() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isEmailVerified) {
+      toast({ title: "E-mail não verificado", description: "Verifique seu e-mail antes de continuar.", variant: "destructive" })
+      return
+    }
 
     // Validar força da senha
     const strength = checkPasswordStrength(formData.password)
@@ -219,19 +280,76 @@ export default function StudioStudentRegister() {
                   className={isFire ? "bg-slate-800 border-white/10 text-white focus:border-red-600" : ""}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className={isFire ? "text-slate-300" : ""}>Email</Label>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="email" className={cn("flex items-center gap-2", isFire ? "text-slate-300" : "")}>
+                  Email
+                  {isEmailVerified && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                </Label>
+                <div className="flex gap-2">
                   <Input
                     id="email"
                     type="email"
                     placeholder="seu@email.com"
                     value={formData.email || ""}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value })
+                      if (e.target.value !== formData.email) {
+                        setIsEmailVerified(false)
+                        setCodeSent(false)
+                        setVerificationCode("")
+                      }
+                    }}
                     required
-                    className={isFire ? "bg-slate-800 border-white/10 text-white focus:border-red-600" : ""}
+                    className={cn("flex-1", isFire ? "bg-slate-800 border-white/10 text-white focus:border-red-600" : "")}
+                    disabled={codeSent && !isEmailVerified}
                   />
+                  {!codeSent ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendCode}
+                      disabled={isSendingCode || !formData.email?.includes("@")}
+                      className={cn("shrink-0", isFire ? "border-white/10 text-white hover:bg-red-600/20" : "")}
+                    >
+                      {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                      <span className="ml-1.5 hidden sm:inline">{isSendingCode ? "..." : "Enviar código"}</span>
+                    </Button>
+                  ) : null}
                 </div>
+                {codeSent && !isEmailVerified && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="000000"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className={cn("w-32 text-center text-lg tracking-[0.5em] font-mono", isFire ? "bg-slate-800 border-white/10 text-white" : "")}
+                      />
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={handleVerifyCode}
+                        disabled={isVerifyingCode || verificationCode.length !== 6}
+                        className={isFire ? "bg-red-600 hover:bg-red-700" : ""}
+                      >
+                        {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verificar"}
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSendCode()}
+                      disabled={isSendingCode}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      {isSendingCode ? "Enviando..." : "Reenviar código"}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="birthDate" className={isFire ? "text-slate-300" : ""}>Data de Nascimento</Label>
                   <Input
@@ -307,7 +425,7 @@ export default function StudioStudentRegister() {
                   "w-full h-12 font-bold",
                   isFire ? "bg-red-600 hover:bg-red-700 text-white" : "bg-indigo-600 hover:bg-indigo-700"
                 )} 
-                disabled={isLoading}
+                disabled={isLoading || !isEmailVerified}
               >
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Criar Minha Conta"}
               </Button>

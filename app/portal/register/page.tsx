@@ -2,18 +2,20 @@
 
 import React, { Suspense, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Eye, EyeOff, Loader2, Check, GraduationCap, User, ArrowLeft, Mail } from "lucide-react"
+import { Eye, EyeOff, Loader2, GraduationCap, User, ArrowLeft, Mail, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
 import { validateCPF } from "@/lib/validation-utils"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 function PortalRegisterContent() {
   const router = useRouter()
@@ -36,7 +38,7 @@ function PortalRegisterContent() {
     confirmPassword: "",
   })
 
-  const [isEmailVerified, setIsEmailVerified] = useState(true)
+  const [isEmailVerified, setIsEmailVerified] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [isSendingCode, setIsSendingCode] = useState(false)
@@ -109,13 +111,10 @@ function PortalRegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validar e-mail verificado (Desativado para testes)
-    /*
     if (!isEmailVerified) {
-      toast({ title: "Verifique seu e-mail primeiro", variant: "destructive" })
+      toast({ title: language === 'pt' ? "Verifique seu e-mail primeiro" : "Verify your email first", variant: "destructive" })
       return
     }
-    */
 
     if (!validateCPF(formData.taxId)) {
       toast({ title: language === 'pt' ? "CPF inválido" : "Invalid CPF", variant: "destructive" })
@@ -164,18 +163,18 @@ function PortalRegisterContent() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
-        <Card className="w-full max-w-md border-none shadow-2xl text-center p-8 space-y-6">
-          <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto">
-            <Mail className="w-10 h-10 text-emerald-600" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <Card className="w-full max-w-md border-border shadow-lg text-center p-8 space-y-6">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+            <Mail className="w-10 h-10 text-primary" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-black">{language === 'pt' ? "Quase lá!" : "Almost there!"}</h2>
-            <p className="text-slate-500">
+            <h2 className="text-2xl font-bold text-card-foreground">{language === 'pt' ? "Quase lá!" : "Almost there!"}</h2>
+            <p className="text-muted-foreground">
               {language === 'pt' ? "Sua solicitação de cadastro foi recebida com sucesso." : "Your registration request has been successfully received."}
             </p>
           </div>
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl text-sm text-indigo-900 dark:text-indigo-100 font-medium">
+          <div className="bg-primary/10 border border-primary/20 p-4 rounded-2xl text-sm text-foreground font-medium">
             {language === 'pt' ? (
               <>Você receberá um <strong>link de ativação</strong> no seu e-mail assim que seu cadastro for aprovado.</>
             ) : (
@@ -183,7 +182,7 @@ function PortalRegisterContent() {
             )}
           </div>
           <Link href="/portal/login" className="block">
-            <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 rounded-xl">
+            <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 rounded-xl">
               {language === 'pt' ? "Voltar para o Login" : "Back to Login"}
             </Button>
           </Link>
@@ -193,38 +192,39 @@ function PortalRegisterContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative">
       <div className="absolute top-4 right-4 z-50">
         <LanguageSwitcher showIcon />
       </div>
       <div className="w-full max-w-md space-y-8 my-8">
         <div className="text-center space-y-2">
           <Link href="/portal" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center overflow-hidden">
+              <Image src={OFFICIAL_LOGO} alt="AKAAI" width={24} height={24} className="w-6 h-6 object-contain" />
             </div>
-            <span className="text-2xl font-black tracking-tighter">
-              <span className="text-indigo-600">Portal</span>
+            <span className="text-xl font-bold text-foreground">
+              AKAAI <span className="text-primary">CORE</span>
             </span>
           </Link>
-          <h1 className="text-xl font-bold">{language === 'pt' ? "Criar minha conta" : "Create my account"}</h1>
+          <h1 className="text-xl font-bold text-foreground">{language === 'pt' ? "Criar minha conta" : "Create my account"}</h1>
+          <p className="text-sm text-muted-foreground">Portal</p>
         </div>
 
-        <Card className="border-none shadow-2xl">
+        <Card className="border-border shadow-lg">
           <CardHeader className="pb-4">
             <div className="flex justify-center mb-4">
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full">
+              <div className="flex bg-muted p-1 rounded-xl w-full">
                 <button 
                   type="button"
                   onClick={() => setRole('client')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${role === 'client' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${role === 'client' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   <User className="w-3 h-3" /> {vocabulary.client}
                 </button>
                 <button 
                   type="button"
                   onClick={() => setRole('professional')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${role === 'professional' ? 'bg-white dark:bg-slate-700 shadow-sm text-violet-600' : 'text-slate-500'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${role === 'professional' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   <GraduationCap className="w-3 h-3" /> {vocabulary.provider}
                 </button>
@@ -241,7 +241,7 @@ function PortalRegisterContent() {
                   value={formData.name || ""}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  className="bg-slate-50 dark:bg-slate-900"
+                  className="bg-background h-11"
                 />
               </div>
 
@@ -253,21 +253,78 @@ function PortalRegisterContent() {
                   value={formData.taxId || ""}
                   onChange={(e) => setFormData({ ...formData, taxId: formatCPF(e.target.value) })}
                   required
-                  className="bg-slate-50 dark:bg-slate-900"
+                  className="bg-background h-11"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">{t.auth.register.emailOrPhone}</Label>
-                <Input
-                  id="email"
-                  type="text"
-                  placeholder={t.auth.register.emailPlaceholder}
-                  value={formData.email || ""}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  className="bg-slate-50 dark:bg-slate-900 h-12"
-                />
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  {t.auth.register.emailOrPhone}
+                  {isEmailVerified && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder={t.auth.register.emailPlaceholder}
+                    value={formData.email || ""}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value })
+                      if (e.target.value !== formData.email) {
+                        setIsEmailVerified(false)
+                        setCodeSent(false)
+                        setVerificationCode("")
+                      }
+                    }}
+                    required
+                    className="bg-background h-11 flex-1"
+                    disabled={codeSent && !isEmailVerified}
+                  />
+                  {!codeSent ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendCode}
+                      disabled={isSendingCode || !formData.email?.includes("@")}
+                      className="h-11 shrink-0"
+                    >
+                      {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                      <span className="ml-1.5 hidden sm:inline">{isSendingCode ? "..." : language === 'pt' ? "Enviar código" : "Send code"}</span>
+                    </Button>
+                  ) : null}
+                </div>
+                {codeSent && !isEmailVerified && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="000000"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="bg-background h-11 w-32 text-center text-lg tracking-[0.5em] font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={handleVerifyCode}
+                        disabled={isVerifyingCode || verificationCode.length !== 6}
+                        className="h-11"
+                      >
+                        {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'pt' ? "Verificar" : "Verify")}
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSendCode()}
+                      disabled={isSendingCode}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      {isSendingCode ? "..." : (language === 'pt' ? "Reenviar código" : "Resend code")}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -278,7 +335,7 @@ function PortalRegisterContent() {
                   value={formData.phone || ""}
                   onChange={handlePhoneChange}
                   required
-                  className="bg-slate-50 dark:bg-slate-900"
+                  className="bg-background h-11"
                 />
               </div>
 
@@ -292,9 +349,9 @@ function PortalRegisterContent() {
                       value={formData.password || ""}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       required
-                      className="bg-slate-50 dark:bg-slate-900 pr-10"
+                      className="bg-background h-11 pr-10"
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -307,7 +364,7 @@ function PortalRegisterContent() {
                     value={formData.confirmPassword || ""}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                     required
-                    className="bg-slate-50 dark:bg-slate-900"
+                    className="bg-background h-11"
                   />
                 </div>
               </div>
@@ -318,7 +375,7 @@ function PortalRegisterContent() {
 
               <Button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black h-12 rounded-xl mt-4"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 rounded-xl mt-4"
                 disabled={isLoading || !isEmailVerified}
               >
                 {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : (language === 'pt' ? "Solicitar Cadastro" : "Request Registration")}
@@ -326,14 +383,14 @@ function PortalRegisterContent() {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 {language === 'pt' ? "Já tem conta? " : "Already have an account? "}
-                <Link href={`/portal/login?${searchParams.get('returnTo') ? `returnTo=${encodeURIComponent(searchParams.get('returnTo') as string)}` : ''}`} className="text-indigo-600 font-bold hover:underline">{t.auth.login.submit}</Link>
+                <Link href={`/portal/login?${searchParams.get('returnTo') ? `returnTo=${encodeURIComponent(searchParams.get('returnTo') as string)}` : ''}`} className="text-primary font-bold hover:underline">{t.auth.login.submit}</Link>
               </p>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
-              <Link href="/portal/affiliate/register" className="text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+            <div className="mt-6 pt-4 border-t border-border text-center">
+              <Link href="/portal/affiliate/register" className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
                 {language === 'pt' ? "Quer ser um parceiro? " : "Want to be a partner? "}
                 <span className="underline">{language === 'pt' ? "Cadastre-se como afiliado" : "Register as an affiliate"}</span>
               </Link>
@@ -341,7 +398,7 @@ function PortalRegisterContent() {
           </CardContent>
         </Card>
 
-        <Link href="/portal" className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-indigo-600 transition-colors">
+        <Link href="/portal" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" /> {language === 'pt' ? "Voltar" : "Back"}
         </Link>
       </div>
@@ -351,7 +408,7 @@ function PortalRegisterContent() {
 
 export default function PortalRegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
       <PortalRegisterContent />
     </Suspense>
   )

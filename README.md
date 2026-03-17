@@ -742,7 +742,12 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 WEBHOOK_WHATSAPP_SECRET=seu-secret
 EVOLUTION_WEBHOOK_SECRET=seu-secret
 
-# Email
+# Email (Resend recomendado - domínio verificado)
+RESEND_API_KEY=re_...
+EMAIL_SENDER_ADDRESS=noreply@seudominio.com
+EMAIL_SENDER_NAME=Workflow AI
+
+# Alternativa: SMTP (Gmail, etc.)
 EMAIL_SMTP_HOST=smtp.gmail.com
 EMAIL_SMTP_PORT=587
 EMAIL_SMTP_USER=seu@email.com

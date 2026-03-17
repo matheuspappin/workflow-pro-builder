@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Eye, EyeOff, Loader2, Check, GraduationCap, User, Building2, Package, Minus, Plus } from "lucide-react"
+import { Sparkles, Eye, EyeOff, Loader2, Check, GraduationCap, User, Building2, Package, Minus, Plus, Mail, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
@@ -210,7 +210,7 @@ function RegisterContent() {
     address: "",
   })
   const [taxIdType, setTaxIdType] = useState<'cpf' | 'cnpj'>('cpf')
-  const [isEmailVerified, setIsEmailVerified] = useState(true)
+  const [isEmailVerified, setIsEmailVerified] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [isSendingCode, setIsSendingCode] = useState(false)
@@ -339,8 +339,6 @@ function RegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validar e-mail verificado (Desativado para testes)
-    /*
     if (!isEmailVerified) {
       toast({
         title: "E-mail não verificado",
@@ -349,7 +347,6 @@ function RegisterContent() {
       })
       return
     }
-    */
 
     // Validar CPF/CNPJ
     const isValidTaxId = role === 'admin' 
@@ -654,16 +651,73 @@ function RegisterContent() {
                   </div>
 
                   <div className="space-y-2 col-span-1 md:col-span-2">
-                    <Label htmlFor="email">{v(t.auth.register.emailOrPhone)}</Label>
-                    <Input
-                      id="email"
-                      type="text"
-                      placeholder={v(t.auth.register.emailPlaceholder)}
-                      value={formData.email || ""}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                      className="bg-background h-11"
-                    />
+                    <Label htmlFor="email" className="flex items-center gap-2">
+                      {v(t.auth.register.emailOrPhone)}
+                      {isEmailVerified && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder={v(t.auth.register.emailPlaceholder)}
+                        value={formData.email || ""}
+                        onChange={(e) => {
+                          setFormData({ ...formData, email: e.target.value })
+                          if (e.target.value !== formData.email) {
+                            setIsEmailVerified(false)
+                            setCodeSent(false)
+                            setVerificationCode("")
+                          }
+                        }}
+                        required
+                        className="bg-background h-11 flex-1"
+                        disabled={codeSent && !isEmailVerified}
+                      />
+                      {!codeSent ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSendCode}
+                          disabled={isSendingCode || !formData.email?.includes("@")}
+                          className="h-11 shrink-0"
+                        >
+                          {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                          <span className="ml-1.5 hidden sm:inline">{isSendingCode ? "..." : "Enviar código"}</span>
+                        </Button>
+                      ) : null}
+                    </div>
+                    {codeSent && !isEmailVerified && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            placeholder="000000"
+                            maxLength={6}
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            className="bg-background h-11 w-32 text-center text-lg tracking-[0.5em] font-mono"
+                          />
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={handleVerifyCode}
+                            disabled={isVerifyingCode || verificationCode.length !== 6}
+                            className="h-11"
+                          >
+                            {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verificar"}
+                          </Button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSendCode()}
+                          disabled={isSendingCode}
+                          className="text-xs text-muted-foreground hover:text-foreground underline"
+                        >
+                          {isSendingCode ? "Enviando..." : "Reenviar código"}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">

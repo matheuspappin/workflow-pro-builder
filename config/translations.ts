@@ -871,7 +871,7 @@ export const translations = {
         benefit3: "Suporte especializado",
         benefit4: "Tecnologia White-label",
         activeCompanies: "+500 {establishments} ativas",
-        businessOwner: "Dono de {establishment} / Gestor",
+        businessOwner: "Proprietário ou Gestor",
         clientStudent: "{client}",
         professional: "{provider}",
         fullName: "Nome Completo",

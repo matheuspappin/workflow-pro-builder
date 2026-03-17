@@ -2,18 +2,20 @@
 
 import React, { Suspense, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Eye, EyeOff, Loader2, ArrowLeft, User, GraduationCap, FireExtinguisher, Shield, ClipboardCheck } from "lucide-react"
+import { Eye, EyeOff, Loader2, ArrowLeft, User, GraduationCap, FireExtinguisher, Shield, ClipboardCheck } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import { useOrganization } from "@/components/providers/organization-provider"
 import logger from "@/lib/logger"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 function PortalLoginContent() {
   const router = useRouter()
@@ -23,10 +25,6 @@ function PortalLoginContent() {
   const { toast } = useToast()
   
   const isFireProtection = niche === 'fire_protection' || searchParams.get('niche') === 'fire_protection'
-  const themeColor = isFireProtection ? "red-600" : "indigo-600"
-  const themeGradient = isFireProtection ? "from-red-600 to-orange-600" : "from-indigo-600 to-violet-600"
-  const themeShadow = isFireProtection ? "shadow-red-200" : "shadow-indigo-200"
-  const MainIcon = isFireProtection ? FireExtinguisher : Sparkles
   const UserIcon = isFireProtection ? Shield : User
   const ProIcon = isFireProtection ? ClipboardCheck : GraduationCap
 
@@ -107,21 +105,21 @@ function PortalLoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative">
       <div className="absolute top-4 right-4 z-50">
         <LanguageSwitcher showIcon />
       </div>
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
           <Link href={isFireProtection ? "/portal?niche=fire_protection" : "/portal"} className="inline-flex items-center gap-2">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${themeGradient} flex items-center justify-center shadow-lg ${themeShadow}`}>
-              <MainIcon className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center overflow-hidden">
+              <Image src={OFFICIAL_LOGO} alt="AKAAI" width={24} height={24} className="w-6 h-6 object-contain" />
             </div>
-            <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
-              Portal
+            <span className="text-xl font-bold text-foreground">
+              AKAAI <span className="text-primary">CORE</span>
             </span>
           </Link>
-          <p className="text-slate-500 font-medium">
+          <p className="text-sm text-muted-foreground">
             {isFireProtection 
               ? (language === 'pt' ? "Acesse seus laudos, certificados e vistorias." : "Access your reports, certificates and inspections.")
               : (language === 'pt' ? "Acesse sua conta, agenda e muito mais." : "Access your account, schedule and more.")
@@ -129,14 +127,14 @@ function PortalLoginContent() {
           </p>
         </div>
 
-        <Card className="w-full shadow-xl shadow-slate-200/50 border-slate-200/80">
+        <Card className="w-full border-border shadow-lg">
           <CardHeader>
             <div className="flex justify-center mb-6">
-              <div className="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl">
+              <div className="flex items-center gap-1 p-1.5 bg-muted rounded-xl w-full">
                 <Button 
                   onClick={() => setActiveRole("client")}
                   variant={activeRole === "client" ? "default" : "ghost"}
-                  className={`w-full rounded-lg px-6 font-bold ${activeRole === "client" ? `bg-${themeColor} text-white shadow` : "text-slate-500"}`}
+                  className={`flex-1 rounded-lg px-6 font-bold ${activeRole === "client" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   <UserIcon className="w-4 h-4 mr-2" />
                   {vocabulary.client}
@@ -144,14 +142,14 @@ function PortalLoginContent() {
                 <Button 
                   onClick={() => setActiveRole("professional")}
                   variant={activeRole === "professional" ? "default" : "ghost"}
-                  className={`w-full rounded-lg px-6 font-bold ${activeRole === "professional" ? `bg-${themeColor} text-white shadow` : "text-slate-500"}`}
+                  className={`flex-1 rounded-lg px-6 font-bold ${activeRole === "professional" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   <ProIcon className="w-4 h-4 mr-2" />
                   {isFireProtection ? "Técnico" : vocabulary.provider}
                 </Button>
               </div>
             </div>
-            <CardTitle className="text-2xl font-black tracking-tighter text-slate-800">
+            <CardTitle className="text-2xl font-bold tracking-tight text-card-foreground">
               {activeRole === "client" 
                 ? (language === 'pt' ? `Acessar como ${vocabulary.client}` : `Access as ${vocabulary.client}`)
                 : (language === 'pt' ? `Acessar como ${isFireProtection ? "Técnico" : vocabulary.provider}` : `Access as ${isFireProtection ? "Technician" : vocabulary.provider}`)
@@ -175,17 +173,15 @@ function PortalLoginContent() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  className={`bg-slate-50 dark:bg-slate-900 h-12 border-slate-200 focus:border-${themeColor}`}
+                  className="bg-background h-11"
                 />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">{t.auth.login.password}</Label>
-                  <Link href="/forgot-password?returnTo=/portal/login" passHref>
-                    <span className={`text-sm font-medium text-${themeColor} hover:underline`}>
-                      {t.auth.login.forgotPassword}
-                    </span>
+                  <Link href="/forgot-password?returnTo=/portal/login" className="text-sm font-medium text-primary hover:underline">
+                    {t.auth.login.forgotPassword}
                   </Link>
                 </div>
                 <div className="relative">
@@ -196,33 +192,31 @@ function PortalLoginContent() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
-                    className={`bg-slate-50 dark:bg-slate-900 h-12 border-slate-200 focus:border-${themeColor} pr-10`}
+                    className="bg-background h-11 pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-${themeColor}`}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <Button type="submit" className={`w-full h-12 text-lg font-bold bg-${themeColor} hover:bg-${themeColor.replace('600', '700')} text-white rounded-xl`} disabled={isLoading}>
+              <Button type="submit" className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl" disabled={isLoading}>
                 {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : t.auth.login.submit}
               </Button>
             </form>
-            <p className="text-center text-sm text-slate-500">
+            <p className="text-center text-sm text-muted-foreground">
               {t.auth.login.noAccount}{" "}
-              <Link href={`/portal/register?role=${activeRole}${isFireProtection ? '&niche=fire_protection' : ''}${searchParams.get('returnTo') ? `&returnTo=${encodeURIComponent(searchParams.get('returnTo') as string)}` : ''}`} passHref>
-                <span className={`font-bold text-${themeColor} hover:underline`}>
-                  {t.auth.login.registerNow}
-                </span>
+              <Link href={`/portal/register?role=${activeRole}${isFireProtection ? '&niche=fire_protection' : ''}${searchParams.get('returnTo') ? `&returnTo=${encodeURIComponent(searchParams.get('returnTo') as string)}` : ''}`} className="font-bold text-primary hover:underline">
+                {t.auth.login.registerNow}
               </Link>
             </p>
             
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
-              <Link href="/portal/affiliate/login" className={`text-xs font-medium text-slate-500 hover:text-${themeColor} transition-colors`}>
+            <div className="mt-6 pt-4 border-t border-border text-center">
+              <Link href="/portal/affiliate/login" className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
                 {language === 'pt' ? "Você é um parceiro/afiliado? " : "Are you a partner/affiliate? "}
                 <span className="underline">{language === 'pt' ? "Acesse seu portal aqui" : "Access your portal here"}</span>
               </Link>
@@ -230,7 +224,7 @@ function PortalLoginContent() {
           </CardContent>
         </Card>
 
-        <Link href={isFireProtection ? "/portal?niche=fire_protection" : "/portal"} className={`flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-${themeColor} transition-colors`}>
+        <Link href={isFireProtection ? "/portal?niche=fire_protection" : "/portal"} className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" /> {language === 'pt' ? "Voltar para a página inicial do portal" : "Back to portal home page"}
         </Link>
       </div>
@@ -241,8 +235,8 @@ function PortalLoginContent() {
 export default function PortalLoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     }>
       <PortalLoginContent />

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Leaf, Shield, Eye, EyeOff, Loader2, Check, ArrowLeft, Building2, User, GraduationCap, PencilRuler, DollarSign, TreePine, FileText, MapPin, Satellite } from "lucide-react"
+import { Leaf, Shield, Eye, EyeOff, Loader2, Check, ArrowLeft, Building2, User, GraduationCap, PencilRuler, DollarSign, TreePine, FileText, MapPin, Satellite, Mail, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
@@ -65,6 +65,63 @@ function RegisterContent() {
     confirmPassword: "",
   })
   const [taxIdType, setTaxIdType] = useState<'cpf' | 'cnpj'>('cnpj')
+  const [isEmailVerified, setIsEmailVerified] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
+  const [verificationCode, setVerificationCode] = useState("")
+  const [isSendingCode, setIsSendingCode] = useState(false)
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false)
+
+  const handleSendCode = async () => {
+    if (!formData.email || !formData.email.includes("@")) {
+      toast({ title: "E-mail inválido", description: "Preencha seu e-mail para receber o código.", variant: "destructive" })
+      return
+    }
+    setIsSendingCode(true)
+    try {
+      const response = await fetch("/api/auth/verify-email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setCodeSent(true)
+        toast({ title: "Código enviado!", description: "Verifique seu e-mail." })
+      } else {
+        toast({ title: "Erro ao enviar código", description: data.error, variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" })
+    } finally {
+      setIsSendingCode(false)
+    }
+  }
+
+  const handleVerifyCode = async () => {
+    if (verificationCode.length !== 6) {
+      toast({ title: "Código inválido", description: "O código deve ter 6 dígitos.", variant: "destructive" })
+      return
+    }
+    setIsVerifyingCode(true)
+    try {
+      const response = await fetch("/api/auth/verify-email/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, code: verificationCode }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setIsEmailVerified(true)
+        toast({ title: "E-mail verificado!" })
+      } else {
+        toast({ title: "Código incorreto", description: data.error || "Código inválido ou expirado.", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" })
+    } finally {
+      setIsVerifyingCode(false)
+    }
+  }
 
   const toggleService = (serviceId: string) => {
     setQualification(prev => ({
@@ -100,7 +157,10 @@ function RegisterContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+    if (!isEmailVerified) {
+      toast({ title: "E-mail não verificado", description: "Verifique seu e-mail antes de continuar.", variant: "destructive" })
+      return
+    }
     const isValidTaxId = role === 'admin' 
       ? (taxIdType === 'cpf' ? validateCPF(formData.taxId) : validateCNPJ(formData.taxId))
       : validateCPF(formData.taxId)
@@ -415,15 +475,72 @@ function RegisterContent() {
                   </div>
 
                   <div className="space-y-2 col-span-full sm:col-span-1">
-                    <Label className="text-slate-300 font-bold uppercase tracking-widest text-[10px]">E-mail Corporativo</Label>
-                    <Input
-                      type="email"
-                      placeholder="exemplo@suaempresa.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                      className="bg-slate-800/50 border-white/5 text-white h-12 rounded-xl focus:border-emerald-500/50"
-                    />
+                    <Label className="flex items-center gap-2 text-slate-300 font-bold uppercase tracking-widest text-[10px]">
+                      E-mail Corporativo
+                      {isEmailVerified && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder="exemplo@suaempresa.com"
+                        value={formData.email}
+                        onChange={(e) => {
+                          setFormData({ ...formData, email: e.target.value })
+                          if (e.target.value !== formData.email) {
+                            setIsEmailVerified(false)
+                            setCodeSent(false)
+                            setVerificationCode("")
+                          }
+                        }}
+                        required
+                        className="bg-slate-800/50 border-white/5 text-white h-12 rounded-xl focus:border-emerald-500/50 flex-1"
+                        disabled={codeSent && !isEmailVerified}
+                      />
+                      {!codeSent ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSendCode}
+                          disabled={isSendingCode || !formData.email?.includes("@")}
+                          className="h-12 shrink-0 border-white/10 text-white hover:bg-emerald-600/20"
+                        >
+                          {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                          <span className="ml-1.5 hidden sm:inline">{isSendingCode ? "..." : "Enviar código"}</span>
+                        </Button>
+                      ) : null}
+                    </div>
+                    {codeSent && !isEmailVerified && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            placeholder="000000"
+                            maxLength={6}
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            className="bg-slate-800/50 border-white/5 text-white h-12 w-32 text-center text-lg tracking-[0.5em] font-mono rounded-xl"
+                          />
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={handleVerifyCode}
+                            disabled={isVerifyingCode || verificationCode.length !== 6}
+                            className="h-12 bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verificar"}
+                          </Button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSendCode()}
+                          disabled={isSendingCode}
+                          className="text-xs text-slate-500 hover:text-slate-300 underline"
+                        >
+                          {isSendingCode ? "Enviando..." : "Reenviar código"}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2 col-span-full sm:col-span-1">
@@ -597,7 +714,7 @@ function RegisterContent() {
                 <Button
                   type="submit"
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black h-16 rounded-2xl text-lg shadow-xl shadow-emerald-600/20 hover:shadow-emerald-600/40 hover:scale-[1.02] transition-all"
-                  disabled={isLoading}
+                  disabled={isLoading || !isEmailVerified}
                 >
                   {isLoading ? (
                     <><Loader2 className="w-6 h-6 mr-3 animate-spin" /> PROCESSANDO...</>

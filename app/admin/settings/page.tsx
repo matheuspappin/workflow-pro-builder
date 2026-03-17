@@ -67,6 +67,7 @@ export default function AdminSettingsPage() {
     STRIPE_SECRET_KEY: '',
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: '',
     STRIPE_WEBHOOK_SECRET: '',
+    RESEND_API_KEY: '',
     EMAIL_SENDER_ADDRESS: '',
     EMAIL_SENDER_NAME: '',
     EMAIL_SENDER_PASSWORD: '',
@@ -436,6 +437,17 @@ export default function AdminSettingsPage() {
                 <Mail className="w-4 h-4" /> Configurações de E-mail
               </h4>
               <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-700 dark:text-slate-300">Resend API Key (recomendado)</Label>
+                  <Input 
+                    type={showKeys ? "text" : "password"}
+                    value={envConfig.RESEND_API_KEY}
+                    onChange={(e) => handleInputChange('RESEND_API_KEY', e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-800 border-none focus-visible:ring-indigo-500"
+                    placeholder="re_..."
+                  />
+                  <p className="text-xs text-slate-500">Domínio verificado no Resend. Se preenchido, usa Resend em vez de SMTP.</p>
+                </div>
                 <div className="space-y-2">
                   <Label className="text-slate-700 dark:text-slate-300">E-mail do Remetente</Label>
                   <Input 

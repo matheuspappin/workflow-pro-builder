@@ -2,18 +2,20 @@
 
 import React, { Suspense, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles, Eye, EyeOff, Loader2, Check, ArrowLeft, Mail, Briefcase } from "lucide-react"
+import { Eye, EyeOff, Loader2, ArrowLeft, Mail, Briefcase, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useOrganization } from "@/components/providers/organization-provider"
 import { PasswordStrengthMeter } from "@/components/ui/password-strength-meter"
 import { checkPasswordStrength, MIN_STRONG_PASSWORD_SCORE } from "@/lib/password-utils"
 import { validateCPF } from "@/lib/validation-utils"
 import { LanguageSwitcher } from "@/components/common/language-switcher"
+import { OFFICIAL_LOGO } from "@/config/branding"
 
 function AffiliateRegisterContent() {
   const router = useRouter()
@@ -31,7 +33,7 @@ function AffiliateRegisterContent() {
     confirmPassword: "",
   })
 
-  const [isEmailVerified, setIsEmailVerified] = useState(true)
+  const [isEmailVerified, setIsEmailVerified] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [isSendingCode, setIsSendingCode] = useState(false)
@@ -104,13 +106,10 @@ function AffiliateRegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validar e-mail verificado (Desativado para testes)
-    /*
     if (!isEmailVerified) {
       toast({ title: "Verifique seu e-mail primeiro", variant: "destructive" })
       return
     }
-    */
 
     if (!validateCPF(formData.taxId)) {
       toast({ title: "CPF inválido", variant: "destructive" })
@@ -180,30 +179,34 @@ function AffiliateRegisterContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative">
       <div className="absolute top-4 right-4 z-50">
         <LanguageSwitcher />
       </div>
       <div className="w-full max-w-md space-y-8 my-8">
         <div className="text-center space-y-2">
           <Link href="/portal/affiliate/login" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center overflow-hidden">
+              <Image src={OFFICIAL_LOGO} alt="AKAAI" width={24} height={24} className="w-6 h-6 object-contain" />
             </div>
-            <span className="text-2xl font-black tracking-tighter">
-              <span className="text-indigo-600">Portal Afiliado</span>
+            <span className="text-xl font-bold text-foreground">
+              AKAAI <span className="text-primary">CORE</span>
             </span>
           </Link>
-          <h1 className="text-xl font-bold">Cadastro de Parceiro</h1>
+          <h1 className="text-xl font-bold text-foreground">Cadastro de Parceiro</h1>
+          <p className="text-sm text-muted-foreground">Portal de Afiliados</p>
         </div>
 
-        <Card className="border-none shadow-2xl">
-          <CardHeader className="pb-4">
-             <div className="flex justify-center mb-4">
-                <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold">
-                    <Briefcase className="w-4 h-4" /> Cadastro de Afiliado
-                </div>
+        <Card className="border-border shadow-lg">
+          <CardHeader className="text-center pb-4">
+            <div className="flex justify-center mb-2">
+              <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                <Briefcase className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">Cadastro de Afiliado</span>
+              </div>
             </div>
+            <CardTitle className="text-lg font-bold text-card-foreground">Criar conta de parceiro</CardTitle>
+            <CardDescription>Preencha os dados abaixo para se cadastrar</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -215,7 +218,7 @@ function AffiliateRegisterContent() {
                   value={formData.name || ""}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  className="bg-slate-50 dark:bg-slate-900"
+                  className="bg-background h-11"
                 />
               </div>
 
@@ -227,24 +230,79 @@ function AffiliateRegisterContent() {
                   value={formData.taxId || ""}
                   onChange={(e) => setFormData({ ...formData, taxId: formatCPF(e.target.value) })}
                   required
-                  className="bg-slate-50 dark:bg-slate-900"
+                  className="bg-background h-11"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail ou Telefone Profissional</Label>
-                <Input
-                  id="email"
-                  type="text"
-                  placeholder="seu@email.com"
-                  value={formData.email || ""}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  className="bg-slate-50 dark:bg-slate-900 h-12"
-                />
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  E-mail ou Telefone Profissional
+                  {isEmailVerified && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={formData.email || ""}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value })
+                      if (e.target.value !== formData.email) {
+                        setIsEmailVerified(false)
+                        setCodeSent(false)
+                        setVerificationCode("")
+                      }
+                    }}
+                    required
+                    className="bg-background h-11 flex-1"
+                    disabled={codeSent && !isEmailVerified}
+                  />
+                  {!codeSent ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSendCode}
+                        disabled={isSendingCode || !formData.email?.includes("@")}
+                        className="h-11 shrink-0"
+                      >
+                      {isSendingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                      <span className="ml-1.5 hidden sm:inline">{isSendingCode ? "..." : "Enviar código"}</span>
+                    </Button>
+                  ) : null}
+                </div>
+                {codeSent && !isEmailVerified && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="000000"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="bg-background h-11 w-32 text-center text-lg tracking-[0.5em] font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={handleVerifyCode}
+                        disabled={isVerifyingCode || verificationCode.length !== 6}
+                        className="h-11"
+                      >
+                        {isVerifyingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verificar"}
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSendCode()}
+                      disabled={isSendingCode}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      {isSendingCode ? "Enviando..." : "Reenviar código"}
+                    </button>
+                  </div>
+                )}
               </div>
-
-                {/* Código de verificação removido para testes */}
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefone / WhatsApp</Label>
@@ -254,7 +312,7 @@ function AffiliateRegisterContent() {
                   value={formData.phone || ""}
                   onChange={handlePhoneChange}
                   required
-                  className="bg-slate-50 dark:bg-slate-900"
+                  className="bg-background h-11"
                 />
               </div>
 
@@ -268,9 +326,9 @@ function AffiliateRegisterContent() {
                       value={formData.password || ""}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       required
-                      className="bg-slate-50 dark:bg-slate-900 pr-10"
+                      className="bg-background h-11 pr-10"
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -283,7 +341,7 @@ function AffiliateRegisterContent() {
                     value={formData.confirmPassword || ""}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                     required
-                    className="bg-slate-50 dark:bg-slate-900"
+                    className="bg-background h-11"
                   />
                 </div>
               </div>
@@ -294,7 +352,7 @@ function AffiliateRegisterContent() {
 
               <Button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black h-12 rounded-xl mt-4"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 mt-4"
                 disabled={isLoading || !isEmailVerified}
               >
                 {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Criar Conta de Afiliado"}
@@ -302,14 +360,14 @@ function AffiliateRegisterContent() {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-slate-500">
-                Já é afiliado? <Link href="/portal/affiliate/login" className="text-indigo-600 font-bold hover:underline">Acessar Painel</Link>
+              <p className="text-sm text-muted-foreground">
+                Já é afiliado? <Link href="/portal/affiliate/login" className="text-primary font-bold hover:underline">Acessar Painel</Link>
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Link href="/portal/login" className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-indigo-600 transition-colors">
+        <Link href="/portal/login" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" /> Ir para Portal de Clientes/Profissionais
         </Link>
       </div>
@@ -319,7 +377,7 @@ function AffiliateRegisterContent() {
 
 export default function AffiliateRegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
       <AffiliateRegisterContent />
     </Suspense>
   )
